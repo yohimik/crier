@@ -227,33 +227,35 @@ func (p *Process) Done() <-chan struct{} { return p.done }
 // safe to call more than once and always returns the same answer.
 func (p *Process) Wait() error {
 	p.waitOnce.Do(func() {
-		// The process is reaped first, and only then are the readers given a
-		// chance to drain.
+		// The readers are given a bounded head start, and then the process is
+		// reaped whatever they are doing.
 		//
-		// The other order looks tidier and hangs forever. A child that exits
-		// after starting a background grandchild leaves that grandchild
-		// holding the write end of the pipe, so the readers never see EOF —
-		// and waiting on them before cmd.Wait means cmd.Wait is never reached,
-		// which is also what stops exec's WaitDelay from ever force-closing
-		// anything. A custom platform whose script ends in `something &` hung
-		// `crier publish` past every timeout it has.
+		// Both halves are load-bearing. Waiting on the readers first is what
+		// keeps the output: cmd.Wait closes the pipes it owns as soon as the
+		// process exits, so reaping first can discard bytes that were sitting
+		// in the pipe buffer — and an ordinary process closes its own pipes
+		// when it exits, so this wait ends immediately.
+		//
+		// Bounding that wait is what keeps it from hanging forever: a child
+		// that exits after starting a background grandchild leaves the
+		// grandchild holding the write end, so the readers never see EOF.
+		// Waiting on them unconditionally means cmd.Wait is never reached,
+		// which also stops exec's WaitDelay from ever force-closing anything —
+		// and a custom platform whose script ends in `something &` hung `crier
+		// publish` past every timeout it has.
 		readersDone := make(chan struct{})
 		go func() {
 			p.wg.Wait()
 			close(readersDone)
 		}()
-
-		err := p.cmd.Wait()
-
-		// cmd.Wait closes the pipes it owns, so in the ordinary case the
-		// readers have already finished by the time this is reached. The
-		// bound is for the case they have not.
 		select {
 		case <-readersDone:
 		case <-time.After(p.stopTimeout):
-			p.log.Debug().Str("proc", p.name).
-				Msg("the process left its output pipes held open; continuing without the rest of its output")
+			p.log.Debug().Str("proc", p.name).Dur("waited", p.stopTimeout).
+				Msg("the process left its output pipes held open; reaping it anyway")
 		}
+
+		err := p.cmd.Wait()
 
 		if err != nil {
 			tail := p.Tail()
