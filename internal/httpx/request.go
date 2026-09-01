@@ -199,6 +199,9 @@ type Part struct {
 	FileName string
 	// ContentType is the part's own Content-Type, for a file part.
 	ContentType string
+	// Err is a problem found while describing the part, such as a file that
+	// is not there. It fails the request when it is built.
+	Err error
 	// Open produces the file part's content. It is called once per attempt, so
 	// it must be repeatable.
 	Open func() (io.ReadCloser, error)
@@ -211,7 +214,14 @@ type Part struct {
 // FilePart makes a file part reading from a path on disk.
 func FilePart(name, path, contentType string) Part {
 	p := Part{Name: name, FileName: baseName(path), ContentType: contentType, Size: -1}
-	if st, err := os.Stat(path); err == nil {
+	st, err := os.Stat(path)
+	if err != nil {
+		// Kept rather than opened: the descriptor is acquired on the first
+		// read, so the only way a missing file can be reported when the
+		// request is built — which is where a caller can act on it — is to
+		// carry the stat's answer.
+		p.Err = fmt.Errorf("reading request body: %w", err)
+	} else {
 		p.Size = st.Size()
 	}
 	p.Open = func() (io.ReadCloser, error) { return os.Open(path) }
@@ -249,6 +259,10 @@ func (b *Builder) Multipart(parts ...Part) *Builder {
 	total := int64(0)
 	streaming := false
 	for _, p := range parts {
+		if p.Err != nil {
+			b.err = p.Err
+			return b
+		}
 		if p.Open == nil {
 			total += int64(len(p.Value))
 			continue

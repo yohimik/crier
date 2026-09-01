@@ -13,22 +13,24 @@ PROFILE="${1:-coverage/profile.txt}"
 # reaches, so an ordinary change does not fail the gate and a package losing
 # its tests does.
 #
-# internal/raster and internal/render are held lower on purpose: they are a
-# drawing backend whose correctness is shown by the golden images rather than
-# by exercising every branch of every blend mode.
+# internal/raster is held lower on purpose: it is a drawing backend whose
+# correctness is shown by the golden images rather than by exercising every
+# branch of every blend mode. internal/selfupdate is held lower because half
+# its branches are the Windows rename paths, which no test on this platform
+# reaches.
 FLOORS="
-internal/app	88
-internal/config	95
+internal/app	93
+internal/config	94
 internal/configgen	94
-internal/httpx	90
+internal/httpx	95
 internal/logging	95
-internal/procutil	88
-internal/publish	88
+internal/procutil	91
+internal/publish	93
 internal/selfupdate	82
-internal/stage	90
-internal/template	95
-internal/render	82
-internal/raster	80
+internal/stage	91
+internal/template	96
+internal/render	90
+internal/raster	83
 "
 
 fail=0
