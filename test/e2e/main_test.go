@@ -1,0 +1,196 @@
+//go:build e2e
+
+// Package e2e drives the real crier binary from the outside.
+//
+// Every other test in the repository calls Go functions; these run the program
+// a user would run, with a configuration file on disk, an environment, and
+// fake platforms on the other end of the network. That is the only way to
+// check the things that only exist at the edges: exit codes, what lands on
+// standard output, and whether the config a project directory carries is the
+// one that gets used.
+package e2e
+
+import (
+	"fmt"
+	"os"
+	"os/exec"
+	"path/filepath"
+	"runtime"
+	"strconv"
+	"strings"
+	"testing"
+	"time"
+)
+
+// crierBin is the binary under test, built once by TestMain.
+var crierBin string
+
+// coverDir collects the coverage the subprocesses produce, so a black-box run
+// counts towards the same profile the unit tests do.
+var coverDir string
+
+// helperEnv makes this test binary stand in for a helper program: a tunnel, or
+// ffmpeg. crier spawns it like any other executable.
+const (
+	helperEnv     = "CRIER_E2E_HELPER"
+	helperURLEnv  = "CRIER_E2E_HELPER_URL"
+	helperFailEnv = "CRIER_E2E_HELPER_FAIL"
+)
+
+func TestMain(m *testing.M) {
+	if mode := os.Getenv(helperEnv); mode != "" {
+		helperMain(mode)
+		return
+	}
+	code, err := run(m)
+	if err != nil {
+		fmt.Fprintln(os.Stderr, "e2e setup:", err)
+		os.Exit(1)
+	}
+	os.Exit(code)
+}
+
+func run(m *testing.M) (int, error) {
+	root, err := repoRoot()
+	if err != nil {
+		return 1, err
+	}
+	work, err := os.MkdirTemp("", "crier-e2e-")
+	if err != nil {
+		return 1, err
+	}
+	defer func() { _ = os.RemoveAll(work) }()
+
+	crierBin = filepath.Join(work, "crier")
+	if runtime.GOOS == "windows" {
+		crierBin += ".exe"
+	}
+	// -cover instruments the binary; GOCOVERDIR at run time is where it writes.
+	build := exec.Command("go", "build", "-cover",
+		"-coverpkg=github.com/yohimik/crier/...", "-o", crierBin, "./cmd/crier")
+	build.Dir = root
+	build.Env = append(os.Environ(), "CGO_ENABLED=0")
+	if out, err := build.CombinedOutput(); err != nil {
+		return 1, fmt.Errorf("building crier: %v\n%s", err, out)
+	}
+
+	coverDir = os.Getenv("GOCOVERDIR")
+	if coverDir == "" {
+		coverDir = filepath.Join(work, "covdata")
+	}
+	if err := os.MkdirAll(coverDir, 0o755); err != nil {
+		return 1, err
+	}
+	return m.Run(), nil
+}
+
+// repoRoot finds the module root from this test file's own location.
+func repoRoot() (string, error) {
+	_, file, _, ok := runtime.Caller(0)
+	if !ok {
+		return "", fmt.Errorf("cannot locate the test source")
+	}
+	return filepath.Abs(filepath.Join(filepath.Dir(file), "..", ".."))
+}
+
+// helperMain is the stand-in program.
+func helperMain(mode string) {
+	switch mode {
+	case "tunnel":
+		if msg := os.Getenv(helperFailEnv); msg != "" {
+			fmt.Fprintln(os.Stderr, msg)
+			os.Exit(1)
+		}
+		fmt.Fprintf(os.Stdout, "tunnel ready url=%s\n", os.Getenv(helperURLEnv))
+		time.Sleep(2 * time.Minute)
+	case "ffmpeg":
+		// Read the raw frames, then write a file that stands in for an MP4.
+		n, _ := copyAll(os.Stdin)
+		out := os.Args[len(os.Args)-1]
+		_ = os.WriteFile(out, []byte("fake mp4 from "+strconv.FormatInt(n, 10)+" bytes"), 0o600)
+		_ = os.WriteFile(out+".bytes", []byte(strconv.FormatInt(n, 10)), 0o600)
+		fmt.Fprintln(os.Stderr, "fake ffmpeg wrote", n, "bytes")
+	}
+	os.Exit(0)
+}
+
+func copyAll(f *os.File) (int64, error) {
+	var total int64
+	buf := make([]byte, 1<<16)
+	for {
+		n, err := f.Read(buf)
+		total += int64(n)
+		if err != nil {
+			return total, nil
+		}
+	}
+}
+
+// result is one crier run.
+type result struct {
+	Code   int
+	Stdout string
+	Stderr string
+}
+
+// crierCmd builds the command without running it, for a test that needs to
+// wire standard input.
+func crierCmd(t *testing.T, dir string, env []string, args ...string) *exec.Cmd {
+	t.Helper()
+	cmd := exec.Command(crierBin, args...)
+	cmd.Dir = dir
+	// The helper environment is deliberately passed through: when crier spawns
+	// a tunnel or an ffmpeg it inherits this environment, and that is what
+	// turns this same binary into the helper.
+	cmd.Env = append(os.Environ(), append([]string{"GOCOVERDIR=" + coverDir}, env...)...)
+	return cmd
+}
+
+// runCmd runs a prepared command and collects the result.
+func runCmd(t *testing.T, cmd *exec.Cmd) result {
+	t.Helper()
+	var stdout, stderr strings.Builder
+	cmd.Stdout = &stdout
+	cmd.Stderr = &stderr
+	err := cmd.Run()
+
+	code := 0
+	var exitErr *exec.ExitError
+	if err != nil {
+		if !asExitError(err, &exitErr) {
+			t.Fatalf("running crier: %v\n%s", err, stderr.String())
+		}
+		code = exitErr.ExitCode()
+	}
+	res := result{Code: code, Stdout: stdout.String(), Stderr: stderr.String()}
+	t.Logf("crier %s -> %d", strings.Join(cmd.Args[1:], " "), code)
+	if testing.Verbose() {
+		t.Logf("stdout:\n%s", res.Stdout)
+		t.Logf("stderr:\n%s", res.Stderr)
+	}
+	return res
+}
+
+// crier runs the binary in dir with the given environment additions.
+func crier(t *testing.T, dir string, env []string, args ...string) result {
+	t.Helper()
+	return runCmd(t, crierCmd(t, dir, env, args...))
+}
+
+func asExitError(err error, out **exec.ExitError) bool {
+	e, ok := err.(*exec.ExitError)
+	if ok {
+		*out = e
+	}
+	return ok
+}
+
+// selfPath is this test binary, which crier is pointed at as a helper program.
+func selfPath(t *testing.T) string {
+	t.Helper()
+	self, err := os.Executable()
+	if err != nil {
+		t.Fatal(err)
+	}
+	return self
+}

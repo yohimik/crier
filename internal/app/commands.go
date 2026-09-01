@@ -244,6 +244,19 @@ func (a App) runPublish(ctx context.Context, args []string) error {
 		}
 	}
 
+	// A platform that can only be given a URL, with nothing configured to
+	// produce one, is a configuration mistake rather than a publish failure —
+	// and saying so now saves the render as well as the confusion.
+	if stage.Mode(strings.ToLower(strings.TrimSpace(cfg.Stage.Mode))) == stage.ModeNone {
+		for _, pub := range publishers {
+			if pub.Needs().URL {
+				return failf(ExitConfig,
+					"%s can only be given a URL for the media, and stage.mode is none; "+
+						"set stage.mode to s3, server or url", pub.Name())
+			}
+		}
+	}
+
 	stager, err := a.stager(cfg, s, p)
 	if err != nil {
 		return err
