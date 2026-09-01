@@ -1,0 +1,8 @@
+/dist/
+/crier
+/crier.exe
+*.test
+*.out
+coverage.txt
+/.idea/
+.DS_Store
