@@ -51,12 +51,20 @@ func (a App) Run(ctx context.Context) int {
 	}
 
 	name, args := "", a.Args
-	if len(args) > 0 && !strings.HasPrefix(args[0], "-") {
-		name, args = args[0], args[1:]
+	if len(args) > 0 {
+		switch args[0] {
+		case "-h", "--help", "-help":
+			// A help flag in the command's place is a request for help, not a
+			// flag for a command that was never named.
+			args[0] = "help"
+		}
+		if !strings.HasPrefix(args[0], "-") {
+			name, args = args[0], args[1:]
+		}
 	}
 
 	switch name {
-	case "", "help", "-h", "--help":
+	case "", "help":
 		a.usage()
 		if name == "" {
 			return ExitUsage
