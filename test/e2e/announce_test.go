@@ -334,14 +334,17 @@ func TestAnnouncePostsFeedThenStory(t *testing.T) {
 		t.Errorf("the story's media_type = %q", story.Get("media_type"))
 	}
 
-	// Both carry the version, which is the one thing the caption must say.
-	for name, values := range map[string]url.Values{"feed": feed, "story": story} {
-		if !strings.Contains(values.Get("caption"), "9.9.9") {
-			t.Errorf("the %s caption does not name the version: %q", name, values.Get("caption"))
-		}
-		if !strings.Contains(values.Get("caption"), "install.sh") {
-			t.Errorf("the %s caption has no install line: %q", name, values.Get("caption"))
-		}
+	// The feed caption carries the version and an install line. The story
+	// carries none at all: the Stories API has no caption field, so crier
+	// omits it and the card itself is the whole message.
+	if !strings.Contains(feed.Get("caption"), "9.9.9") {
+		t.Errorf("the feed caption does not name the version: %q", feed.Get("caption"))
+	}
+	if !strings.Contains(feed.Get("caption"), "install.sh") {
+		t.Errorf("the feed caption has no install line: %q", feed.Get("caption"))
+	}
+	if got := story.Get("caption"); got != "" {
+		t.Errorf("the story container carried caption %q; the Stories API has none", got)
 	}
 
 	// And both published.
