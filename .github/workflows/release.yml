@@ -55,8 +55,9 @@ jobs:
       - name: Set up dispat
         uses: yohimik/dispat@v1
       - run: dispat run vet --since all
+      # The tests target carries the unit suite, the black-box e2e suite and
+      # the coverage floor in one build; there is no separate e2e script.
       - run: dispat run tests --since all
-      - run: dispat run tests:e2e --since all
       - run: dispat run cross-compile --since all
 
   release:
