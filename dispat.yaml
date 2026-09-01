@@ -93,6 +93,16 @@ github:
   # the version is one, so a v1.0.0-rc.0 release is marked as such without
   # being asked — which is what keeps `dispat install` and the install scripts
   # from resolving to it unless they are told to.
+  #
+  # The release body carries the same attribution the changelog does: who wrote
+  # each change, and the short linked sha of the commit that carries it.
+  authors:
+    placement: both
+    exclude: ["*[bot]"]
+  commitRefs:
+    placement: suffix
+    link: auto
+  dependencyLink: auto
   footer: |
 
     ## Install
