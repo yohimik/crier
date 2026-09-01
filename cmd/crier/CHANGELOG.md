@@ -1,5 +1,21 @@
 # Changelog
 
+## v1.0.0-rc.1 (2026-09-01)
+
+### Fixes
+
+- say out loud that instagram stories carry no caption ([cacd49d](https://github.com/yohimik/crier/commit/cacd49d0a5643b53b29cd455dc13353bd26531c6)) (by yohimik, Claude Fable 5)
+  The Stories API has no caption field and Meta ignores the parameter, so
+  the announce story went out bare and the drop looked like a crier bug.
+  The caption is now omitted with a warning that says where story text
+  actually goes: into the image.
+
+### Authors
+
+- yohimik
+- Claude Fable 5
+
+
 ## v1.0.0-rc.0 (2026-09-01)
 
 ### Breaking Changes
