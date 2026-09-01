@@ -50,14 +50,18 @@ func NewRequest(method, base string, segments ...string) *Builder {
 
 // JoinURL joins a base URL and path segments, collapsing the slashes between
 // them. Segments are used as given, so a caller that needs escaping does it.
+//
+// A trailing slash on the last segment is kept: TikTok's endpoints are spelled
+// "/v2/post/publish/video/init/" and answer a 404 without it, so the joiner
+// must not tidy it away.
 func JoinURL(base string, segments ...string) string {
 	out := strings.TrimRight(base, "/")
 	for _, s := range segments {
-		s = strings.Trim(s, "/")
+		s = strings.TrimLeft(s, "/")
 		if s == "" {
 			continue
 		}
-		out += "/" + s
+		out = strings.TrimRight(out, "/") + "/" + s
 	}
 	return out
 }

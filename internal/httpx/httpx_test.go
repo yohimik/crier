@@ -47,6 +47,10 @@ func TestJoinURL(t *testing.T) {
 		{"https://a.example/", []string{"b"}, "https://a.example/b"},
 		{"https://a.example", []string{"/b/", "c"}, "https://a.example/b/c"},
 		{"https://a.example", []string{"", "c"}, "https://a.example/c"},
+		// A trailing slash on the last segment is part of the path for some
+		// APIs, so it survives.
+		{"https://a.example", []string{"v2/init/"}, "https://a.example/v2/init/"},
+		{"https://a.example", []string{"a/", "b/"}, "https://a.example/a/b/"},
 	} {
 		if got := JoinURL(tt.base, tt.segs...); got != tt.want {
 			t.Errorf("JoinURL(%q, %v) = %q, want %q", tt.base, tt.segs, got, tt.want)
