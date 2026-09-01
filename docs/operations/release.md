@@ -107,6 +107,40 @@ the `test` target: what lands in `dist/` is six binaries that were validated,
 executed where they could be, and put through both suites — never six that
 merely compiled.
 
+### The binaries are smoke-tested before upload
+
+Three checks stand between a compile and an upload, and they are deliberately
+different in kind:
+
+1. **Every binary is read back.** `go version -m` has to report the `GOOS` and
+   `GOARCH` the file name claims, so a build loop that silently produced six
+   copies of one platform cannot get past this.
+2. **The native one is run.** `crier --version` has to report `linux/<arch>`
+   and the version being released, which is the check that the ldflags
+   stamping took.
+3. **The native one is put through the end-to-end smoke subset.** The suite
+   runs against the artefact itself — `CRIER_E2E_BINARY` points at
+   `crier-linux-<arch>` and nothing is rebuilt — so what is exercised is the
+   exact bytes that will be uploaded: a render, the configuration precedence
+   across file, environment and flags, the nine-platform fan-out against fake
+   servers, and the version stamp.
+
+The subset is every test named `TestSmoke...` in `test/e2e`, run as
+`-run '^TestSmoke'`. It is small on purpose: the full suite already ran in the
+`test` stage against an instrumented build, and this pass exists to catch what
+only the released artefact can be wrong about — a bad link, a missing embedded
+asset, a stamp that did not apply.
+
+Running it by hand against any binary:
+
+```sh
+CRIER_E2E_BINARY=/path/to/crier go test -tags e2e ./test/e2e -run '^TestSmoke' -v
+```
+
+darwin and windows cannot run in the build at all. Proving those falls to the
+release's post-release install matrix, which installs the published asset on
+each runner and runs `crier --version`.
+
 ## Versioned documentation
 
 On release, copy the tree for the tag:

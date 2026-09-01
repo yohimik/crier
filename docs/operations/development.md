@@ -55,6 +55,19 @@ fake S3, a fake tunnel and a fake ffmpeg. It asserts the things that only exist
 at the edges: exit codes, what lands on standard output, and whether the config
 a project directory carries is the one that gets used.
 
+It can also be pointed at a binary that already exists, which is how the
+release build tests the artefact it is about to upload rather than a fresh
+build of the same source:
+
+```sh
+CRIER_E2E_BINARY=/path/to/crier go test -tags e2e ./test/e2e -run '^TestSmoke'
+```
+
+In that mode nothing is built and no coverage is collected — a released binary
+is not instrumented. `^TestSmoke` is the subset the release runs: a render, the
+configuration precedence, the nine-platform fan-out, and the version stamp. See
+[releasing](./release.md).
+
 ## Coverage
 
 The unit and black-box profiles are merged, because the black-box run exercises

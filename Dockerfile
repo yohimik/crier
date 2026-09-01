@@ -132,7 +132,7 @@ RUN set -eu; \
       echo "$info" | grep -q "GOARCH=$GOARCH" || { echo "$name is not a $GOARCH binary" >&2; exit 1; }; \
       echo "validated $name"; \
     done; \
-    out="$(/out/crier-linux-${TARGETARCH} version)"; \
+    out="$(/out/crier-linux-${TARGETARCH} --version)"; \
     echo "$out" | grep -q "linux/${TARGETARCH}" || \
       { echo "the native binary reports the wrong platform: $out" >&2; exit 1; }; \
     if [ "${DISPAT_VERSION}" != "dev" ]; then \
@@ -140,6 +140,22 @@ RUN set -eu; \
         { echo "the native binary reports the wrong version: $out" >&2; exit 1; }; \
     fi; \
     echo "executed crier-linux-${TARGETARCH}: $out"
+
+# The release binaries are smoke-tested black box, against the exact bytes that
+# will be uploaded.
+#
+# The validation above proves each binary is what its name says and that the
+# native one starts. This proves it works: the end-to-end suite's smoke subset
+# drives /out/crier-linux-<arch> as a user would — a render, the configuration
+# precedence across all three layers, the nine-platform fan-out against fake
+# servers, and the version stamp — with CRIER_E2E_BINARY naming the artefact so
+# nothing is rebuilt. A binary that merely compiled never comes out of here.
+RUN --mount=type=cache,target=/root/.cache/go-build \
+    --mount=type=cache,target=/go/pkg/mod \
+    set -eu; \
+    CRIER_E2E_BINARY="/out/crier-linux-${TARGETARCH}" \
+      go test -tags e2e ./test/e2e -run '^TestSmoke' -count=1 -v; \
+    echo "smoke: the release binary passes"
 
 # --- test ---------------------------------------------------------------------
 #
