@@ -21,6 +21,7 @@ where a relative path resolves against, is in
 | [Publishing: TikTok](./publish-tiktok.md) | `publish.tiktok` | 11 |
 | [Publishing: Telegram](./publish-telegram.md) | `publish.telegram` | 8 |
 | [Publishing: X](./publish-x.md) | `publish.x` | 7 |
+| [Publishing: Slack](./publish-slack.md) | `publish.slack` | 8 |
 | [Publishing: Mastodon](./publish-mastodon.md) | `publish.mastodon` | 11 |
 | [Publishing: Discord](./publish-discord.md) | `publish.discord` | 7 |
 | [Publishing: LinkedIn](./publish-linkedin.md) | `publish.linkedin` | 9 |

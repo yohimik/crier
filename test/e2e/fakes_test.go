@@ -129,6 +129,11 @@ func (f *fakes) serve(w http.ResponseWriter, r *http.Request) {
 		writeJSON(w, map[string]any{"sub": "li-1", "name": "Crier Member"})
 	case strings.HasPrefix(path, "/reddit/api/v1/me"):
 		writeJSON(w, map[string]any{"id": "rd-1", "name": "crierbot"})
+	case strings.HasPrefix(path, "/slack/auth.test"):
+		writeJSON(w, map[string]any{
+			"ok": true, "url": "https://acme.slack.com/", "team": "Acme",
+			"user": "crier", "team_id": "T-E2E", "user_id": "U-E2E", "bot_id": "B-E2E",
+		})
 
 	// --- telegram -------------------------------------------------------
 	case strings.Contains(path, "/sendPhoto"), strings.Contains(path, "/sendVideo"),
@@ -232,6 +237,24 @@ func (f *fakes) serve(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("x-restli-id", "urn:li:share:1")
 		w.WriteHeader(http.StatusCreated)
 
+	// --- slack ----------------------------------------------------------
+	//
+	// The three-step external upload: a URL is handed out, the bytes go to it
+	// unauthenticated, and a third call says what the file is for.
+	case strings.HasPrefix(path, "/slack/files.getUploadURLExternal"):
+		writeJSON(w, map[string]any{
+			"ok":         true,
+			"upload_url": f.uploadHost + "/slack-upload?t=e2e",
+			"file_id":    "F-E2E",
+		})
+	case strings.HasPrefix(path, "/slack-upload"):
+		_, _ = io.WriteString(w, "OK")
+	case strings.HasPrefix(path, "/slack/files.completeUploadExternal"):
+		writeJSON(w, map[string]any{
+			"ok":    true,
+			"files": []map[string]any{{"id": "F-E2E", "title": "card"}},
+		})
+
 	// --- reddit ---------------------------------------------------------
 	case strings.HasPrefix(path, "/reddit-auth/api/v1/access_token"):
 		writeJSON(w, map[string]any{"access_token": "reddit-token", "expires_in": 3600})
@@ -303,6 +326,10 @@ func (f *fakes) platformConfig() string {
     api-base-url: %[1]s/linkedin
     token: li-token
     author-urn: "urn:li:person:e2e"
+  slack:
+    api-base-url: %[1]s/slack
+    token: xoxb-e2e
+    channel: C-E2E
   reddit:
     api-base-url: %[1]s/reddit
     auth-base-url: %[1]s/reddit-auth

@@ -363,6 +363,8 @@ func LayoutOf(p *Publish, name string) *Layout {
 		return &p.LinkedIn.Layout
 	case "reddit":
 		return &p.Reddit.Layout
+	case "slack":
+		return &p.Slack.Layout
 	default:
 		if c := CustomOf(p, name); c != nil {
 			return &c.Layout

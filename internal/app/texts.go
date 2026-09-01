@@ -35,6 +35,8 @@ func textFields(cfg *config.Config, platform string) []textField {
 		return []textField{{"publish.telegram.caption", &p.Telegram.Caption}}
 	case "x":
 		return []textField{{"publish.x.caption", &p.X.Caption}}
+	case "slack":
+		return []textField{{"publish.slack.caption", &p.Slack.Caption}}
 	case "mastodon":
 		return []textField{
 			{"publish.mastodon.caption", &p.Mastodon.Caption},

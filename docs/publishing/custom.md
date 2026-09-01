@@ -18,7 +18,7 @@ publish:
         echo "id=$(jq -r .id /tmp/reply.json)" >> "$CRIER_OUTPUT"
 ```
 
-`my-webhook` is a name you choose. It is a peer of the nine built-in
+`my-webhook` is a name you choose. It is a peer of the ten built-in
 platforms, not a lesser thing: it takes part in the fan-out, gets its own
 [overlay and size](../templates/overlays.md), gets its
 [caption templated](../templates/captions.md), appears in `crier ping` and in a

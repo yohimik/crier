@@ -1,6 +1,6 @@
 # crier
 
-Render an HTML template to an image or a video, and publish it to nine social
+Render an HTML template to an image or a video, and publish it to ten social
 platforms with one command.
 
 ```sh
@@ -14,8 +14,9 @@ crier finds the configuration by walking up from where you are, the way git
 finds a repository, and publishing is what it does with no arguments. So the
 everyday flow is: change directory, run `crier`.
 
-- **Nine platforms.** Instagram, Facebook, TikTok, Telegram, X, Mastodon,
-  Discord, LinkedIn, Reddit. Images and video.
+- **Ten platforms.** Instagram, Facebook, TikTok, Telegram, X, Mastodon,
+  Discord, LinkedIn, Reddit, Slack. Images, video and animated GIFs — and any
+  shell script you like, as a [platform of your own](./docs/publishing/custom.md).
 - **HTML and CSS you already know.** Gradients, web fonts, SVG, blend modes —
   laid out by a pure-Go engine, painted by a rasterizer written for it. No
   headless browser.
@@ -121,7 +122,7 @@ crier init          # writes a commented crier.yaml to edit
 
 ```yaml
 title: crier ships v1
-subtitle: One template, nine platforms, one command.
+subtitle: One template, ten platforms, one command.
 ```
 
 Then fill in `crier.yaml`, which `init` already wrote:

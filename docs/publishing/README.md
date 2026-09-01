@@ -24,7 +24,7 @@ are the same thing. Flags work either way: `crier --dry-run` is
 6. **Staging**, if any enabled platform can only be given a URL. See
    [staging](../staging/README.md).
 7. **The fan-out**, `publish.concurrency` at a time. One platform's failure
-   never cancels another's: the whole point of posting to nine places is that
+   never cancels another's: the whole point of posting to ten places is that
    eight of them still get the post when the ninth is down.
 8. **The report**, on standard output.
 9. **Cleanup** — staged objects deleted, the local server stopped, the tunnel
@@ -102,6 +102,7 @@ else.
 | [Discord](./discord.md) | yes | no | yes | the webhook URL is the credential |
 | [LinkedIn](./linkedin.md) | yes | no | yes | two mandatory headers |
 | [Reddit](./reddit.md) | yes | link mode | yes | descriptive User-Agent required |
+| [Slack](./slack.md) | yes | no | yes | bot token, and the bot must be in the channel |
 
 ## Four ways in
 
@@ -112,7 +113,7 @@ have (`publish.input`) or encode frames you already made
 
 ## Animated GIFs
 
-Five of the nine take one: Telegram, Discord, Mastodon, X and Reddit.
+Six of the ten take one: Telegram, Discord, Mastodon, X, Reddit and Slack.
 Instagram, Facebook, TikTok and LinkedIn do not, and a `gif` aimed at one of
 them is refused before anything is rendered. The table, and how each of the
 five wants it, is in [video](../rendering/video.md#which-platforms-take-which).

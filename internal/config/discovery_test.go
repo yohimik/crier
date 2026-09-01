@@ -281,6 +281,7 @@ func TestEveryPlatformHasACaptionishKey(t *testing.T) {
 		"tiktok":    {"caption", "title"},
 		"telegram":  {"caption"},
 		"x":         {"caption"},
+		"slack":     {"caption"},
 		"mastodon":  {"caption", "alt-text"},
 		"discord":   {"caption"},
 		"linkedin":  {"caption"},

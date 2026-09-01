@@ -92,6 +92,7 @@ func EnvName(key string) string {
 // and the list the publisher registry is built against.
 var Platforms = []string{
 	"instagram", "facebook", "tiktok", "telegram", "x",
+	"slack",
 	"mastodon", "discord", "linkedin", "reddit",
 }
 
@@ -262,6 +263,12 @@ var registry = []Descriptor{
 	{Key: "publish.reddit.spoiler", Kind: KindBool, Usage: "mark the post a spoiler"},
 	{Key: "publish.reddit.caption", Kind: KindString, Usage: "Reddit specific text; used as the title when no title is set"},
 	{Key: "publish.reddit.poll-interval", Kind: KindDuration, Default: "2s", Usage: "how often the new post is looked for after submitting"},
+	{Key: "publish.slack.enabled", Kind: KindBool, Usage: "publish to Slack"},
+	{Key: "publish.slack.api-base-url", Kind: KindString, Default: "https://slack.com/api", Usage: "Slack Web API base URL"},
+	{Key: "publish.slack.token", Kind: KindString, Secret: true, Usage: "Slack bot token (xoxb-…) with files:write and chat:write"},
+	{Key: "publish.slack.channel", Kind: KindString, Usage: "Slack channel ID to post in, such as C0123ABCD; the bot has to be in it"},
+	{Key: "publish.slack.caption", Kind: KindString, Usage: "Slack specific caption"},
+
 	{Key: "publish.reddit.poll-timeout", Kind: KindDuration, Default: "30s", Usage: "how long to look for the new post's permalink"},
 }
 

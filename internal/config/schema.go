@@ -152,6 +152,7 @@ type Publish struct {
 	Discord   Discord
 	LinkedIn  LinkedIn
 	Reddit    Reddit
+	Slack     Slack
 
 	// Custom are script-backed platforms, keyed by the name the configuration
 	// gave them. They are peers of the nine above: they take part in the
@@ -192,6 +193,22 @@ type Custom struct {
 	// are used as written, so this is the one place a value's spelling is not
 	// crier's to decide.
 	Env map[string]string
+}
+
+// Slack configures the Slack Web API publisher.
+//
+// The token is a bot token (xoxb-) carrying files:write and chat:write, and
+// the bot has to be a member of the channel it posts in — neither of which a
+// configuration can check for you.
+type Slack struct {
+	Layout
+
+	Enabled    bool
+	APIBaseURL string
+	Token      string
+	// Channel is a channel ID such as C0123ABCD, not a name.
+	Channel string
+	Caption string
 }
 
 // Instagram configures the Instagram Graph API publisher.

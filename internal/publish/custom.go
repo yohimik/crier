@@ -22,7 +22,7 @@ import (
 //
 // It is the escape hatch that keeps crier from needing a pull request per
 // service: anything with an HTTP client and a shell can be a platform, and it
-// is a peer of the nine built-ins rather than a lesser thing — same fan-out,
+// is a peer of the ten built-ins rather than a lesser thing — same fan-out,
 // same variants, same caption templating, same ping.
 //
 // The contract is deliberately small: the command is told where the file is

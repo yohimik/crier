@@ -11,9 +11,13 @@ import (
 	"image/jpeg"
 	"image/png"
 	"net"
+	"net/http"
+	"net/http/httptest"
+	"net/url"
 	"os"
 	"path/filepath"
 	"runtime"
+	"strconv"
 	"strings"
 	"testing"
 )
@@ -491,8 +495,8 @@ func TestSmokePublishToEveryPlatform(t *testing.T) {
 	if err := json.Unmarshal([]byte(res.Stdout), &rep); err != nil {
 		t.Fatalf("%v\n%s", err, res.Stdout)
 	}
-	if len(rep.Results) != 9 {
-		t.Fatalf("published to %d platforms, want 9: %+v", len(rep.Results), rep.Results)
+	if len(rep.Results) != 10 {
+		t.Fatalf("published to %d platforms, want 10: %+v", len(rep.Results), rep.Results)
 	}
 	for _, r := range rep.Results {
 		if !r.OK {
@@ -506,6 +510,7 @@ func TestSmokePublishToEveryPlatform(t *testing.T) {
 		"/x/2/tweets", "/instagram/ig-user/media_publish", "/facebook/fb-page/photos",
 		"/tiktok/v2/post/publish/content/init/", "/linkedin/rest/posts",
 		"/reddit/api/submit",
+		"/slack/files.getUploadURLExternal", "/slack-upload", "/slack/files.completeUploadExternal",
 	} {
 		if _, ok := f.find(fragment); !ok {
 			t.Errorf("no request reached %s", fragment)
@@ -1272,8 +1277,8 @@ func TestPingChecksEveryEnabledPlatform(t *testing.T) {
 	if err := json.Unmarshal([]byte(res.Stdout), &rep); err != nil {
 		t.Fatalf("%v\n%s", err, res.Stdout)
 	}
-	if len(rep.Results) != 9 {
-		t.Fatalf("checked %d targets, want 9: %+v", len(rep.Results), rep.Results)
+	if len(rep.Results) != 10 {
+		t.Fatalf("checked %d targets, want 10: %+v", len(rep.Results), rep.Results)
 	}
 	for _, r := range rep.Results {
 		if !r.OK {
@@ -1289,7 +1294,7 @@ func TestPingChecksEveryEnabledPlatform(t *testing.T) {
 		"/getMe", "/mastodon/api/v1/accounts/verify_credentials", "/x/2/users/me",
 		"/instagram/ig-user", "/facebook/fb-page",
 		"/tiktok/v2/post/publish/creator_info/query/",
-		"/linkedin/v2/userinfo", "/reddit/api/v1/me",
+		"/linkedin/v2/userinfo", "/reddit/api/v1/me", "/slack/auth.test",
 	} {
 		if _, ok := f.find(fragment); !ok {
 			t.Errorf("ping did not reach %s", fragment)
@@ -1302,6 +1307,7 @@ func TestPingChecksEveryEnabledPlatform(t *testing.T) {
 		"/sendPhoto", "/sendVideo", "/x/2/tweets", "/mastodon/api/v1/statuses",
 		"/instagram/ig-user/media_publish", "/facebook/fb-page/photos",
 		"/linkedin/rest/posts", "/reddit/api/submit",
+		"/slack/files.getUploadURLExternal", "/slack/files.completeUploadExternal",
 	} {
 		if _, ok := f.find(fragment); ok {
 			t.Errorf("ping posted something: %s was called", fragment)
@@ -1336,6 +1342,180 @@ func TestPingWithNoPlatformIsAConfigError(t *testing.T) {
 	res := crier(t, dir, nil, "ping")
 	if res.Code != exitConfig || !strings.Contains(res.Stderr, "no platform is enabled") {
 		t.Errorf("code=%d stderr=%s", res.Code, res.Stderr)
+	}
+}
+
+// --- slack --------------------------------------------------------------------
+
+// TestSlackThreeStepUpload is the flow end to end through the real binary: a
+// URL is handed out, the bytes go to it unauthenticated, and a third call says
+// what the file is for. The linkage between the three is the thing that would
+// break silently — a post sharing a file nobody uploaded.
+func TestSlackThreeStepUpload(t *testing.T) {
+	f := newFakes(t)
+	dir := newProject(t, strings.Join([]string{
+		"  caption: \"{{ .title }} {{ .version }} via {{ .Platform }}\"",
+		"  slack:",
+		"    enabled: true",
+		"    api-base-url: " + f.URL + "/slack",
+		"    token: xoxb-e2e",
+		"    channel: C-E2E",
+	}, "\n"))
+
+	res := crier(t, dir, nil, "publish", "--json")
+	if res.Code != exitOK {
+		t.Fatalf("code=%d stderr=%s", res.Code, res.Stderr)
+	}
+	var rep struct {
+		Results []struct {
+			Platform string            `json:"platform"`
+			OK       bool              `json:"ok"`
+			ID       string            `json:"id"`
+			Extra    map[string]string `json:"extra"`
+			Error    string            `json:"error"`
+		} `json:"results"`
+	}
+	if err := json.Unmarshal([]byte(res.Stdout), &rep); err != nil {
+		t.Fatalf("%v\n%s", err, res.Stdout)
+	}
+	if len(rep.Results) != 1 || !rep.Results[0].OK {
+		t.Fatalf("results = %+v", rep.Results)
+	}
+	if rep.Results[0].ID != "F-E2E" || rep.Results[0].Extra["channel"] != "C-E2E" {
+		t.Errorf("result = %+v", rep.Results[0])
+	}
+
+	// Step 1: the filename and the exact length, with the bot token.
+	start, ok := f.find("/slack/files.getUploadURLExternal")
+	if !ok {
+		t.Fatal("slack was never asked where to upload")
+	}
+	if start.Header.Get("Authorization") != "Bearer xoxb-e2e" {
+		t.Errorf("authorization = %q", start.Header.Get("Authorization"))
+	}
+	values, err := url.ParseQuery(start.Body)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if values.Get("filename") == "" || values.Get("length") == "" {
+		t.Errorf("step one body = %q", start.Body)
+	}
+
+	// Step 2: the bytes, raw, at the URL Slack named — and with no token,
+	// because the URL is the credential.
+	upload, ok := f.find("/slack-upload")
+	if !ok {
+		t.Fatal("nothing was uploaded")
+	}
+	if upload.Header.Get("Authorization") != "" {
+		t.Error("the upload carried a token")
+	}
+	if !strings.Contains(upload.Query, "t=e2e") {
+		t.Errorf("the query on the upload URL was dropped: %q", upload.Query)
+	}
+	if got, err := imageInBody(upload.Body); err != nil {
+		t.Errorf("what was uploaded is not an image: %v", err)
+	} else if got.Width != 240 || got.Height != 120 {
+		t.Errorf("uploaded %dx%d", got.Width, got.Height)
+	}
+	if n, err := strconv.Atoi(values.Get("length")); err != nil || n != len(upload.Body) {
+		t.Errorf("declared %s bytes and uploaded %d", values.Get("length"), len(upload.Body))
+	}
+
+	// Step 3: the file id from step one, the channel, and the rendered caption.
+	done, ok := f.find("/slack/files.completeUploadExternal")
+	if !ok {
+		t.Fatal("the upload was never completed")
+	}
+	if done.Header.Get("Authorization") != "Bearer xoxb-e2e" {
+		t.Errorf("authorization = %q", done.Header.Get("Authorization"))
+	}
+	complete, err := url.ParseQuery(done.Body)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var files []map[string]string
+	if err := json.Unmarshal([]byte(complete.Get("files")), &files); err != nil {
+		t.Fatalf("files is not a JSON array: %q", complete.Get("files"))
+	}
+	if len(files) != 1 || files[0]["id"] != "F-E2E" {
+		t.Errorf("files = %v, want the id step one handed out", files)
+	}
+	if complete.Get("channel_id") != "C-E2E" {
+		t.Errorf("channel_id = %q", complete.Get("channel_id"))
+	}
+	if complete.Get("initial_comment") != "end to end 9.9.9 via slack" {
+		t.Errorf("initial_comment = %q, want the caption rendered for slack", complete.Get("initial_comment"))
+	}
+}
+
+// TestSlackBadTokenIsReported: Slack answers 200 with ok:false, so a run that
+// only read the status code would call a refused token a success.
+func TestSlackBadTokenIsReported(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = w.Write([]byte(`{"ok":false,"error":"invalid_auth"}`))
+	}))
+	t.Cleanup(srv.Close)
+
+	dir := newProject(t, strings.Join([]string{
+		"  slack:",
+		"    enabled: true",
+		"    api-base-url: " + srv.URL,
+		"    token: xoxb-wrong",
+		"    channel: C-E2E",
+	}, "\n"))
+
+	// ping says so without posting.
+	res := crier(t, dir, nil, "ping")
+	if res.Code != exitPublish {
+		t.Fatalf("ping: code=%d stdout=%s stderr=%s", res.Code, res.Stdout, res.Stderr)
+	}
+	if !strings.Contains(res.Stdout, "slack") || !strings.Contains(res.Stdout, "failed") {
+		t.Errorf("the table should name the platform:\n%s", res.Stdout)
+	}
+	if !strings.Contains(res.Stderr, "refused the token") {
+		t.Errorf("the reason should reach the log: %s", res.Stderr)
+	}
+
+	// And publishing fails rather than reporting a post nobody made.
+	res = crier(t, dir, nil, "publish")
+	if res.Code != exitPublish {
+		t.Fatalf("publish: code=%d stderr=%s", res.Code, res.Stderr)
+	}
+	if !strings.Contains(res.Stderr, "publish.slack.token") {
+		t.Errorf("the error should name the key to fix: %s", res.Stderr)
+	}
+}
+
+// TestSlackNotInChannel is the other setup mistake, and the one whose fix is
+// not obvious from the message Slack sends.
+func TestSlackNotInChannel(t *testing.T) {
+	f := newFakes(t)
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		if strings.HasSuffix(r.URL.Path, "/files.getUploadURLExternal") {
+			_, _ = w.Write([]byte(`{"ok":true,"upload_url":"` + f.URL + `/slack-upload","file_id":"F1"}`))
+			return
+		}
+		_, _ = w.Write([]byte(`{"ok":false,"error":"not_in_channel"}`))
+	}))
+	t.Cleanup(srv.Close)
+
+	dir := newProject(t, strings.Join([]string{
+		"  slack:",
+		"    enabled: true",
+		"    api-base-url: " + srv.URL,
+		"    token: xoxb-e2e",
+		"    channel: C-NOPE",
+	}, "\n"))
+
+	res := crier(t, dir, nil, "publish")
+	if res.Code != exitPublish {
+		t.Fatalf("code=%d stderr=%s", res.Code, res.Stderr)
+	}
+	if !strings.Contains(res.Stderr, "/invite") {
+		t.Errorf("the error should say how to fix it: %s", res.Stderr)
 	}
 }
 

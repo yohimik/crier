@@ -22,7 +22,7 @@ are written with `<name>` standing in for it — see
 | `publish.custom.<name>.env.<VAR>` | string | — | extra environment variables for the command |
 
 A name is lower-case letters, digits and dashes, and may not be one of the
-nine built-in platforms: it has to survive the round trip through an
+ten built-in platforms: it has to survive the round trip through an
 environment variable.
 
 [All groups](./README.md)

@@ -155,6 +155,7 @@ var registry = map[string]constructor{
 	"discord":   newDiscord,
 	"linkedin":  newLinkedIn,
 	"reddit":    newReddit,
+	"slack":     newSlack,
 }
 
 // Names are every platform crier knows, sorted.
@@ -207,6 +208,8 @@ func enabledIn(cfg *config.Config, name string) bool {
 		return p.LinkedIn.Enabled
 	case "reddit":
 		return p.Reddit.Enabled
+	case "slack":
+		return p.Slack.Enabled
 	default:
 		if c := config.CustomOf(p, name); c != nil {
 			return c.Enabled

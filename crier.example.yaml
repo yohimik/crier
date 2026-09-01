@@ -177,6 +177,23 @@ publish:
     username: ""
     # render width for reddit; 0 inherits render.width
     width: 0
+  slack:
+    # Slack Web API base URL
+    api-base-url: "https://slack.com/api"
+    # Slack specific caption
+    caption: ""
+    # Slack channel ID to post in, such as C0123ABCD; the bot has to be in it
+    channel: ""
+    # publish to Slack
+    enabled: false
+    # render height for slack; 0 inherits render.height
+    height: 0
+    # template overlays applied for slack only, after the global ones
+    overlay: []
+    # Slack bot token (xoxb-…) with files:write and chat:write
+    token: "<your-token>"
+    # render width for slack; 0 inherits render.width
+    width: 0
   telegram:
     # Telegram Bot API base URL
     api-base-url: "https://api.telegram.org"

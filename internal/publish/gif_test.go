@@ -31,6 +31,7 @@ func TestGIFSupportMatrix(t *testing.T) {
 		"tiktok":    tiktokConfig(at),
 		"linkedin":  linkedinConfig(at),
 		"reddit":    redditConfig(at, at),
+		"slack":     slackConfig(at),
 	}
 	discord := config.Defaults()
 	discord.Publish.Discord.Enabled = true
@@ -45,6 +46,7 @@ func TestGIFSupportMatrix(t *testing.T) {
 
 	for name, want := range map[string]bool{
 		"telegram": true, "discord": true, "mastodon": true, "x": true, "reddit": true,
+		"slack":     true,
 		"instagram": false, "facebook": false, "tiktok": false, "linkedin": false,
 	} {
 		p := onlyPublisher(t, byName[name])

@@ -146,6 +146,8 @@ func platformTitle(name string) string {
 		return "X"
 	case "linkedin":
 		return "LinkedIn"
+	case "slack":
+		return "Slack"
 	default:
 		return strings.ToUpper(name[:1]) + name[1:]
 	}
@@ -211,7 +213,7 @@ are written with ` + "`<name>`" + ` standing in for it — see
 	fmt.Fprintf(&b, "| `%s.<name>.%s.<VAR>` | string | — | extra environment variables for the command |\n",
 		config.CustomPrefix, config.CustomEnvLeaf)
 	b.WriteString("\nA name is lower-case letters, digits and dashes, and may not be one of the\n" +
-		"nine built-in platforms: it has to survive the round trip through an\n" +
+		"ten built-in platforms: it has to survive the round trip through an\n" +
 		"environment variable.\n")
 	fmt.Fprintln(&b, "\n[All groups](./README.md)")
 	return b.Bytes()

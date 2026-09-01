@@ -44,6 +44,7 @@ func Bindings(cfg *Config) map[string]Binding {
 	tun := &srv.Tunnel
 	ig, fb, tt, tg := &p.Instagram, &p.Facebook, &p.TikTok, &p.Telegram
 	x, ma, dc, li, rd := &p.X, &p.Mastodon, &p.Discord, &p.LinkedIn, &p.Reddit
+	sl := &p.Slack
 	vid := &r.Video
 
 	out := map[string]Binding{
@@ -150,6 +151,12 @@ func Bindings(cfg *Config) map[string]Binding {
 		"publish.telegram.chat-id":      bindString(&tg.ChatID),
 		"publish.telegram.caption":      bindString(&tg.Caption),
 
+		"publish.slack.enabled":      bindBool(&sl.Enabled),
+		"publish.slack.api-base-url": bindString(&sl.APIBaseURL),
+		"publish.slack.token":        bindString(&sl.Token),
+		"publish.slack.channel":      bindString(&sl.Channel),
+		"publish.slack.caption":      bindString(&sl.Caption),
+
 		"publish.x.enabled":      bindBool(&x.Enabled),
 		"publish.x.api-base-url": bindString(&x.APIBaseURL),
 		"publish.x.token":        bindString(&x.Token),
@@ -202,6 +209,7 @@ func Bindings(cfg *Config) map[string]Binding {
 		"instagram": &ig.Layout, "facebook": &fb.Layout, "tiktok": &tt.Layout,
 		"telegram": &tg.Layout, "x": &x.Layout, "mastodon": &ma.Layout,
 		"discord": &dc.Layout, "linkedin": &li.Layout, "reddit": &rd.Layout,
+		"slack": &sl.Layout,
 	} {
 		out["publish."+name+".overlay"] = bindStrings(&l.Overlay)
 		out["publish."+name+".width"] = bindInt(&l.Width)

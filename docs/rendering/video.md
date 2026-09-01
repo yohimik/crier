@@ -118,6 +118,7 @@ checked between frames, so Ctrl-C stops it.
 | [Mastodon](../publishing/mastodon.md) | yes | yes | the v2 media endpoint, polled like a video |
 | [X](../publishing/x.md) | yes | yes | chunked upload with `media_category=tweet_gif`, 15MB cap |
 | [Reddit](../publishing/reddit.md) | yes | yes | the lease flow with `image/gif`, submitted as an image |
+| [Slack](../publishing/slack.md) | yes | yes | a file like any other, played inline |
 | [Instagram](../publishing/instagram.md) | yes | **no** | — |
 | [Facebook](../publishing/facebook.md) | yes | **no** | — |
 | [TikTok](../publishing/tiktok.md) | yes | **no** | — |
