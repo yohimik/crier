@@ -5,9 +5,11 @@ package e2e
 import (
 	"encoding/json"
 	"errors"
+	"fmt"
 	"image"
-	_ "image/jpeg"
-	_ "image/png"
+	"image/color"
+	"image/jpeg"
+	"image/png"
 	"net"
 	"os"
 	"path/filepath"
@@ -1333,6 +1335,263 @@ func TestPingWithNoPlatformIsAConfigError(t *testing.T) {
 	dir := newProject(t, "")
 	res := crier(t, dir, nil, "ping")
 	if res.Code != exitConfig || !strings.Contains(res.Stderr, "no platform is enabled") {
+		t.Errorf("code=%d stderr=%s", res.Code, res.Stderr)
+	}
+}
+
+// --- entry modes -------------------------------------------------------------
+
+// makeImage writes a real PNG or JPEG, because the pipeline sniffs the bytes.
+func makeImage(t *testing.T, path string, w, h int, asJPEG bool) {
+	t.Helper()
+	img := image.NewRGBA(image.Rect(0, 0, w, h))
+	for x := 0; x < w; x++ {
+		for y := 0; y < h; y++ {
+			img.Set(x, y, color.RGBA{R: uint8(x * 4), G: uint8(y * 4), B: 180, A: 255})
+		}
+	}
+	f, err := os.Create(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer func() { _ = f.Close() }()
+	if asJPEG {
+		err = jpeg.Encode(f, img, nil)
+	} else {
+		err = png.Encode(f, img)
+	}
+	if err != nil {
+		t.Fatal(err)
+	}
+}
+
+// TestPublishOnlyUsesAnExistingFile is entry mode 3: a poster somebody drew
+// elsewhere is a perfectly good thing to publish, and crier should not need a
+// template to do it.
+func TestPublishOnlyUsesAnExistingFile(t *testing.T) {
+	f := newFakes(t)
+	dir := t.TempDir()
+	input := filepath.Join(dir, "card.png")
+	makeImage(t, input, 64, 32, false)
+
+	writeFile(t, dir, "crier.yaml", strings.Join([]string{
+		"log:",
+		"  level: debug",
+		"publish:",
+		"  input: card.png",
+		"  caption: \"a file that already existed\"",
+		"  telegram:",
+		"    enabled: true",
+		"    api-base-url: " + f.URL,
+		"    token: t",
+		"    chat-id: c",
+	}, "\n"))
+
+	// No template, no data file, no render. Bare crier.
+	res := crier(t, dir, nil)
+	if res.Code != exitOK {
+		t.Fatalf("code=%d stderr=%s", res.Code, res.Stderr)
+	}
+	tg, ok := f.find("/sendPhoto")
+	if !ok {
+		t.Fatal("telegram was not called")
+	}
+	got, err := imageInBody(tg.Body)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got.Width != 64 || got.Height != 32 {
+		t.Errorf("telegram received %dx%d, want the input untouched", got.Width, got.Height)
+	}
+	if !strings.Contains(tg.Body, "a file that already existed") {
+		t.Error("the caption did not go out")
+	}
+	// Nothing was laid out.
+	if strings.Contains(res.Stderr, "rendered document") {
+		t.Errorf("something was rendered: %s", res.Stderr)
+	}
+}
+
+// TestPublishOnlyTranscodesForInstagram: Instagram will not fetch a PNG, so a
+// PNG input has to become a JPEG on the way. The fake asserts what was staged.
+func TestPublishOnlyTranscodesForInstagram(t *testing.T) {
+	f := newFakes(t)
+	dir := t.TempDir()
+	input := filepath.Join(dir, "card.png")
+	makeImage(t, input, 48, 48, false)
+
+	// A local staging server, so what Instagram's fetcher receives is a real
+	// file crier produced rather than a URL nobody follows.
+	writeFile(t, dir, "crier.yaml", strings.Join([]string{
+		"log:",
+		"  level: debug",
+		"stage:",
+		"  mode: server",
+		"  server:",
+		"    listen: 127.0.0.1:0",
+		"    public-url: http://127.0.0.1:0",
+		"publish:",
+		"  input: card.png",
+		"  instagram:",
+		"    enabled: true",
+		"    api-base-url: " + f.URL + "/instagram",
+		"    token: ig",
+		"    user-id: ig-user",
+		"    poll-interval: 1ms",
+		"    poll-timeout: 5s",
+	}, "\n"))
+
+	res := crier(t, dir, nil, "publish", "--json")
+	if res.Code != exitOK {
+		t.Fatalf("code=%d stderr=%s", res.Code, res.Stderr)
+	}
+	var rep struct {
+		Variants []struct {
+			Files []string `json:"files"`
+			URL   string   `json:"url"`
+		} `json:"variants"`
+	}
+	if err := json.Unmarshal([]byte(res.Stdout), &rep); err != nil {
+		t.Fatal(err)
+	}
+	if len(rep.Variants) != 1 {
+		t.Fatalf("variants = %+v", rep.Variants)
+	}
+	// Both the original and the transcode exist; the staged one is the JPEG.
+	var sawJPEG bool
+	for _, file := range rep.Variants[0].Files {
+		if strings.HasSuffix(file, ".jpg") || strings.HasSuffix(file, ".jpeg") {
+			sawJPEG = true
+		}
+	}
+	if !sawJPEG {
+		t.Errorf("no JPEG was produced for Instagram: %v", rep.Variants[0].Files)
+	}
+	if !strings.Contains(res.Stderr, "transcoded the input") {
+		t.Errorf("the transcode was not reported: %s", res.Stderr)
+	}
+	if !strings.Contains(rep.Variants[0].URL, ".jpg") {
+		t.Errorf("Instagram was given %q, and it will not fetch a PNG", rep.Variants[0].URL)
+	}
+}
+
+// TestPublishOnlyWithAVideo passes the clip through untouched: re-encoding
+// somebody's video to satisfy a format preference would be a surprising thing
+// for a publish command to do.
+func TestPublishOnlyWithAVideo(t *testing.T) {
+	f := newFakes(t)
+	dir := t.TempDir()
+	// A minimal MP4 header is enough: crier sniffs the bytes and uploads them.
+	if err := os.WriteFile(filepath.Join(dir, "clip.mp4"),
+		append([]byte{0, 0, 0, 0x18}, "ftypmp42\x00\x00\x00\x00moov"...), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	writeFile(t, dir, "crier.yaml", strings.Join([]string{
+		"publish:",
+		"  input: clip.mp4",
+		"  telegram:",
+		"    enabled: true",
+		"    api-base-url: " + f.URL,
+		"    token: t",
+		"    chat-id: c",
+	}, "\n"))
+
+	res := crier(t, dir, nil, "publish")
+	if res.Code != exitOK {
+		t.Fatalf("code=%d stderr=%s", res.Code, res.Stderr)
+	}
+	if _, ok := f.find("/sendVideo"); !ok {
+		t.Error("an MP4 input should go out as a video")
+	}
+}
+
+// TestEncodeOnlyFromFrames is entry mode 4: frames made anywhere else become a
+// crier post through the same ffmpeg pipeline.
+func TestEncodeOnlyFromFrames(t *testing.T) {
+	f := newFakes(t)
+	dir := t.TempDir()
+	frames := filepath.Join(dir, "frames")
+	if err := os.MkdirAll(frames, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	for i := 1; i <= 4; i++ {
+		makeImage(t, filepath.Join(frames, fmt.Sprintf("f-%04d.png", i)), 32, 16, false)
+	}
+
+	writeFile(t, dir, "crier.yaml", strings.Join([]string{
+		"log:",
+		"  level: debug",
+		"render:",
+		"  video:",
+		"    format: gif",
+		"    fps: 8",
+		"    frames-input: frames",
+		"    ffmpeg-bin: " + selfPath(t),
+		"publish:",
+		"  discord:",
+		"    enabled: true",
+		"    webhook-url: " + f.URL + "/discord/webhook",
+	}, "\n"))
+
+	res := crier(t, dir, []string{helperEnv + "=ffmpeg"}, "publish")
+	if res.Code != exitOK {
+		t.Fatalf("code=%d stderr=%s", res.Code, res.Stderr)
+	}
+	if !strings.Contains(res.Stderr, "encoding frames from disk") {
+		t.Errorf("stderr = %s", res.Stderr)
+	}
+	dc, ok := f.find("/discord/webhook")
+	if !ok {
+		t.Fatal("discord was not called")
+	}
+	if !strings.Contains(dc.Body, "GIF89a") {
+		t.Errorf("what reached discord is not a GIF: %.80q", dc.Body)
+	}
+
+	// And `crier render` in the same directory encodes without publishing.
+	out := filepath.Join(dir, "out.gif")
+	res = crier(t, dir, []string{helperEnv + "=ffmpeg"}, "render", "--render-output", out)
+	if res.Code != exitOK {
+		t.Fatalf("render: code=%d stderr=%s", res.Code, res.Stderr)
+	}
+	body, err := os.ReadFile(out)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.HasPrefix(string(body), "GIF89a") {
+		t.Errorf("crier render wrote %.20q", body)
+	}
+}
+
+// TestMixedModesAreAConfigError: two answers to "where does the artifact come
+// from" is a configuration whose author believed two different things.
+func TestMixedModesAreAConfigError(t *testing.T) {
+	dir := t.TempDir()
+	makeImage(t, filepath.Join(dir, "card.png"), 8, 8, false)
+	writeFile(t, dir, "crier.yaml", strings.Join([]string{
+		"render:",
+		"  video:",
+		"    frames-input: frames",
+		"publish:",
+		"  input: card.png",
+		"  discord:",
+		"    enabled: true",
+		"    webhook-url: http://127.0.0.1:1/webhook",
+	}, "\n"))
+
+	res := crier(t, dir, nil, "publish")
+	if res.Code != exitConfig {
+		t.Fatalf("code=%d stderr=%s", res.Code, res.Stderr)
+	}
+	if !strings.Contains(res.Stderr, "publish.input") ||
+		!strings.Contains(res.Stderr, "frames-input") {
+		t.Errorf("the error should name both keys: %s", res.Stderr)
+	}
+
+	// And `crier render` with an input has nothing to render.
+	writeFile(t, dir, "crier.yaml", "publish:\n  input: card.png\n")
+	res = crier(t, dir, nil, "render")
+	if res.Code != exitConfig || !strings.Contains(res.Stderr, "nothing for") {
 		t.Errorf("code=%d stderr=%s", res.Code, res.Stderr)
 	}
 }

@@ -9,5 +9,6 @@ The fan-out itself: which platforms, how many at a time, and the shared caption.
 | `publish.caption`<br>`CRIER_PUBLISH_CAPTION`<br>`--publish-caption` | string | — | caption used by every platform that has no caption of its own |
 | `publish.concurrency`<br>`CRIER_PUBLISH_CONCURRENCY`<br>`--publish-concurrency` | int | `4` | how many platforms are published to at the same time |
 | `publish.dry-run`<br>`CRIER_PUBLISH_DRY_RUN`<br>`--publish-dry-run` | bool | — | render and validate only; make no network calls |
+| `publish.input`<br>`CRIER_PUBLISH_INPUT`<br>`--publish-input` | string, path | — | publish this existing file instead of rendering one |
 
 [All groups](./README.md)

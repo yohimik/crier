@@ -182,6 +182,10 @@ The default. Renders once per distinct shape, stages the file when a platform
 needs a URL to fetch, and fans out. `--dry-run` does everything except the
 requests that would post. See [publishing](../publishing/README.md).
 
+It can also skip the rendering entirely: `--publish-input card.png` posts a
+file that already exists, and `render.video.frames-input` encodes frames made
+elsewhere. See [flows](../publishing/flows.md).
+
 ## `crier self-update`
 
 Replaces this binary with one downloaded from a crier release, verified against

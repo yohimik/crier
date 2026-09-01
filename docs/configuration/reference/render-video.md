@@ -15,5 +15,6 @@ Rendering an animated template into an MP4. ffmpeg does the encoding and is a pr
 | `render.video.format`<br>`CRIER_RENDER_VIDEO_FORMAT`<br>`--render-video-format` | string | `mp4` | clip format: mp4 or gif |
 | `render.video.fps`<br>`CRIER_RENDER_VIDEO_FPS`<br>`--render-video-fps` | int | `30` | video frame rate |
 | `render.video.frames`<br>`CRIER_RENDER_VIDEO_FRAMES`<br>`--render-video-frames` | int | — | exact number of frames to render; 0 derives it from the duration and the frame rate |
+| `render.video.frames-input`<br>`CRIER_RENDER_VIDEO_FRAMES_INPUT`<br>`--render-video-frames-input` | string, path | — | directory or glob of existing frames to encode, instead of rendering them |
 
 [All groups](./README.md)

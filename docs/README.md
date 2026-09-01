@@ -36,6 +36,7 @@ reference.
 | Page | What it covers |
 | ---- | -------------- |
 | [Publishing](./publishing/README.md) | The pipeline, the fan-out, dry runs |
+| [Flows](./publishing/flows.md) | The four ways into the pipeline: full, render-only, publish-only, encode-only |
 | [Instagram](./publishing/instagram.md) · [Facebook](./publishing/facebook.md) · [TikTok](./publishing/tiktok.md) · [Telegram](./publishing/telegram.md) · [X](./publishing/x.md) · [Mastodon](./publishing/mastodon.md) · [Discord](./publishing/discord.md) · [LinkedIn](./publishing/linkedin.md) · [Reddit](./publishing/reddit.md) | Getting the credentials, and each platform's quirks |
 | [Custom platforms](./publishing/custom.md) | Any shell script as a platform, and the environment contract |
 

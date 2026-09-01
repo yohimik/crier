@@ -103,6 +103,13 @@ else.
 | [LinkedIn](./linkedin.md) | yes | no | yes | two mandatory headers |
 | [Reddit](./reddit.md) | yes | link mode | yes | descriptive User-Agent required |
 
+## Four ways in
+
+The pipeline has four entrances, not one: crier can publish a file you already
+have (`publish.input`) or encode frames you already made
+(`render.video.frames-input`) without rendering anything. See
+[flows](./flows.md).
+
 ## Animated GIFs
 
 Five of the nine take one: Telegram, Discord, Mastodon, X and Reddit.

@@ -71,6 +71,7 @@ func Bindings(cfg *Config) map[string]Binding {
 
 		"render.video.enabled":      bindBool(&vid.Enabled),
 		"render.video.format":       bindString(&vid.Format),
+		"render.video.frames-input": bindString(&vid.FramesInput),
 		"render.video.fps":          bindInt(&vid.FPS),
 		"render.video.duration":     bindString(&vid.Duration),
 		"render.video.frames":       bindInt(&vid.Frames),
@@ -111,6 +112,7 @@ func Bindings(cfg *Config) map[string]Binding {
 		"stage.server.tunnel.api-url":         bindString(&tun.APIURL),
 		"stage.server.tunnel.startup-timeout": bindString(&tun.StartupTimeout),
 
+		"publish.input":       bindString(&p.Input),
 		"publish.caption":     bindString(&p.Caption),
 		"publish.concurrency": bindInt(&p.Concurrency),
 		"publish.dry-run":     bindBool(&p.DryRun),

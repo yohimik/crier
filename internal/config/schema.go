@@ -62,7 +62,10 @@ type Video struct {
 	Enabled bool
 	// Format is mp4 or gif. A GIF is a different artifact kind rather than a
 	// video with another extension, because the platforms treat it as one.
-	Format      string
+	Format string
+	// FramesInput is a directory or glob of images to encode instead of
+	// rendering the frames.
+	FramesInput string
 	FPS         int
 	Duration    string
 	Frames      int
@@ -133,6 +136,8 @@ type Tunnel struct {
 
 // Publish configures the fan-out and every platform publisher.
 type Publish struct {
+	// Input is a file to publish instead of rendering one.
+	Input       string
 	Caption     string
 	Concurrency int
 	DryRun      bool

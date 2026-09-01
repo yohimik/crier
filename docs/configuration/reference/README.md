@@ -9,7 +9,7 @@ where a relative path resolves against, is in
 | Group | Keys | What it covers |
 | ----- | ---- | -------------- |
 | [Logging](./log.md) | `log` | 2 |
-| [Video rendering](./render-video.md) | `render.video` | 9 |
+| [Video rendering](./render-video.md) | `render.video` | 10 |
 | [Rendering](./render.md) | `render` | 18 |
 | [HTTP](./http.md) | `http` | 4 |
 | [Staging: S3](./stage-s3.md) | `stage.s3` | 12 |
@@ -26,7 +26,7 @@ where a relative path resolves against, is in
 | [Publishing: LinkedIn](./publish-linkedin.md) | `publish.linkedin` | 9 |
 | [Publishing: Reddit](./publish-reddit.md) | `publish.reddit` | 21 |
 | [Publishing: custom platforms](./publish-custom.md) | `publish.custom` | 12 |
-| [Publishing](./publish.md) | `publish` | 3 |
+| [Publishing](./publish.md) | `publish` | 4 |
 
 A sample carrying every key with its default is at
 [`crier.example.yaml`](../../../crier.example.yaml).

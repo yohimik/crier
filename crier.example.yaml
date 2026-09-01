@@ -65,6 +65,8 @@ publish:
     use-url: false
     # render width for facebook; 0 inherits render.width
     width: 0
+  # publish this existing file instead of rendering one
+  input: ""
   instagram:
     # Instagram Graph API base URL
     api-base-url: "https://graph.facebook.com/v25.0"
@@ -282,6 +284,8 @@ render:
     fps: 30
     # exact number of frames to render; 0 derives it from the duration and the frame rate
     frames: 0
+    # directory or glob of existing frames to encode, instead of rendering them
+    frames-input: ""
   # output width in CSS pixels (0 lets the document's @page rule decide)
   width: 1080
 stage:

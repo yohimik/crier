@@ -49,10 +49,18 @@ func (a App) runRender(ctx context.Context, args []string) error {
 	if err != nil || s == nil {
 		return err
 	}
-	if len(s.Config.Render.Pool) == 0 {
+	mode, err := ModeOf(s.Config)
+	if err != nil {
+		return err
+	}
+	if mode == ModeFull && len(s.Config.Render.Pool) == 0 {
 		if err := require(s.Config.Render.Template, "render.template"); err != nil {
 			return err
 		}
+	}
+	if mode == ModePublishInput {
+		return failf(ExitConfig,
+			"publish.input names a file that already exists; there is nothing for `crier render` to render")
 	}
 
 	p, err := NewPipeline(PipelineOptions{
@@ -198,10 +206,21 @@ func (a App) runPublish(ctx context.Context, args []string) error {
 		return err
 	}
 	cfg := s.Config
-	if len(cfg.Render.Pool) == 0 {
+	mode, err := ModeOf(cfg)
+	if err != nil {
+		return err
+	}
+	if mode == ModeFull && len(cfg.Render.Pool) == 0 {
 		if err := require(cfg.Render.Template, "render.template"); err != nil {
 			return err
 		}
+	}
+	if mode != ModeFull && strings.TrimSpace(cfg.Render.Template) != "" {
+		// Not an error: a project's configuration names its template, and
+		// `crier --publish-input poster.png` inside that project is a
+		// perfectly ordinary thing to type. Saying which one won is enough.
+		s.Log.Info().Str("mode", mode.String()).Str("template", cfg.Render.Template).
+			Msg("the template is not rendered in this mode")
 	}
 
 	enabled := publish.Enabled(cfg)
@@ -241,7 +260,7 @@ func (a App) runPublish(ctx context.Context, args []string) error {
 	// before anything is rendered saves the whole render. A GIF is checked
 	// separately from an MP4 because four platforms take one and not the
 	// other.
-	if cfg.Render.Video.Enabled {
+	if cfg.Render.Video.Enabled || mode == ModeEncodeFrames {
 		kind := render.KindVideo
 		what := "video"
 		if render.IsGIF(cfg.Render.Video.Format) {
@@ -277,7 +296,15 @@ func (a App) runPublish(ctx context.Context, args []string) error {
 	report := PublishReport{DryRun: cfg.Publish.DryRun}
 	var jobs []publish.Job
 
-	for _, v := range Variants(cfg, enabled) {
+	// One variant when the artifact was not rendered: per-platform overlays and
+	// sizes are instructions to the renderer, and there is nothing to render.
+	// Every platform shares the one file.
+	variants := Variants(cfg, enabled)
+	if mode != ModeFull {
+		variants = []Variant{{Platforms: enabled}}
+	}
+
+	for _, v := range variants {
 		group := make([]publish.Publisher, 0, len(v.Platforms))
 		needsURL, needsPoster := false, false
 		for _, name := range v.Platforms {
@@ -288,7 +315,8 @@ func (a App) runPublish(ctx context.Context, args []string) error {
 			}
 			// Reddit's video posts require a poster image. A GIF is submitted
 			// as an image rather than as a video, so it needs none.
-			if name == "reddit" && cfg.Render.Video.Enabled && !render.IsGIF(cfg.Render.Video.Format) {
+			if name == "reddit" && (cfg.Render.Video.Enabled || mode == ModeEncodeFrames) &&
+				!render.IsGIF(cfg.Render.Video.Format) {
 				needsPoster = true
 			}
 		}

@@ -140,6 +140,7 @@ var registry = []Descriptor{
 
 	{Key: "render.video.enabled", Kind: KindBool, Usage: "render an animated template into a clip instead of a still image"},
 	{Key: "render.video.format", Kind: KindString, Default: "mp4", Usage: "clip format: mp4 or gif"},
+	{Key: "render.video.frames-input", Kind: KindString, Path: true, Usage: "directory or glob of existing frames to encode, instead of rendering them"},
 	{Key: "render.video.fps", Kind: KindInt, Default: "30", Usage: "video frame rate"},
 	{Key: "render.video.duration", Kind: KindDuration, Default: "3s", Usage: "video length; ignored when render.video.frames is set"},
 	{Key: "render.video.frames", Kind: KindInt, Usage: "exact number of frames to render; 0 derives it from the duration and the frame rate"},
@@ -180,6 +181,7 @@ var registry = []Descriptor{
 	{Key: "stage.server.tunnel.api-url", Kind: KindString, Default: "http://127.0.0.1:4040/api/tunnels", Usage: "ngrok local agent API polled for the public URL"},
 	{Key: "stage.server.tunnel.startup-timeout", Kind: KindDuration, Default: "30s", Usage: "how long to wait for the tunnel to report a public URL"},
 
+	{Key: "publish.input", Kind: KindString, Path: true, Usage: "publish this existing file instead of rendering one"},
 	{Key: "publish.caption", Kind: KindString, Usage: "caption used by every platform that has no caption of its own"},
 	{Key: "publish.concurrency", Kind: KindInt, Default: "4", Usage: "how many platforms are published to at the same time"},
 	{Key: "publish.dry-run", Kind: KindBool, Usage: "render and validate only; make no network calls"},

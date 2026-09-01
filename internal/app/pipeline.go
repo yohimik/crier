@@ -271,7 +271,23 @@ func BaseVariant(cfg *config.Config) Variant {
 }
 
 // Render lays out one variant and encodes it into the requested formats.
+//
+// Or does neither: a run that was given the file to publish, or the frames to
+// encode, enters the pipeline further along. The three paths converge on the
+// same Artifacts, so everything downstream — staging, format negotiation, the
+// fan-out — is unaware of which one ran.
 func (p *Pipeline) Render(ctx context.Context, v Variant, data any, formats []config.Format) (Artifacts, error) {
+	mode, err := ModeOf(p.cfg)
+	if err != nil {
+		return Artifacts{}, err
+	}
+	switch mode {
+	case ModePublishInput:
+		return p.fromInput(formats)
+	case ModeEncodeFrames:
+		return p.fromFrames(ctx, v)
+	}
+
 	out := Artifacts{Variant: v, Images: map[config.Format]render.Artifact{}}
 
 	if p.cfg.Render.Video.Enabled {
@@ -297,6 +313,105 @@ func (p *Pipeline) Render(ctx context.Context, v Variant, data any, formats []co
 		p.log.Debug().Str("variant", v.Name()).Str("format", string(format)).
 			Str("path", art.Path).Int64("bytes", art.Size).Msg("encoded an image")
 	}
+	return out, nil
+}
+
+// fromInput publishes a file that already exists.
+//
+// The only work is transcoding: a PNG aimed at Instagram has to become a JPEG,
+// because Instagram will not fetch a PNG. A clip is passed through untouched —
+// re-encoding somebody's video to satisfy a format preference would be a
+// surprising thing for a publish command to do.
+func (p *Pipeline) fromInput(formats []config.Format) (Artifacts, error) {
+	art, err := LoadInput(p.cfg.Publish.Input)
+	if err != nil {
+		return Artifacts{}, err
+	}
+	out := Artifacts{
+		Variant: Variant{Width: art.Width, Height: art.Height},
+		Images:  map[config.Format]render.Artifact{},
+	}
+	p.log.Info().Str("file", art.Path).Str("kind", string(art.Kind)).
+		Int64("bytes", art.Size).Int("width", art.Width).Int("height", art.Height).
+		Msg("publishing an existing file")
+
+	if art.Kind != render.KindImage {
+		out.Video = &art
+		return out, nil
+	}
+
+	out.Images[art.Format] = art
+	img, err := decodeFrame(art.Path)
+	if err != nil {
+		return out, fail(ExitRender, err)
+	}
+	enc := p.encoder()
+	for _, format := range formats {
+		if _, have := out.Images[format]; have {
+			continue
+		}
+		transcoded, err := enc.Encode(img, format, "input")
+		if err != nil {
+			return out, fail(ExitRender, err)
+		}
+		out.Images[format] = transcoded
+		p.log.Info().Str("from", string(art.Format)).Str("to", string(format)).
+			Str("path", transcoded.Path).Msg("transcoded the input for a platform that needs it")
+	}
+	return out, nil
+}
+
+// fromFrames encodes images that already exist.
+//
+// The same ffmpeg pipeline the rendered path uses, fed from a directory rather
+// than from the renderer, which is what lets frames made anywhere else become
+// a crier post.
+func (p *Pipeline) fromFrames(ctx context.Context, v Variant) (Artifacts, error) {
+	vid := &p.cfg.Render.Video
+	files, err := FrameFiles(vid.FramesInput)
+	if err != nil {
+		return Artifacts{}, err
+	}
+	if err := render.CheckFFmpeg(vid.FFmpegBin); err != nil {
+		return Artifacts{}, fail(ExitRender, err)
+	}
+
+	reader, first, err := newFrameReader(files)
+	if err != nil {
+		return Artifacts{}, fail(ExitRender, err)
+	}
+	p.log.Info().Int("frames", len(files)).
+		Int("width", reader.w).Int("height", reader.h).
+		Str("first", filepath.Base(files[0])).Str("last", filepath.Base(files[len(files)-1])).
+		Msg("encoding frames from disk")
+
+	out := Artifacts{Variant: v, Images: map[config.Format]render.Artifact{}}
+
+	// The first frame doubles as the poster, as it does for a rendered clip.
+	poster, err := p.encoder().Encode(first, config.JPEG, "frames-poster")
+	if err != nil {
+		return out, fail(ExitRender, err)
+	}
+
+	bg, _ := config.ParseColor(p.cfg.Render.Background)
+	art, err := render.EncodeVideo(ctx, render.VideoOptions{
+		Output:     filepath.Join(p.dir, "frames"+render.VideoExt(vid.Format)),
+		Frames:     len(files),
+		FPS:        vid.FPS,
+		Width:      reader.w,
+		Height:     reader.h,
+		Bin:        vid.FFmpegBin,
+		Preset:     vid.CodecPreset,
+		Format:     vid.Format,
+		ExtraArgs:  vid.FFmpegArgs,
+		Audio:      vid.Audio,
+		Background: bg,
+		Logger:     p.log,
+	}, reader.at)
+	if err != nil {
+		return out, fail(ExitRender, err)
+	}
+	out.Video, out.Poster = &art, &poster
 	return out, nil
 }
 
