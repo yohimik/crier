@@ -1,0 +1,29 @@
+<!doctype html>
+<html>
+<head>
+<style>
+  /* A block layout: webrender's CSS coverage is WeasyPrint's, which is solid
+     for block, inline and table, and only simple cases of flexbox. Centring
+     with padding rather than with flex is what keeps a template portable. */
+  body { margin: 0; font-family: "Go", system-ui, sans-serif; }
+  .card {
+    width: 1080px; height: 1920px;
+    background: linear-gradient(160deg, {{ .theme.from }}, {{ .theme.to }});
+    color: {{ .theme.text }};
+    padding: 620px 96px 0 96px;
+    box-sizing: border-box;
+    text-align: center;
+  }
+  h1 { font-size: 104px; margin: 0 0 40px 0; line-height: 1.08; }
+  p  { font-size: 44px; margin: 0; line-height: 1.4; opacity: 0.85; }
+  .tag { margin-top: 72px; font-size: 30px; letter-spacing: 6px; opacity: 0.6; }
+</style>
+</head>
+<body>
+  <div class="card">
+    {{ block "headline" . }}<h1>{{ .title }}</h1>{{ end }}
+    {{ block "body" . }}<p>{{ .subtitle }}</p>{{ end }}
+    {{ block "tag" . }}<div class="tag">{{ upper .tag }}</div>{{ end }}
+  </div>
+</body>
+</html>

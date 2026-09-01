@@ -121,16 +121,26 @@ func isEmpty(v any) bool {
 
 // Render executes the template against the data document and returns HTML.
 func (e *Engine) Render(o Options) (string, error) {
+	data, err := LoadData(o.DataPath, o.Stdin)
+	if err != nil {
+		return "", err
+	}
+	return e.RenderWith(o, data)
+}
+
+// RenderWith executes the template against a document already in hand.
+//
+// Rendering a video means executing the template once per frame, and reading
+// the data document ninety times — or reading standard input twice at all —
+// is not something a caller can do. So the document is loaded once and passed
+// back in.
+func (e *Engine) RenderWith(o Options, data any) (string, error) {
 	if o.Path == "" {
 		return "", fmt.Errorf("no template given")
 	}
 	body, err := os.ReadFile(o.Path)
 	if err != nil {
 		return "", fmt.Errorf("reading template: %w", err)
-	}
-	data, err := LoadData(o.DataPath, o.Stdin)
-	if err != nil {
-		return "", err
 	}
 	data = merge(data, o.Extra)
 
