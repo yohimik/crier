@@ -60,11 +60,10 @@ func TestWaitReturnsWhenAGrandchildHoldsThePipes(t *testing.T) {
 		t.Fatal("Wait never returned: the grandchild still holds the pipes")
 	}
 
-	// The parent's own output still arrived, which is what the drain window is
-	// for.
-	if !strings.Contains(proc.Tail(), "parent done") {
-		t.Errorf("the script's output was lost: %q", proc.Tail())
-	}
+	// Whether the parent's last line arrived is deliberately not asserted
+	// here: the grandchild holds the write end open, so the readers never see
+	// EOF and the drain window is a bound rather than a guarantee. Output
+	// preservation is asserted below, against a child that closes its pipes.
 
 	// And the grandchild is reachable through the group, so Stop can end it.
 	pid := grandchildPID(t, marker)
@@ -131,6 +130,39 @@ func TestStopKillsTheWholeGroup(t *testing.T) {
 		time.Sleep(50 * time.Millisecond)
 	}
 	t.Errorf("the grandchild %d outlived the group it was in", pid)
+}
+
+// TestOrdinaryOutputSurvivesTheReordering: reaping before draining must not
+// cost the output of a process that closes its pipes, which is every process
+// crier actually runs.
+func TestOrdinaryOutputSurvivesTheReordering(t *testing.T) {
+	dir := t.TempDir()
+	script := filepath.Join(dir, "chatty.sh")
+	body := "#!/bin/sh\necho first\necho second >&2\necho third\n"
+	if err := os.WriteFile(script, []byte(body), 0o755); err != nil { //nolint:gosec // a test script has to run
+		t.Fatal(err)
+	}
+
+	for i := 0; i < 20; i++ {
+		proc, err := Start(context.Background(), Options{
+			Name:   "chatty",
+			Bin:    "/bin/sh",
+			Args:   []string{script},
+			Logger: zerolog.Nop(),
+		})
+		if err != nil {
+			t.Fatal(err)
+		}
+		if err := proc.Wait(); err != nil {
+			t.Fatalf("run %d: %v", i, err)
+		}
+		tail := proc.Tail()
+		for _, want := range []string{"first", "second", "third"} {
+			if !strings.Contains(tail, want) {
+				t.Fatalf("run %d lost %q from its output: %q", i, want, tail)
+			}
+		}
+	}
 }
 
 // grandchildPID waits for the script to report the pid it backgrounded.
