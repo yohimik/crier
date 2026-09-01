@@ -29,8 +29,13 @@ const MaxDataSize = 32 << 20
 
 // Options describes one rendering.
 type Options struct {
-	// Path is the template file. Required.
+	// Path is the base template file. Required.
 	Path string
+	// Overlays are template files parsed after the base one, in order. They
+	// hold {{define}} blocks that replace the base layout's {{block}} sections,
+	// which is how one layout produces a story for Instagram and a card for
+	// Discord.
+	Overlays []string
 	// DataPath is a JSON or YAML file, or StdinName. Empty means no data, and
 	// the template is rendered against nil.
 	DataPath string
@@ -132,6 +137,17 @@ func (e *Engine) Render(o Options) (string, error) {
 	tpl, err := template.New(filepath.Base(o.Path)).Funcs(e.funcs).Parse(string(body))
 	if err != nil {
 		return "", fmt.Errorf("parsing template %s: %w", o.Path, err)
+	}
+	// Later definitions win, so the overlays are parsed in the order the caller
+	// listed them: global ones first, then the platform's own.
+	for _, overlay := range o.Overlays {
+		text, err := os.ReadFile(overlay)
+		if err != nil {
+			return "", fmt.Errorf("reading overlay: %w", err)
+		}
+		if _, err := tpl.Parse(string(text)); err != nil {
+			return "", fmt.Errorf("parsing overlay %s: %w", overlay, err)
+		}
 	}
 	var out bytes.Buffer
 	if err := tpl.Execute(&out, data); err != nil {
