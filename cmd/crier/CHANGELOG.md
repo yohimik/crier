@@ -1,5 +1,29 @@
 # Changelog
 
+## v1.0.0-rc.2 (2026-09-01)
+
+### Fixes
+
+- a number is the same number whichever door it came in ([0384c23](https://github.com/yohimik/crier/commit/0384c23b5a02936a079e15b40a32c9796b2647d6)) (by yohimik, Claude Fable 5)
+  encoding/json hands every number over as float64 while the YAML decode
+  keeps integers whole, so the same document type-checked differently by
+  path: gt .count 0 worked from stdin and failed from count.json. The
+  value now comes from the YAML decode for both, with the JSON parse kept
+  for its error messages.
+
+- pin the install block to the release card's bottom edge ([a20d0fd](https://github.com/yohimik/crier/commit/a20d0fd570f7107b1766d3269c12d78c6518e7cf)) (by yohimik, Claude Fable 5)
+  A short changelist left it floating mid-card and a long one pushed it
+  against the edge. Absolutely positioned rather than flexed, because the
+  layout engine's flexbox is the weaker of the two — and the changes above
+  now spend a section-count-aware budget, two entries each when all three
+  sections are present, so they can never grow down into it.
+
+### Authors
+
+- yohimik
+- Claude Fable 5
+
+
 ## v1.0.0-rc.1 (2026-09-01)
 
 ### Fixes
