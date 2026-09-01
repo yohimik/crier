@@ -52,6 +52,25 @@ func ApplyDefaults(cfg *Config) {
 	}
 }
 
+// SetFlag is the name of the universal override flag.
+const SetFlag = "set"
+
+// setList collects a repeatable --set key=value flag.
+//
+// It exists for the keys that cannot have a flag of their own: a custom
+// platform's name is not known until the configuration has been read, so no
+// flag can be registered for publish.custom.<name>.command ahead of time. It
+// works for every other key too, which makes it a general escape hatch as well
+// as the answer for the dynamic ones.
+type setList struct{ pairs []string }
+
+func (s *setList) String() string { return strings.Join(s.pairs, ",") }
+
+func (s *setList) Set(v string) error {
+	s.pairs = append(s.pairs, v)
+	return nil
+}
+
 // Flags registers one command line flag per configuration key on a FlagSet and
 // collects the ones the operator actually typed.
 type Flags struct {
@@ -61,6 +80,7 @@ type Flags struct {
 	keyOf   map[string]string  // flag name -> config key
 	isAlias map[string]bool    // flag name -> declared as an alias
 	confPtr *string
+	sets    *setList
 }
 
 // RegisterFlags adds every configuration flag, plus --config, to fs.
@@ -77,6 +97,8 @@ func RegisterFlags(fs *flag.FlagSet) *Flags {
 		isAlias: map[string]bool{},
 	}
 	f.confPtr = fs.String(ConfigFlag, "", "path to a configuration file (json, yaml or toml)")
+	f.sets = &setList{}
+	fs.Var(f.sets, SetFlag, "override any configuration key: --set key=value, repeatable")
 
 	byKey := Descriptors()
 	for _, d := range registry {
@@ -124,8 +146,14 @@ func (f *Flags) ConfigPath() string {
 // keeps a flag's zero value from silently outranking the file.
 //
 // When both a key's own flag and one of its aliases are given, the key's own
-// flag wins.
-func (f *Flags) Overrides() dispat.Overrides {
+// flag wins, and an explicit --set outranks both: it is the most specific
+// thing the operator can have typed.
+//
+// A --set naming a key crier does not have is an error rather than a value
+// quietly going nowhere. That is the same rule the configuration decoder
+// applies to a file, and for the same reason: a setting that does nothing is
+// worse than one that fails, because it looks like it worked.
+func (f *Flags) Overrides() (dispat.Overrides, error) {
 	var aliasSet, exactSet []string
 	f.fs.Visit(func(fl *flag.Flag) {
 		if _, ok := f.keyOf[fl.Name]; !ok {
@@ -146,10 +174,23 @@ func (f *Flags) Overrides() dispat.Overrides {
 		}
 		out[key] = *f.strs[name]
 	}
-	if len(out) == 0 {
-		return nil
+	if f.sets != nil {
+		for _, pair := range f.sets.pairs {
+			key, value, ok := strings.Cut(pair, "=")
+			if !ok {
+				return nil, fmt.Errorf("--%s %q is not key=value", SetFlag, pair)
+			}
+			key = strings.TrimSpace(key)
+			if err := CheckKey(key); err != nil {
+				return nil, fmt.Errorf("--%s: %w", SetFlag, err)
+			}
+			out[key] = value
+		}
 	}
-	return out
+	if len(out) == 0 {
+		return nil, nil
+	}
+	return out, nil
 }
 
 // EnvBinding is the closed set of environment variables crier reads.

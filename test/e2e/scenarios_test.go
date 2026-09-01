@@ -210,6 +210,63 @@ func TestBareCrierTakesFlags(t *testing.T) {
 	}
 }
 
+// --- U1-U6: the CLI fails closed ---------------------------------------------
+
+// TestStrictCLIRefusesWhatItDoesNotKnow is U1 through U6 in one table: every
+// way of typing something crier does not understand, and the code each gets.
+//
+// The rule is worth this much test because of what the alternative looks like:
+// a mistyped --dry-run that publishes for real.
+func TestStrictCLIRefusesWhatItDoesNotKnow(t *testing.T) {
+	dir := newProject(t, "")
+	for _, tt := range []struct {
+		what string
+		args []string
+		code int
+		says string
+	}{
+		{"U1 unknown subcommand", []string{"pubish"}, exitUsage, "unknown command"},
+		{"U2 unknown top-level flag", []string{"--piblish"}, exitUsage, "not defined"},
+		{"U3 unknown subcommand flag", []string{"render", "--nope"}, exitUsage, "not defined"},
+		{"U4 unknown --set key", []string{"config", "--set", "render.widht=1"}, exitConfig, "unknown key"},
+		{"U5 extra positional", []string{"render", "stray"}, exitUsage, "unexpected argument"},
+		{"U6 mistyped flag is not routed", []string{"--dry-runn"}, exitUsage, "not defined"},
+	} {
+		res := crier(t, dir, nil, tt.args...)
+		if res.Code != tt.code {
+			t.Errorf("%s: code = %d, want %d (stderr: %s)", tt.what, res.Code, tt.code, res.Stderr)
+		}
+		if !strings.Contains(res.Stderr, tt.says) {
+			t.Errorf("%s: stderr should contain %q: %s", tt.what, tt.says, res.Stderr)
+		}
+		if res.Stdout != "" {
+			t.Errorf("%s: something ran anyway: %q", tt.what, res.Stdout)
+		}
+	}
+
+	// U1 also owes the reader the list of what would have worked.
+	res := crier(t, dir, nil, "pubish")
+	for _, name := range []string{"publish", "render", "init", "ping", "platforms", "config", "self-update"} {
+		if !strings.Contains(res.Stderr, name) {
+			t.Errorf("%s is missing from the refusal:\n%s", name, res.Stderr)
+		}
+	}
+}
+
+// TestSetReachesAnyKey is the other half of U4: the escape hatch works.
+func TestSetReachesAnyKey(t *testing.T) {
+	dir := newProject(t, "")
+	out := filepath.Join(dir, "set.png")
+	res := crier(t, dir, nil, "render", "--set", "render.width=321", "--set", "render.output="+out)
+	if res.Code != exitOK {
+		t.Fatalf("code=%d stderr=%s", res.Code, res.Stderr)
+	}
+	cfg, _ := decodeImage(t, out)
+	if cfg.Width != 321 {
+		t.Errorf("width = %d, want --set to have won", cfg.Width)
+	}
+}
+
 func TestUnknownBareWordIsAUsageError(t *testing.T) {
 	dir := newProject(t, "")
 	res := crier(t, dir, nil, "publsih")

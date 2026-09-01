@@ -373,7 +373,7 @@ func TestFlagsOnlyReportWhatWasTyped(t *testing.T) {
 	if err := h.fs.Parse([]string{"--log-level", "warn", "--publish-dry-run"}); err != nil {
 		t.Fatal(err)
 	}
-	got := f.Overrides()
+	got := mustOverrides(t, f)
 	want := dispat.Overrides{"log.level": "warn", "publish.dry-run": "true"}
 	if !reflect.DeepEqual(got, want) {
 		t.Errorf("Overrides() = %#v, want %#v", got, want)
@@ -385,7 +385,7 @@ func TestFlagsEmptyWhenNothingTyped(t *testing.T) {
 	if err := h.fs.Parse(nil); err != nil {
 		t.Fatal(err)
 	}
-	if got := f.Overrides(); got != nil {
+	if got := mustOverrides(t, f); got != nil {
 		t.Errorf("Overrides() = %#v, want nil", got)
 	}
 }
@@ -395,7 +395,7 @@ func TestFlagAliases(t *testing.T) {
 	if err := h.fs.Parse([]string{"--dry-run", "--width", "500"}); err != nil {
 		t.Fatal(err)
 	}
-	got := f.Overrides()
+	got := mustOverrides(t, f)
 	if got["publish.dry-run"] != "true" || got["render.width"] != "500" {
 		t.Errorf("aliases did not resolve: %#v", got)
 	}
@@ -406,7 +406,7 @@ func TestFlagExactBeatsAlias(t *testing.T) {
 	if err := h.fs.Parse([]string{"--width", "500", "--render-width", "900"}); err != nil {
 		t.Fatal(err)
 	}
-	if got := f.Overrides()["render.width"]; got != "900" {
+	if got := mustOverrides(t, f)["render.width"]; got != "900" {
 		t.Errorf("render.width = %v, want the exact flag to win", got)
 	}
 }
@@ -419,7 +419,7 @@ func TestFlagConfigPath(t *testing.T) {
 	if f.ConfigPath() != "x.yaml" {
 		t.Errorf("ConfigPath = %q", f.ConfigPath())
 	}
-	if _, ok := f.Overrides()["config"]; ok {
+	if _, ok := mustOverrides(t, f)["config"]; ok {
 		t.Error("--config must not become a config key override")
 	}
 }
@@ -449,7 +449,7 @@ func TestFlagRoundTripThroughLoad(t *testing.T) {
 	res, err := Load(context.Background(), Options{
 		Environ:       []string{},
 		Dir:           t.TempDir(),
-		FlagOverrides: f.Overrides(),
+		FlagOverrides: mustOverrides(t, f),
 	})
 	if err != nil {
 		t.Fatal(err)

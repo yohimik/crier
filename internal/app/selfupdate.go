@@ -59,11 +59,11 @@ Flags:
 `)
 		printFlags(a.Stderr, fs)
 	}
-	if err := fs.Parse(args); err != nil {
+	if err := parse(fs, args); err != nil {
 		if errors.Is(err, flag.ErrHelp) {
 			return nil
 		}
-		return fail(ExitUsage, err)
+		return err
 	}
 	if *check && *rollback {
 		return failf(ExitUsage, "--check and --rollback ask for different things; pass one")

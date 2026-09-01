@@ -76,11 +76,36 @@ func (a App) Run(ctx context.Context) int {
 		return a.report(a.runInit(args))
 	case "self-update":
 		return a.report(a.runSelfUpdate(ctx, args))
+	case "semen":
+		// An easter egg, and the one word that is not in Commands: it is a
+		// signature rather than a feature, so it answers when asked for and is
+		// not advertised anywhere. Every other unknown word is still refused.
+		fmt.Fprintln(a.Stdout, "semen is sleeping")
+		return ExitOK
 	default:
-		fmt.Fprintf(a.Stderr, "crier: unknown command %q\n\n", name)
+		fmt.Fprintf(a.Stderr, "crier: unknown command %q\n\nValid commands: %s\n\n",
+			name, strings.Join(Commands, ", "))
 		a.usage()
 		return ExitUsage
 	}
+}
+
+// Commands is every command word crier answers to.
+//
+// It is a list rather than a set of cases scattered through Run, because the
+// dispatcher, the usage text and the "unknown command" message all have to
+// agree about it and there is no way to notice when three copies stop
+// agreeing.
+var Commands = []string{"publish", "render", "init", "ping", "platforms", "config", "self-update", "help"}
+
+// known reports whether a word is a command.
+func known(name string) bool {
+	for _, c := range Commands {
+		if c == name {
+			return true
+		}
+	}
+	return false
 }
 
 // dispatch decides which command was asked for, and what is left for it.
@@ -93,6 +118,10 @@ func (a App) Run(ctx context.Context) int {
 // A help flag is the one exception to that rule. A command line tool whose
 // --help does not help is a bug, so it reaches the top-level usage rather than
 // publish's flag list.
+//
+// Nothing here guesses. A leading flag reaches publish, and publish's flag set
+// refuses one it does not declare — so `crier --piblish` is a usage error
+// naming the flag rather than a run of something nobody asked for.
 func (a App) dispatch(args []string) (name string, rest []string) {
 	if len(args) == 0 {
 		return "publish", nil
@@ -183,6 +212,29 @@ func (a App) flagSet(name string, extra func(*flag.FlagSet)) (*flag.FlagSet, *co
 	return fs, flags
 }
 
+// parse reads a command line and refuses everything it was not told about.
+//
+// Fail closed, the way the configuration decoder does: an unknown flag and a
+// stray word are both mistakes, and running anyway means running something
+// other than what was asked for. A typo in `--dry-run` that quietly published
+// for real is the failure this prevents.
+func parse(fs *flag.FlagSet, args []string) error {
+	if err := fs.Parse(args); err != nil {
+		if errors.Is(err, flag.ErrHelp) {
+			return err
+		}
+		// flag has already printed "flag provided but not defined: -x" to the
+		// output it was given, which names the flag.
+		return fail(ExitUsage, err)
+	}
+	if fs.NArg() > 0 {
+		fmt.Fprintf(fs.Output(), "%s: unexpected argument %q\n", fs.Name(), fs.Arg(0))
+		return failf(ExitUsage, "%s takes no positional arguments, and got %q",
+			fs.Name(), strings.Join(fs.Args(), " "))
+	}
+	return nil
+}
+
 // printFlags renders the flag list grouped and sorted, because there are two
 // hundred of them and the default one-per-line dump is unreadable.
 func printFlags(w io.Writer, fs *flag.FlagSet) {
@@ -198,17 +250,22 @@ func printFlags(w io.Writer, fs *flag.FlagSet) {
 // load parses the command line and resolves the configuration.
 func (a App) load(name string, args []string, extra func(*flag.FlagSet)) (*setup, error) {
 	fs, flags := a.flagSet(name, extra)
-	if err := fs.Parse(args); err != nil {
+	if err := parse(fs, args); err != nil {
 		if errors.Is(err, flag.ErrHelp) {
 			return nil, &Error{Code: ExitOK}
 		}
-		return nil, fail(ExitUsage, err)
+		return nil, err
+	}
+
+	overrides, err := flags.Overrides()
+	if err != nil {
+		return nil, fail(ExitConfig, err)
 	}
 
 	res, err := config.Load(context.Background(), config.Options{
 		Path:          flags.ConfigPath(),
 		Environ:       a.Environ,
-		FlagOverrides: flags.Overrides(),
+		FlagOverrides: overrides,
 		Dir:           a.Dir,
 	})
 	if err != nil {
@@ -260,11 +317,11 @@ func (a App) runVersion(args []string) error {
 	fs := flag.NewFlagSet("crier --version", flag.ContinueOnError)
 	fs.SetOutput(a.Stderr)
 	asJSON := fs.Bool("json", false, "print the version as JSON")
-	if err := fs.Parse(args); err != nil {
+	if err := parse(fs, args); err != nil {
 		if errors.Is(err, flag.ErrHelp) {
 			return nil
 		}
-		return fail(ExitUsage, err)
+		return err
 	}
 	info := version.Get()
 	if *asJSON {

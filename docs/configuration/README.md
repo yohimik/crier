@@ -12,6 +12,10 @@ order:
 A later layer wins over an earlier one, and a layer that says nothing about a
 key leaves the earlier one alone.
 
+There is also `--set key=value`, repeatable, which sets any key by its dotted
+name. It belongs to the flag layer and outranks a key's own flag, because it is
+the more specific thing to have typed.
+
 ```yaml
 # crier.yaml
 render:
@@ -21,6 +25,15 @@ render:
 ```sh
 CRIER_RENDER_WIDTH=1200 crier render          # 1200, the environment wins
 crier render --render-width 900               # 900, the flag wins
+crier render --set render.width=800           # 800, --set wins
+```
+
+A `--set` naming a key crier does not have is an error, not a value that goes
+nowhere:
+
+```
+$ crier config --set render.widht=900
+crier: --set: unknown key "render.widht"; did you mean render.width?
 ```
 
 Every key is in the [reference](./reference/README.md), and every key with its

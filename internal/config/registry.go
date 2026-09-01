@@ -1,6 +1,7 @@
 package config
 
 import (
+	"fmt"
 	"sort"
 	"strings"
 
@@ -313,4 +314,47 @@ func Keys() []string {
 	}
 	sort.Strings(out)
 	return out
+}
+
+// CheckKey reports whether a dotted key is one crier has, with a message
+// naming the closest thing it does have when it is not.
+//
+// It backs --set, whose whole risk is a typo that goes nowhere: a flag layer
+// that silently accepts publish.telegram.chatid would look like it worked and
+// change nothing, which is the worst outcome available.
+func CheckKey(key string) error {
+	if key == "" {
+		return fmt.Errorf("a key is required")
+	}
+	if _, ok := Descriptors()[key]; ok {
+		return nil
+	}
+	if target, ok := Aliases[FlagName(key)]; ok {
+		return fmt.Errorf("%q is a flag alias; set %s instead", key, target)
+	}
+	if near := nearest(key); near != "" {
+		return fmt.Errorf("unknown key %q; did you mean %s?", key, near)
+	}
+	return fmt.Errorf("unknown key %q", key)
+}
+
+// nearest is the declared key sharing the longest dotted prefix with key, so a
+// mistyped leaf is answered with its own section rather than with silence.
+func nearest(key string) string {
+	segs := strings.Split(key, ".")
+	best, bestDepth := "", 0
+	for _, candidate := range Keys() {
+		other := strings.Split(candidate, ".")
+		depth := 0
+		for depth < len(segs) && depth < len(other) && segs[depth] == other[depth] {
+			depth++
+		}
+		if depth > bestDepth {
+			best, bestDepth = candidate, depth
+		}
+	}
+	if bestDepth == 0 {
+		return ""
+	}
+	return best
 }

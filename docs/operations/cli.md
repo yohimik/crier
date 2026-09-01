@@ -23,6 +23,23 @@ The rule crier applies to its first argument:
 `--version` is special-cased ahead of the leading-dash rule: without that, it
 would be handed to `publish` as a flag `publish` has never heard of.
 
+## Nothing is guessed
+
+crier fails closed, the way its configuration decoder does. There is no
+shorthand, no prefix matching, and no pass-through of arguments it did not
+expect:
+
+| What you typed | What happens |
+| -------------- | ------------ |
+| an unknown command word | exit 2, and the valid ones are listed |
+| an unknown flag, anywhere | exit 2, naming the flag |
+| a positional argument | exit 2 — no command takes one |
+| `--set` with a key that does not exist | exit 1, suggesting the nearest key |
+| an unknown key in a config file | exit 1, naming its full path |
+
+The reason is `--dry-runn`. Guessing turns that into a real post to every
+enabled platform; refusing turns it into a message.
+
 ## Commands
 
 | Command | What it does |
@@ -46,6 +63,7 @@ piped while the logs stay readable. The
 | `--version` | print the version, the commit, the build date and the Go version, then exit 0 |
 | `--version --json` | the same as a JSON object |
 | `--help` | the top-level usage |
+| `--set key=value` | set any configuration key by its dotted name; repeatable |
 
 Every configuration key is also a flag on the commands that read configuration
 — `--render-width`, `--publish-telegram-chat-id`, and so on. See

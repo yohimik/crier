@@ -35,11 +35,11 @@ Flags:
 `)
 		printFlags(a.Stderr, fs)
 	}
-	if err := fs.Parse(args); err != nil {
+	if err := parse(fs, args); err != nil {
 		if errors.Is(err, flag.ErrHelp) {
 			return nil
 		}
-		return fail(ExitUsage, err)
+		return err
 	}
 
 	f, err := configgen.ParseFormat(*format)
