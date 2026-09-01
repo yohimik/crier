@@ -1,6 +1,6 @@
 module github.com/yohimik/crier
 
-go 1.26.5
+go 1.25.0
 
 require (
 	github.com/rs/zerolog v1.35.1
