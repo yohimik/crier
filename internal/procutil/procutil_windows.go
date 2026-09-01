@@ -18,3 +18,12 @@ func terminate(cmd *exec.Cmd) {
 	}
 	_ = cmd.Process.Kill()
 }
+
+// killGroup is Kill on Windows: with no process group there is nothing wider
+// to signal, and the escalation has the same effect as the polite step.
+func killGroup(cmd *exec.Cmd) {
+	if cmd.Process == nil {
+		return
+	}
+	_ = cmd.Process.Kill()
+}
