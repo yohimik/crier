@@ -26,6 +26,18 @@ crier render --render-width 900               # 900, the flag wins
 Every key is in the [reference](./reference/README.md), and every key with its
 default is in [`crier.example.yaml`](../../crier.example.yaml).
 
+## Getting a file to start from
+
+```sh
+crier init            # a short commented crier.yaml
+crier init --full     # every option, with its default
+```
+
+`--full` writes the same content as `crier.example.yaml`, from the same walk
+over the registry inside the binary, so it cannot fall behind the keys crier
+actually reads. `--format json` and `--format toml` write the other two
+spellings crier accepts. See [the command line](../operations/cli.md).
+
 ## Finding the file
 
 crier looks for `crier.yaml`, `crier.yml`, `crier.json`, `crier.toml` or

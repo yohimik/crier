@@ -56,7 +56,7 @@ func (a App) Run(ctx context.Context) int {
 	case "help":
 		a.usage()
 		return ExitOK
-	case "version":
+	case "--version":
 		return a.report(a.runVersion(args))
 	case "render":
 		return a.report(a.runRender(ctx, args))
@@ -66,6 +66,8 @@ func (a App) Run(ctx context.Context) int {
 		return a.report(a.runPlatforms(args))
 	case "config":
 		return a.report(a.runConfig(args))
+	case "init":
+		return a.report(a.runInit(args))
 	default:
 		fmt.Fprintf(a.Stderr, "crier: unknown command %q\n\n", name)
 		a.usage()
@@ -90,6 +92,10 @@ func (a App) dispatch(args []string) (name string, rest []string) {
 	switch args[0] {
 	case "-h", "--help", "-help":
 		return "help", args[1:]
+	case "--version", "-version":
+		// Ahead of the leading-flag rule below, which would otherwise hand
+		// --version to publish as a flag it has never heard of.
+		return "--version", args[1:]
 	}
 	if strings.HasPrefix(args[0], "-") {
 		return "publish", args
@@ -125,8 +131,11 @@ Commands:
   render      render the template and write the image or video to a file
   platforms   list the platforms and whether they are configured
   config      print the resolved configuration, with secrets redacted
-  version     print the version
+  init        write a starter configuration file
   help        print this message
+
+Flags:
+  --version   print the version and exit
 
 Every configuration key is a flag, an environment variable and a config file
 key at once. Run "crier config" to see them all resolved, or "crier render -h"
@@ -238,7 +247,7 @@ func userAgent() string {
 }
 
 func (a App) runVersion(args []string) error {
-	fs := flag.NewFlagSet("crier version", flag.ContinueOnError)
+	fs := flag.NewFlagSet("crier --version", flag.ContinueOnError)
 	fs.SetOutput(a.Stderr)
 	asJSON := fs.Bool("json", false, "print the version as JSON")
 	if err := fs.Parse(args); err != nil {

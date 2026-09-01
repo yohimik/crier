@@ -100,10 +100,18 @@ func NewFonts(o FontOptions) (*Fonts, error) {
 		database fc.Fontset
 		err      error
 	)
+	// bundled says the embedded faces have to be registered: always in
+	// hermetic mode, and also when the system scan produced nothing, so a
+	// machine whose fonts could not be read still renders words rather than
+	// blank boxes.
+	bundled := o.Hermetic
 	if !o.Hermetic {
 		database, err = systemFontset(o)
 		if err != nil {
 			return nil, err
+		}
+		if len(database) == 0 {
+			bundled = true
 		}
 	}
 	extra, err := scanDirs(o.Dirs, o.Logger)
@@ -116,7 +124,7 @@ func NewFonts(o FontOptions) (*Fonts, error) {
 	cfg := text.NewFontConfigurationPango(fontmap)
 
 	out := &Fonts{Config: cfg, Fetcher: wrapFetcher(fetcher)}
-	if o.Hermetic {
+	if bundled {
 		out.ExtraCSS = hermeticCSS
 	}
 	return out, nil
@@ -124,7 +132,33 @@ func NewFonts(o FontOptions) (*Fonts, error) {
 
 // systemFontset scans the machine's fonts, using a cache so only the first run
 // pays for the walk.
+//
+// The scan is wrapped in a recover, which is not a thing to do lightly. The
+// reason is that the font parser underneath panics rather than returning an
+// error on a font file it cannot make sense of — a nil dereference inside
+// LoadSummary, reached from a directory walk — and one such file anywhere on a
+// machine would otherwise take the whole program down while rendering
+// something that never needed that font. A crash is turned into a warning and
+// the bundled faces, which is a worse picture but a picture.
 func systemFontset(o FontOptions) (fc.Fontset, error) {
+	return safeScan(o.Logger, func() (fc.Fontset, error) { return scanSystemFonts(o) })
+}
+
+// safeScan runs a font scan, turning a panic into an empty fontset.
+func safeScan(log zerolog.Logger, scan func() (fc.Fontset, error)) (set fc.Fontset, err error) {
+	defer func() {
+		if r := recover(); r != nil {
+			log.Warn().Interface("panic", r).
+				Msg("the system font scan crashed on a font file; continuing with the bundled fonts only")
+			set, err = nil, nil
+		}
+	}()
+	return scan()
+}
+
+// scanSystemFonts is systemFontset without the recover, so the recover has
+// something to wrap.
+func scanSystemFonts(o FontOptions) (fc.Fontset, error) {
 	cacheDir := o.CacheDir
 	if cacheDir == "" {
 		base, err := os.UserCacheDir()

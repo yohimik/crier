@@ -73,6 +73,6 @@ features are used, and both checked before crier does any work.
 ## Verifying
 
 ```sh
-crier version
+crier --version
 crier platforms      # what is configured, and what is missing
 ```

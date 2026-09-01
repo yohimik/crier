@@ -276,7 +276,7 @@ case ":${PATH}:" in
 		FOUND=$(command -v crier 2>/dev/null || true)
 		if [ -n "$FOUND" ] && [ "$FOUND" != "$TARGET" ]; then
 			log "warning: ${FOUND} comes earlier on PATH and shadows ${TARGET}."
-			log "  \`crier version\` will keep answering with the old binary; remove it or reorder PATH:"
+			log "  \`crier --version\` will keep answering with the old binary; remove it or reorder PATH:"
 			log "  rm \"${FOUND}\"    # or move ${BIN_DIR} ahead in ${PROFILE}"
 		fi
 	fi

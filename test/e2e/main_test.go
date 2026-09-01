@@ -22,8 +22,23 @@ import (
 	"time"
 )
 
-// crierBin is the binary under test, built once by TestMain.
+// crierBin is the binary under test, built once by TestMain — or, when
+// binaryEnv names one, the prebuilt binary itself.
 var crierBin string
+
+// binaryEnv points the suite at a binary that already exists instead of
+// building one.
+//
+// It is what lets the release build run these tests against the exact bytes it
+// is about to upload. A binary that only compiled has been proven to compile;
+// running the suite against the artifact itself is what proves the artifact
+// works.
+const binaryEnv = "CRIER_E2E_BINARY"
+
+// smokeSubset is the -run pattern the release build uses. Every test named
+// TestSmoke... is in it, and the set is deliberately small: a render, the
+// configuration precedence, the publish fan-out, and the version stamp.
+const smokeSubset = "^TestSmoke"
 
 // coverDir collects the coverage the subprocesses produce, so a black-box run
 // counts towards the same profile the unit tests do.
@@ -60,6 +75,23 @@ func run(m *testing.M) (int, error) {
 		return 1, err
 	}
 	defer func() { _ = os.RemoveAll(work) }()
+
+	if prebuilt := os.Getenv(binaryEnv); prebuilt != "" {
+		// A released binary is not instrumented, so there is no coverage to
+		// collect and GOCOVERDIR must not be set: an uninstrumented binary
+		// with GOCOVERDIR set writes nothing, and a stale directory would be
+		// merged into the profile as if it had.
+		abs, err := filepath.Abs(prebuilt)
+		if err != nil {
+			return 1, err
+		}
+		if _, err := os.Stat(abs); err != nil {
+			return 1, fmt.Errorf("%s: %w", binaryEnv, err)
+		}
+		crierBin = abs
+		fmt.Fprintln(os.Stderr, "e2e: testing the prebuilt binary", abs)
+		return m.Run(), nil
+	}
 
 	crierBin = filepath.Join(work, "crier")
 	if runtime.GOOS == "windows" {
@@ -144,7 +176,11 @@ func crierCmd(t *testing.T, dir string, env []string, args ...string) *exec.Cmd 
 	// The helper environment is deliberately passed through: when crier spawns
 	// a tunnel or an ffmpeg it inherits this environment, and that is what
 	// turns this same binary into the helper.
-	cmd.Env = append(os.Environ(), append([]string{"GOCOVERDIR=" + coverDir}, env...)...)
+	extra := env
+	if coverDir != "" {
+		extra = append([]string{"GOCOVERDIR=" + coverDir}, env...)
+	}
+	cmd.Env = append(os.Environ(), extra...)
 	return cmd
 }
 

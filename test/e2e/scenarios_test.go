@@ -87,7 +87,10 @@ func decodeImage(t *testing.T, path string) (image.Config, string) {
 
 // --- render ----------------------------------------------------------------
 
-func TestRenderProducesAPNG(t *testing.T) {
+// TestSmokeRenderProducesAPNG is in the release smoke subset: it is the
+// shortest path through the whole program — configuration, template, layout,
+// rasteriser, encoder.
+func TestSmokeRenderProducesAPNG(t *testing.T) {
 	dir := newProject(t, "")
 	out := filepath.Join(dir, "out.png")
 	res := crier(t, dir, nil, "render", "--render-output", out)
@@ -286,7 +289,10 @@ func TestEnvironmentOverridesTheFile(t *testing.T) {
 	}
 }
 
-func TestFlagsOverrideTheEnvironment(t *testing.T) {
+// TestSmokeFlagsOverrideTheEnvironment is in the release smoke subset: it is
+// the precedence rule, and it exercises all three layers at once — the file
+// sets the width, the environment overrides it, and the flag overrides that.
+func TestSmokeFlagsOverrideTheEnvironment(t *testing.T) {
 	dir := newProject(t, "")
 	out := filepath.Join(dir, "out.png")
 	res := crier(t, dir, []string{"CRIER_RENDER_WIDTH=333"},
@@ -402,7 +408,10 @@ func enableAll(f *fakes, extra string) string {
 	return strings.Join(out, "\n") + extra
 }
 
-func TestPublishToEveryPlatform(t *testing.T) {
+// TestSmokePublishToEveryPlatform is in the release smoke subset: nine
+// publishers fanned out against fakes, which is the one test that touches
+// every platform's request shape.
+func TestSmokePublishToEveryPlatform(t *testing.T) {
 	f := newFakes(t)
 	dir := newProject(t, enableAll(f, "\n  caption: \"{{ .title }} {{ .version }} via {{ .Platform }}\"\n")+
 		"\nstage:\n  mode: url\n  url: "+f.URL+"/staged/image.jpg\n")
@@ -965,6 +974,104 @@ func TestVideoWithoutFFmpegIsARenderError(t *testing.T) {
 	}
 }
 
+// --- init ------------------------------------------------------------------
+
+// TestInitThenPublish is the first five minutes with crier, end to end: run
+// init, write the two files it names, and the bare command works. If that path
+// breaks, nobody gets as far as the rest of the program.
+func TestInitThenPublish(t *testing.T) {
+	f := newFakes(t)
+	dir := t.TempDir()
+
+	res := crier(t, dir, nil, "init")
+	if res.Code != exitOK {
+		t.Fatalf("init: code=%d stderr=%s", res.Code, res.Stderr)
+	}
+	path := filepath.Join(dir, "crier.yaml")
+	// Compared by suffix: on macOS the temporary directory is reached through
+	// a symlink, and the absolute path init prints is the resolved one.
+	if !strings.HasSuffix(strings.TrimSpace(res.Stdout), filepath.Join("001", "crier.yaml")) &&
+		strings.TrimSpace(res.Stdout) != path {
+		t.Fatalf("init stdout = %q, want an absolute path ending in crier.yaml", res.Stdout)
+	}
+
+	// The two files the starter names, at the names it chose. Nothing here
+	// edits the generated config beyond enabling a platform, which is the
+	// point: the starter's own defaults have to be workable.
+	writeFile(t, dir, "template.html", baseTemplate)
+	writeFile(t, dir, "data.yaml", "title: from the starter\n")
+
+	body, err := os.ReadFile(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	cfg := strings.ReplaceAll(string(body), "enabled: false", "enabled: true")
+	cfg = strings.ReplaceAll(cfg, "@your_channel", "-100123")
+	writeFile(t, dir, "crier.yaml", cfg+
+		"\n    api-base-url: "+f.URL+"/telegram\n    token: test-token\n")
+
+	// Bare crier, in the directory init was run in: no arguments, no flags.
+	res = crier(t, dir, []string{"CRIER_LOG_LEVEL=debug"}, "--dry-run")
+	if res.Code != exitOK {
+		t.Fatalf("dry run: code=%d stderr=%s", res.Code, res.Stderr)
+	}
+	if len(f.all()) != 0 {
+		t.Errorf("a dry run made %d requests", len(f.all()))
+	}
+
+	res = crier(t, dir, nil)
+	if res.Code != exitOK {
+		t.Fatalf("publish: code=%d stderr=%s", res.Code, res.Stderr)
+	}
+	if _, ok := f.find("/sendPhoto"); !ok {
+		t.Error("nothing reached telegram")
+	}
+}
+
+// TestInitFullLoadsBack checks the embedded generator against the loader from
+// the outside: --full writes every key, and crier reads its own output.
+func TestInitFullLoadsBack(t *testing.T) {
+	for _, format := range []string{"yaml", "json", "toml"} {
+		dir := t.TempDir()
+		if res := crier(t, dir, nil, "init", "--full", "--format", format); res.Code != exitOK {
+			t.Fatalf("%s: code=%d stderr=%s", format, res.Code, res.Stderr)
+		}
+		// --all, because config prints what differs from the defaults and
+		// --full writes exactly the defaults: the empty diff is itself the
+		// check that the generator round-trips.
+		res := crier(t, dir, nil, "config", "--json", "--all")
+		if res.Code != exitOK {
+			t.Fatalf("%s: config code=%d stderr=%s", format, res.Code, res.Stderr)
+		}
+		var got struct {
+			File   string         `json:"file"`
+			Values map[string]any `json:"values"`
+		}
+		if err := json.Unmarshal([]byte(res.Stdout), &got); err != nil {
+			t.Fatalf("%s: %v", format, err)
+		}
+		if !strings.HasSuffix(got.File, "crier."+format) {
+			t.Errorf("%s: the config it found is %q", format, got.File)
+		}
+		if got.Values["render.width"] == nil {
+			t.Errorf("%s: nothing came back: %v", format, got.Values)
+		}
+		if got.Values["publish.telegram.token"] != "********" {
+			t.Errorf("%s: the placeholder secret was not redacted", format)
+		}
+	}
+
+	// The file init refuses to clobber.
+	dir := t.TempDir()
+	if res := crier(t, dir, nil, "init"); res.Code != exitOK {
+		t.Fatal(res.Stderr)
+	}
+	res := crier(t, dir, nil, "init")
+	if res.Code != exitConfig || !strings.Contains(res.Stderr, "--force") {
+		t.Errorf("second init: code=%d stderr=%s", res.Code, res.Stderr)
+	}
+}
+
 // --- misc ------------------------------------------------------------------
 
 func TestPlatformsCommand(t *testing.T) {
@@ -983,10 +1090,35 @@ func TestPlatformsCommand(t *testing.T) {
 	}
 }
 
-func TestVersionCommand(t *testing.T) {
-	res := crier(t, t.TempDir(), nil, "version")
+// TestSmokeVersionFlag is in the release smoke subset, where it is the check
+// that the ldflags stamping actually took: a release binary reporting the
+// zero version built fine and is still wrong.
+func TestSmokeVersionFlag(t *testing.T) {
+	res := crier(t, t.TempDir(), nil, "--version")
 	if res.Code != exitOK || !strings.Contains(res.Stdout, "crier") {
-		t.Errorf("code=%d stdout=%q", res.Code, res.Stdout)
+		t.Fatalf("code=%d stdout=%q", res.Code, res.Stdout)
+	}
+	for _, want := range []string{"commit ", "built ", "go1."} {
+		if !strings.Contains(res.Stdout, want) {
+			t.Errorf("the version line has no %q: %q", want, res.Stdout)
+		}
+	}
+
+	res = crier(t, t.TempDir(), nil, "--version", "--json")
+	if res.Code != exitOK {
+		t.Fatalf("--version --json: code=%d stderr=%s", res.Code, res.Stderr)
+	}
+	var info map[string]any
+	if err := json.Unmarshal([]byte(res.Stdout), &info); err != nil {
+		t.Fatalf("not json: %v\n%s", err, res.Stdout)
+	}
+	if info["version"] == nil || info["goVersion"] == nil {
+		t.Errorf("version json = %v", info)
+	}
+
+	// The subcommand spelling is gone.
+	if res := crier(t, t.TempDir(), nil, "version"); res.Code != exitUsage {
+		t.Errorf("`crier version` = %d, want a usage error now that it is a flag", res.Code)
 	}
 }
 

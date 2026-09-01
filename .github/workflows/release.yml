@@ -105,4 +105,4 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: dispat install yohimik/crier --asset 'crier-{os}-{arch}'
       - name: It runs
-        run: crier version
+        run: crier --version

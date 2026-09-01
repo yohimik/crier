@@ -85,7 +85,10 @@ More ways, and what each does: [installing](./docs/operations/install.md).
 
 ```sh
 mkdir promo && cd promo
+crier init          # writes a commented crier.yaml to edit
 ```
+
+`crier init` names a template and a data file. Write them:
 
 `template.html`:
 
@@ -114,7 +117,7 @@ title: crier ships v1
 subtitle: One template, nine platforms, one command.
 ```
 
-`crier.yaml`:
+Then fill in `crier.yaml`, which `init` already wrote:
 
 ```yaml
 render:
@@ -139,7 +142,8 @@ crier --dry-run                          # what would be sent, no network
 ```
 
 Every option with its default is in
-[`crier.example.yaml`](./crier.example.yaml) — all options at a glance.
+[`crier.example.yaml`](./crier.example.yaml) — all options at a glance, and
+`crier init --full` writes the same thing into your own directory.
 
 ## Examples
 
@@ -167,10 +171,12 @@ The fonts the examples bundle are OFL-licensed and live in
 | `crier render` | render the template and write the file |
 | `crier platforms` | which platforms are enabled, and which are configured |
 | `crier config` | the resolved configuration, secrets redacted |
-| `crier version` | the version |
+| `crier init` | write a configuration file to start from (`--full` for every option) |
+| `crier --version` | the version, the commit and the build date |
 
 `crier publish` spells the default out; `crier --dry-run` and every other flag
-work without it.
+work without it. The full list, and the dispatch rule, is in
+[the command line](./docs/operations/cli.md).
 
 Results go to standard output, logs to standard error, and the
 [exit code](./docs/operations/exit-codes.md) says what happened.

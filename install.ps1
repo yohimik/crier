@@ -156,7 +156,7 @@ if (($env:PATH -split ';') -notcontains $BinDir) {
     $found = (Get-Command crier -ErrorAction SilentlyContinue).Source
     if ($found -and $found -ne $target) {
         Write-Information "warning: $found comes earlier on PATH and shadows $target." -InformationAction Continue
-        Write-Information "  ``crier version`` will keep answering with the old binary; remove it or reorder PATH." -InformationAction Continue
+        Write-Information "  ``crier --version`` will keep answering with the old binary; remove it or reorder PATH." -InformationAction Continue
     }
 }
 

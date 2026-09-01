@@ -159,7 +159,13 @@ func TestDispatch(t *testing.T) {
 		{[]string{"-h"}, "help", []string{}},
 		{[]string{"--help"}, "help", []string{}},
 		{[]string{"render", "--json"}, "render", []string{"--json"}},
+		{[]string{"init", "--full"}, "init", []string{"--full"}},
 		{[]string{"nonsense"}, "nonsense", []string{}},
+		// --version is special-cased ahead of the leading-flag rule, which
+		// would otherwise hand it to publish as a flag publish never declared.
+		{[]string{"--version"}, "--version", []string{}},
+		{[]string{"--version", "--json"}, "--version", []string{"--json"}},
+		{[]string{"-version"}, "--version", []string{}},
 	} {
 		name, rest := a.dispatch(tt.args)
 		if name != tt.wantName {
@@ -190,13 +196,23 @@ func TestHelpIsOK(t *testing.T) {
 	}
 }
 
+// TestVersion covers the global flag. It is a flag rather than a subcommand
+// because that is what people type, and because dispat spells it the same way
+// — but a leading dash otherwise routes to publish, so the special case ahead
+// of that rule is the thing worth a test.
 func TestVersion(t *testing.T) {
-	code, stdout, _ := run(t, t.TempDir(), []string{}, "version")
+	code, stdout, _ := run(t, t.TempDir(), []string{}, "--version")
 	if code != ExitOK || !strings.Contains(stdout, "crier") {
 		t.Errorf("code=%d stdout=%q", code, stdout)
 	}
 
-	code, stdout, _ = run(t, t.TempDir(), []string{}, "version", "--json")
+	// An empty directory: --version must not need a configuration, and must
+	// not be swallowed by the default publish command.
+	if !strings.Contains(stdout, "go1.") {
+		t.Errorf("the version line should carry the Go version: %q", stdout)
+	}
+
+	code, stdout, _ = run(t, t.TempDir(), []string{}, "--version", "--json")
 	if code != ExitOK {
 		t.Fatalf("code = %d", code)
 	}
@@ -206,6 +222,12 @@ func TestVersion(t *testing.T) {
 	}
 	if info["goVersion"] == nil {
 		t.Errorf("version json = %v", info)
+	}
+
+	// The old spelling is gone, and has to fail as an unknown command rather
+	// than quietly printing something.
+	if code, _, _ := run(t, t.TempDir(), []string{}, "version"); code != ExitUsage {
+		t.Errorf("`crier version` = %d, want a usage error now that it is a flag", code)
 	}
 }
 
