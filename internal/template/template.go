@@ -299,12 +299,17 @@ func LoadData(path string, stdin io.Reader, environ []string) (any, error) {
 		return nil, nil
 	}
 
+	// A .json file gets a JSON parse for its error messages — a YAML error
+	// about a JSON file names the wrong grammar — but the value the template
+	// sees comes from the YAML decode either way. encoding/json turns every
+	// number into float64 while YAML keeps integers whole, so the same
+	// document would type-check differently by the path it arrived on:
+	// `gt .count 0` working from stdin and failing from count.json.
 	if strings.EqualFold(filepath.Ext(path), ".json") {
-		var out any
-		if err := json.Unmarshal(raw, &out); err != nil {
+		var probe any
+		if err := json.Unmarshal(raw, &probe); err != nil {
 			return nil, fmt.Errorf("parsing %s: %w", path, err)
 		}
-		return out, nil
 	}
 
 	var out any
