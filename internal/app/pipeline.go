@@ -320,6 +320,25 @@ func (p *Pipeline) Render(ctx context.Context, v Variant, data any, formats []co
 	return out, nil
 }
 
+// PosterFor produces the still that goes alongside a clip crier was handed.
+//
+// A rendered clip has a frame 0 to encode; one taken from disk does not, so
+// the frame is pulled out of the file. Reddit is the only platform that
+// insists on a poster, and refusing the whole combination for want of one
+// frame would be a poor answer when ffmpeg is right there.
+func (p *Pipeline) PosterFor(ctx context.Context, clip render.Artifact) (*render.Artifact, error) {
+	art, err := render.ExtractPoster(ctx, render.PosterOptions{
+		Input:  clip.Path,
+		Output: filepath.Join(p.dir, "input-poster.jpg"),
+		Bin:    p.cfg.Render.Video.FFmpegBin,
+		Logger: p.log,
+	})
+	if err != nil {
+		return nil, fail(ExitRender, err)
+	}
+	return &art, nil
+}
+
 // fromInput publishes a file that already exists.
 //
 // The only work is transcoding: a PNG aimed at Instagram has to become a JPEG,

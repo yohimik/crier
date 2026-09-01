@@ -11,7 +11,10 @@
 package e2e
 
 import (
+	"bytes"
 	"fmt"
+	"image"
+	"image/jpeg"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -137,6 +140,13 @@ func helperMain(mode string) {
 		}
 		fmt.Fprintf(os.Stdout, "tunnel ready url=%s\n", os.Getenv(helperURLEnv))
 		time.Sleep(2 * time.Minute)
+	case "ffmpeg-poster":
+		// Extracting a poster reads a file rather than a stream, so this
+		// helper writes the JPEG the caller asked for and reads nothing.
+		out := os.Args[len(os.Args)-1]
+		_, _ = copyAll(os.Stdin)
+		_ = os.WriteFile(out, jpegBytes(), 0o600)
+		fmt.Fprintln(os.Stderr, "fake ffmpeg wrote a poster")
 	case "ffmpeg":
 		// Read the raw frames, then write a file that stands in for the clip.
 		// A GIF gets the real magic bytes, so a test can assert that what
@@ -152,6 +162,14 @@ func helperMain(mode string) {
 		fmt.Fprintln(os.Stderr, "fake ffmpeg wrote", n, "bytes")
 	}
 	os.Exit(0)
+}
+
+// jpegBytes is a real one-pixel JPEG, so what the fake ffmpeg writes can be
+// decoded by whatever reads it back.
+func jpegBytes() []byte {
+	var buf bytes.Buffer
+	_ = jpeg.Encode(&buf, image.NewRGBA(image.Rect(0, 0, 1, 1)), nil)
+	return buf.Bytes()
 }
 
 func copyAll(f *os.File) (int64, error) {

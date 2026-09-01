@@ -137,14 +137,55 @@ func (b *Builder) File(contentType, path string) *Builder {
 	b.header.Set("Content-Type", contentType)
 	b.length = st.Size()
 	open := func() (io.ReadCloser, error) { return os.Open(path) }
-	f, err := open()
-	if err != nil {
-		b.err = fmt.Errorf("reading request body: %w", err)
-		return b
-	}
-	b.body = f
-	b.getBody = func() (io.ReadCloser, error) { return open() }
+	// Opened on first read rather than here. A builder is not always sent: a
+	// later call may set an error, or Build may fail on the URL — and an
+	// eagerly opened file is then a descriptor nobody closes, once per attempt
+	// of every request that never left.
+	b.body = &lazyBody{open: open}
+	b.getBody = open
 	return b
+}
+
+// lazyBody defers acquiring a request body until something reads it.
+//
+// It is what keeps a builder cheap to abandon: File holds a file descriptor
+// and the streamed multipart body holds a pipe and a goroutine, and a request
+// that is never sent should hold neither.
+type lazyBody struct {
+	open   func() (io.ReadCloser, error)
+	rc     io.ReadCloser
+	err    error
+	closed bool
+}
+
+func (l *lazyBody) Read(p []byte) (int, error) {
+	if l.err != nil {
+		return 0, l.err
+	}
+	if l.closed {
+		return 0, os.ErrClosed
+	}
+	if l.rc == nil {
+		rc, err := l.open()
+		if err != nil {
+			l.err = err
+			return 0, err
+		}
+		l.rc = rc
+	}
+	return l.rc.Read(p)
+}
+
+func (l *lazyBody) Close() error {
+	l.closed = true
+	if l.rc == nil {
+		// Never opened, so there is nothing to release — which is the whole
+		// point of opening late.
+		return nil
+	}
+	rc := l.rc
+	l.rc = nil
+	return rc.Close()
 }
 
 // Part is one piece of a multipart body: either a plain field, or a file whose
@@ -255,14 +296,11 @@ func (b *Builder) multipartStreamed(parts []Part) *Builder {
 		}()
 		return pr, nil
 	}
-	body, err := open()
-	if err != nil {
-		b.err = err
-		return b
-	}
 	b.header.Set("Content-Type", "multipart/form-data; boundary="+boundary)
 	b.length = -1
-	b.body = body
+	// The pipe and its writer goroutine start on the first read, so a request
+	// that is built and then discarded leaves neither behind.
+	b.body = &lazyBody{open: open}
 	b.getBody = open
 	return b
 }

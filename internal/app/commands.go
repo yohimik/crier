@@ -289,6 +289,17 @@ func (a App) runPublish(ctx context.Context, args []string) error {
 					describeKind(art.Kind), pub.Name())
 			}
 		}
+		// Reddit will not take a video without a poster image, and a clip
+		// handed to crier has no rendered frame 0 to use. ffmpeg can pull one
+		// out of the file; without ffmpeg the combination cannot work at all,
+		// and saying so now beats saying it after the upload.
+		if art.Kind == render.KindVideo && needsPosterFor(enabled) {
+			if err := render.CheckFFmpeg(cfg.Render.Video.FFmpegBin); err != nil {
+				return failf(ExitConfig,
+					"reddit will not take a video without a poster image, and one has to be "+
+						"extracted from %s: %v", cfg.Publish.Input, err)
+			}
+		}
 	}
 
 	// A platform that can only be given a URL, with nothing configured to
@@ -335,11 +346,23 @@ func (a App) runPublish(ctx context.Context, args []string) error {
 				!render.IsGIF(cfg.Render.Video.Format) {
 				needsPoster = true
 			}
+			if name == "reddit" && mode == ModePublishInput {
+				needsPoster = true
+			}
 		}
 
 		arts, err := p.Render(ctx, v, data, FormatsFor(cfg, group))
 		if err != nil {
 			return err
+		}
+		// A clip crier was handed has no rendered frame to serve as a poster,
+		// so one is taken out of the file for the platform that insists.
+		if needsPoster && arts.Poster == nil && arts.Video != nil && arts.Video.Kind == render.KindVideo {
+			poster, err := p.PosterFor(ctx, *arts.Video)
+			if err != nil {
+				return err
+			}
+			arts.Poster = poster
 		}
 		if !cfg.Publish.DryRun {
 			if err := p.Stage(ctx, stager, &arts, needsURL, needsPoster); err != nil {
@@ -414,6 +437,17 @@ func (a App) stager(cfg *config.Config, s *setup, p *Pipeline) (stage.Stager, er
 	}
 	p.onCleanup(st.Close)
 	return st, nil
+}
+
+// needsPosterFor reports whether any enabled platform insists on a poster
+// image alongside a video.
+func needsPosterFor(enabled []string) bool {
+	for _, name := range enabled {
+		if name == "reddit" {
+			return true
+		}
+	}
+	return false
 }
 
 // describeKind names an artifact kind the way a sentence wants it.

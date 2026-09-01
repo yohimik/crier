@@ -1505,6 +1505,67 @@ func TestPublishOnlyWithAVideo(t *testing.T) {
 	}
 }
 
+// TestPublishOnlyVideoToReddit is the awkward combination: Reddit will not take
+// a video without a poster image, and a clip crier was handed has no rendered
+// frame to use. With ffmpeg the frame is pulled out of the file; without it,
+// the run is refused before anything is uploaded rather than failing at the
+// API.
+func TestPublishOnlyVideoToReddit(t *testing.T) {
+	f := newFakes(t)
+	dir := t.TempDir()
+	if err := os.WriteFile(filepath.Join(dir, "clip.mp4"),
+		append([]byte{0, 0, 0, 0x18}, "ftypmp42\x00\x00\x00\x00moov"...), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	config := strings.Join([]string{
+		"log:",
+		"  level: debug",
+		"render:",
+		"  video:",
+		"    ffmpeg-bin: %s",
+		"publish:",
+		"  input: clip.mp4",
+		"  reddit:",
+		"    enabled: true",
+		"    api-base-url: " + f.URL + "/reddit",
+		"    auth-base-url: " + f.URL + "/reddit-auth",
+		"    client-id: cid",
+		"    client-secret: csec",
+		"    username: crierbot",
+		"    password: pw",
+		"    subreddit: crier",
+		"    title: a clip",
+		"    poll-interval: 1ms",
+		"    poll-timeout: 200ms",
+	}, "\n")
+
+	// Without ffmpeg: refused upfront, naming what cannot be done.
+	writeFile(t, dir, "crier.yaml", fmt.Sprintf(config, "crier-no-such-ffmpeg"))
+	res := crier(t, dir, nil, "publish")
+	if res.Code != exitConfig {
+		t.Fatalf("code=%d stderr=%s", res.Code, res.Stderr)
+	}
+	if !strings.Contains(res.Stderr, "poster") || !strings.Contains(res.Stderr, "reddit") {
+		t.Errorf("the refusal should say what is missing and for whom: %s", res.Stderr)
+	}
+	if len(f.all()) != 0 {
+		t.Errorf("it made %d requests before refusing", len(f.all()))
+	}
+
+	// With ffmpeg: the poster is extracted and the post goes out.
+	writeFile(t, dir, "crier.yaml", fmt.Sprintf(config, selfPath(t)))
+	res = crier(t, dir, []string{helperEnv + "=ffmpeg-poster"}, "publish")
+	if res.Code != exitOK {
+		t.Fatalf("with ffmpeg: code=%d stderr=%s", res.Code, res.Stderr)
+	}
+	if !strings.Contains(res.Stderr, "extracted a poster frame") {
+		t.Errorf("no poster was extracted: %s", res.Stderr)
+	}
+	if _, ok := f.find("/reddit/api/submit"); !ok {
+		t.Error("nothing was submitted")
+	}
+}
+
 // TestEncodeOnlyFromFrames is entry mode 4: frames made anywhere else become a
 // crier post through the same ffmpeg pipeline.
 func TestEncodeOnlyFromFrames(t *testing.T) {

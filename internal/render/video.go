@@ -7,11 +7,13 @@ import (
 	"image"
 	"image/color"
 	"os"
+	"path/filepath"
 	"strconv"
 	"strings"
 	"time"
 
 	"github.com/rs/zerolog"
+	"github.com/yohimik/crier/internal/config"
 	"github.com/yohimik/crier/internal/procutil"
 	"github.com/yohimik/crier/internal/raster"
 )
@@ -153,6 +155,80 @@ func EncodeVideo(ctx context.Context, o VideoOptions, frame FrameFunc) (Artifact
 		Width:       o.Width,
 		Height:      o.Height,
 	}, nil
+}
+
+// PosterOptions describes extracting a still from a clip.
+type PosterOptions struct {
+	// Input is the clip to read.
+	Input string
+	// Output is the JPEG to write.
+	Output string
+	// Bin is the ffmpeg executable.
+	Bin string
+	// Env replaces ffmpeg's environment when non-nil.
+	Env    []string
+	Logger zerolog.Logger
+}
+
+// ExtractPoster pulls the first frame out of a clip.
+//
+// Reddit will not take a video without a poster image, and a clip crier was
+// handed rather than made has no frame 0 lying around to encode. Rather than
+// refuse the combination, the frame is taken out of the file — which is a
+// thing ffmpeg does in milliseconds and nobody should have to do by hand.
+func ExtractPoster(ctx context.Context, o PosterOptions) (Artifact, error) {
+	if err := CheckFFmpeg(o.Bin); err != nil {
+		return Artifact{}, err
+	}
+	bin := o.Bin
+	if bin == "" {
+		bin = "ffmpeg"
+	}
+	args := []string{
+		"-hide_banner", "-loglevel", "error", "-nostdin", "-y",
+		"-i", o.Input,
+		"-frames:v", "1",
+		"-f", "image2",
+		o.Output,
+	}
+	proc, err := procutil.Start(ctx, procutil.Options{
+		Name: "ffmpeg", Bin: bin, Args: args, Env: o.Env, Logger: o.Logger,
+	})
+	if err != nil {
+		return Artifact{}, err
+	}
+	if err := proc.Wait(); err != nil {
+		return Artifact{}, fmt.Errorf("extracting a poster frame from %s: %w\n%s",
+			filepath.Base(o.Input), err, proc.Tail())
+	}
+	st, err := os.Stat(o.Output)
+	if err != nil {
+		return Artifact{}, fmt.Errorf("ffmpeg produced no poster frame: %w", err)
+	}
+	art := Artifact{
+		Kind:        KindImage,
+		Format:      config.JPEG,
+		ContentType: config.JPEG.ContentType(),
+		Path:        o.Output,
+		Size:        st.Size(),
+	}
+	if cfg, err := imageConfigOf(o.Output); err == nil {
+		art.Width, art.Height = cfg.Width, cfg.Height
+	}
+	o.Logger.Debug().Str("poster", o.Output).Int64("bytes", art.Size).
+		Msg("extracted a poster frame from the clip")
+	return art, nil
+}
+
+// imageConfigOf reads a file's dimensions without decoding it.
+func imageConfigOf(path string) (image.Config, error) {
+	f, err := os.Open(path)
+	if err != nil {
+		return image.Config{}, err
+	}
+	defer func() { _ = f.Close() }()
+	cfg, _, err := image.DecodeConfig(f)
+	return cfg, err
 }
 
 // IsGIF reports whether a render.video.format names an animation.

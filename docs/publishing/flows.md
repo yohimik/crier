@@ -76,6 +76,11 @@ satisfy a format preference would be a surprising thing for a publish command
 to do, so a platform that cannot take the clip's kind is a configuration error
 found before anything is uploaded.
 
+**Reddit needs a poster.** A rendered clip has a frame 0 to encode; one taken
+from disk does not, so crier pulls the first frame out of the file with ffmpeg.
+Without ffmpeg on `PATH` the combination is refused before anything is
+uploaded, naming the platform and the file.
+
 Per-platform overlays and sizes do not apply: they are instructions to the
 renderer, and there is nothing to render. Every platform gets the one file.
 
