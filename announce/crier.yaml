@@ -30,12 +30,14 @@ publish:
   # a release running on a runner needs a tunnel. announce.sh sets stage.mode
   # and the tunnel; CRIER_STAGE_* overrides point it somewhere else.
   caption: >-
-    crier v{{ .version }} is out.
+    THIS IS RENDERED AND POSTED FROM GITHUB ACTIONS: crier v{{ .version }} is out.
 
     Render an HTML template to an image or a video and publish it to ten social
     platforms with one command.
 
     {{ range .install }}{{ if eq .label "curl" }}{{ .command }}{{ end }}{{ end }}
+    
+    github.com/yohimik/crier
 
     #golang #opensource #devtools #staticsite #automation
 
