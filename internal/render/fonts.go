@@ -133,19 +133,17 @@ func NewFonts(o FontOptions) (*Fonts, error) {
 // systemFontset scans the machine's fonts, using a cache so only the first run
 // pays for the walk.
 //
-// The scan is wrapped in a recover, which is not a thing to do lightly. The
-// reason is that the font parser underneath panics rather than returning an
-// error on a font file it cannot make sense of — a nil dereference inside
-// LoadSummary, reached from a directory walk — and one such file anywhere on a
-// machine would otherwise take the whole program down while rendering
-// something that never needed that font. A crash is turned into a warning and
-// the bundled faces, which is a worse picture but a picture.
+// The outer recover is a last-resort net, not the strategy. The strategy is in
+// scanFontFiles, which scans one file at a time so that a font the parser
+// crashes on costs that font rather than every font on the machine. This
+// catches whatever a per-file recover could not: a crash in the directory walk
+// itself, or in the cache.
 func systemFontset(o FontOptions) (fc.Fontset, error) {
 	return safeScan(o.Logger, func() (fc.Fontset, error) { return scanSystemFonts(o) })
 }
 
-// safeScan runs a font scan, turning both a panic and a failure into an empty
-// fontset.
+// safeScan is the last-resort net around the whole scan, turning both a panic
+// and a failure into an empty fontset.
 //
 // A failure is swallowed for the same reason a panic is: the machine's fonts
 // are not crier's to control, and a machine with none — a scratch container, a
@@ -159,7 +157,7 @@ func safeScan(log zerolog.Logger, scan func() (fc.Fontset, error)) (set fc.Fonts
 	defer func() {
 		if r := recover(); r != nil {
 			log.Warn().Interface("panic", r).
-				Msg("the system font scan crashed on a font file; continuing with the bundled fonts only")
+				Msg("the system font scan crashed outside any single file; continuing with the bundled fonts only")
 			set, err = nil, nil
 		}
 	}()
@@ -175,6 +173,12 @@ func safeScan(log zerolog.Logger, scan func() (fc.Fontset, error)) (set fc.Fonts
 // scanSystemFonts is systemFontset without the recover, so the recover has
 // something to wrap.
 func scanSystemFonts(o FontOptions) (fc.Fontset, error) {
+	// fontconfig reports a missing font directory with a bare log.Println, and
+	// crier's rule is that everything goes through zerolog. The capture is
+	// scoped to the scan, which is the only part of crier that provokes it.
+	restore := captureStdlib(o.Logger, "fontconfig", zerolog.DebugLevel)
+	defer restore()
+
 	cacheDir := o.CacheDir
 	if cacheDir == "" {
 		base, err := os.UserCacheDir()
@@ -183,41 +187,66 @@ func scanSystemFonts(o FontOptions) (fc.Fontset, error) {
 		}
 	}
 
-	var (
-		set fc.Fontset
-		err error
-	)
 	cacheFile := ""
 	if cacheDir != "" {
 		cacheFile = filepath.Join(cacheDir, "fonts.cache")
-		if set, err = fc.LoadFontsetFile(cacheFile); err == nil {
+		if set, err := fc.LoadFontsetFile(cacheFile); err == nil && len(set) > 0 {
 			o.Logger.Debug().Str("cache", cacheFile).Int("fonts", len(set)).Msg("loaded the font cache")
-		} else {
-			set = nil
+			return set, nil
 		}
-	}
-	if set == nil {
-		if cacheDir != "" {
-			if mkErr := os.MkdirAll(cacheDir, 0o755); mkErr != nil {
-				cacheFile = ""
-			}
+		if mkErr := os.MkdirAll(cacheDir, 0o755); mkErr != nil {
+			cacheFile = ""
 		}
-		o.Logger.Debug().Msg("scanning system fonts; the first run is the slow one")
-		if cacheFile != "" {
-			set, err = fc.ScanAndCache(cacheFile)
-		} else {
-			var dirs []string
-			if dirs, err = fc.DefaultFontDirs(); err == nil {
-				set, err = fc.Standard.ScanFontDirectories(dirs...)
-			}
-		}
-		if err != nil {
-			return nil, fmt.Errorf("scanning system fonts: %w", err)
-		}
-		o.Logger.Debug().Int("fonts", len(set)).Msg("scanned system fonts")
 	}
 
+	o.Logger.Debug().Msg("scanning system fonts; the first run is the slow one")
+	dirs, err := fc.DefaultFontDirs()
+	if err != nil {
+		return nil, fmt.Errorf("scanning system fonts: %w", err)
+	}
+
+	set, stats := scanFontFiles(fc.Standard.Copy(), dirs, o.Logger)
+	stats.report(o.Logger)
+	if len(set) == 0 {
+		return nil, fmt.Errorf("scanning system fonts: none of the %d files under %s could be read",
+			stats.Files, strings.Join(dirs, ", "))
+	}
+	if cacheFile != "" && stats.cacheable() {
+		writeFontCache(cacheFile, set, o.Logger)
+	}
 	return set, nil
+}
+
+// writeFontCache saves the scan so the next run is instant.
+//
+// It is written to a temporary file and renamed, so a crash halfway through
+// leaves the previous cache rather than a truncated one that would be loaded
+// and believed. A cache that cannot be written is not an error: it costs the
+// next run a scan and nothing else.
+func writeFontCache(path string, set fc.Fontset, log zerolog.Logger) {
+	tmp, err := os.CreateTemp(filepath.Dir(path), "fonts.cache-*")
+	if err != nil {
+		log.Debug().Err(err).Str("cache", path).Msg("could not write the font cache")
+		return
+	}
+	name := tmp.Name()
+	if err := set.Serialize(tmp); err != nil {
+		_ = tmp.Close()
+		_ = os.Remove(name)
+		log.Debug().Err(err).Str("cache", path).Msg("could not write the font cache")
+		return
+	}
+	if err := tmp.Close(); err != nil {
+		_ = os.Remove(name)
+		log.Debug().Err(err).Str("cache", path).Msg("could not write the font cache")
+		return
+	}
+	if err := os.Rename(name, path); err != nil {
+		_ = os.Remove(name)
+		log.Debug().Err(err).Str("cache", path).Msg("could not write the font cache")
+		return
+	}
+	log.Debug().Str("cache", path).Int("fonts", len(set)).Msg("wrote the font cache")
 }
 
 // scanDirs reads the font directories the configuration named.
