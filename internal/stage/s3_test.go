@@ -26,6 +26,9 @@ type fakeS3 struct {
 	types   map[string]string
 	deleted []string
 	putFail int
+	// bucketMissing makes the bucket HEAD answer 404, which is how an object
+	// store says "no such bucket, or you cannot see it".
+	bucketMissing bool
 }
 
 func newFakeS3(t *testing.T) *fakeS3 {
@@ -49,8 +52,21 @@ func (f *fakeS3) serve(w http.ResponseWriter, r *http.Request) {
 	}
 	// Path-style addressing: the first element is the bucket.
 	key := strings.TrimPrefix(r.URL.Path, "/")
-	if _, rest, ok := strings.Cut(key, "/"); ok {
-		key = rest
+	bucketOnly := true
+	if _, rest, ok := strings.Cut(key, "/"); ok && rest != "" {
+		key, bucketOnly = rest, false
+	}
+	// A HEAD on the bucket itself is what BucketExists sends.
+	if bucketOnly && r.Method == http.MethodHead {
+		f.mu.Lock()
+		missing := f.bucketMissing
+		f.mu.Unlock()
+		if missing {
+			w.WriteHeader(http.StatusNotFound)
+			return
+		}
+		w.WriteHeader(http.StatusOK)
+		return
 	}
 
 	f.mu.Lock()
@@ -306,5 +322,42 @@ func TestS3KeyFallsBackToTheFileName(t *testing.T) {
 	key := s.key(a)
 	if !strings.HasSuffix(key, "-card.png") {
 		t.Errorf("key = %q", key)
+	}
+}
+
+// TestS3PingChecksTheBucket covers `crier ping`'s staging half.
+//
+// A bucket crier cannot reach fails a publish after the render, which is the
+// expensive half of the run — so it is worth a HEAD before anything is drawn.
+func TestS3PingChecksTheBucket(t *testing.T) {
+	f := newFakeS3(t)
+	s, err := NewS3(s3Config(f), testLogger(t))
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	what, err := s.Ping(context.Background())
+	if err != nil {
+		t.Fatalf("ping: %v", err)
+	}
+	if !strings.Contains(what, "media") {
+		t.Errorf("ping said %q, want the bucket named", what)
+	}
+
+	f.mu.Lock()
+	f.bucketMissing = true
+	f.mu.Unlock()
+	if _, err := s.Ping(context.Background()); err == nil {
+		t.Error("a missing bucket should fail the ping")
+	}
+}
+
+// TestPingerIsOptional checks the modes that hold no credentials do not
+// pretend to have been verified.
+func TestPingerIsOptional(t *testing.T) {
+	for _, st := range []Stager{None{}, NewURL("https://example.test/x.jpg")} {
+		if _, ok := st.(Pinger); ok {
+			t.Errorf("%s should not implement Pinger: it holds nothing to check", st.Name())
+		}
 	}
 }

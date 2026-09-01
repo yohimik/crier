@@ -87,4 +87,12 @@ error.
 The free tier is 100 queries per minute per client. crier's retry honours
 `Retry-After`.
 
+## Check it
+
+```sh
+crier ping
+```
+
+Nothing is posted: ping gets a token and calls `GET /api/v1/me`, which is where a two-factor account fails. See [the command line](../operations/cli.md#crier-ping).
+
 Configuration keys: [`publish.reddit.*`](../configuration/reference/publish-reddit.md).

@@ -49,7 +49,7 @@ reference.
 
 | Page | What it covers |
 | ---- | -------------- |
-| [The command line](./operations/cli.md) | Every command, the dispatch rule, and `crier init` |
+| [The command line](./operations/cli.md) | Every command, the dispatch rule, `crier init` and `crier ping` |
 | [Logging](./operations/logging.md) | Levels, formats, what goes where |
 | [Exit codes](./operations/exit-codes.md) | What each code means, and how to branch on it |
 | [Installing](./operations/install.md) | Every way to get the binary |

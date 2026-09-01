@@ -238,3 +238,33 @@ func (t *TikTok) await(ctx context.Context, publishID string) error {
 	}
 	return nil
 }
+
+// Ping asks TikTok for the creator the token belongs to.
+//
+// creator_info/query is the call the Content Posting API expects a client to
+// make before every post anyway — it returns the nickname and the privacy
+// options the account allows — so it is both the cheapest identity endpoint
+// and the one that proves the posting scope is actually granted.
+func (t *TikTok) Ping(ctx context.Context) (Identity, error) {
+	var out struct {
+		Data struct {
+			CreatorNickname string `json:"creator_nickname"`
+			CreatorUsername string `json:"creator_username"`
+		} `json:"data"`
+		Error tiktokError `json:"error"`
+	}
+	req := httpx.NewRequest(http.MethodPost, t.cfg.APIBaseURL, "v2/post/publish/creator_info/query/").
+		Bearer(t.cfg.Token).
+		Header("Content-Type", "application/json; charset=UTF-8")
+	if err := t.client.JSON(ctx, req, &out); err != nil {
+		return Identity{}, err
+	}
+	if !out.Error.ok() {
+		return Identity{}, out.Error.err()
+	}
+	name := out.Data.CreatorUsername
+	if name != "" {
+		name = "@" + name
+	}
+	return Identity{ID: out.Data.CreatorUsername, Name: firstNonEmpty(out.Data.CreatorNickname, name)}, nil
+}

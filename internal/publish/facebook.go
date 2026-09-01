@@ -161,3 +161,18 @@ func (f *Facebook) publishVideo(ctx context.Context, in Input) (Result, error) {
 	id := firstNonEmpty(out.PostID, out.ID)
 	return Result{ID: id, URL: "https://www.facebook.com/" + id, Extra: map[string]string{"videoId": out.ID}}, nil
 }
+
+// Ping reads the Page the token and page id point at.
+func (f *Facebook) Ping(ctx context.Context) (Identity, error) {
+	var out struct {
+		ID   string `json:"id"`
+		Name string `json:"name"`
+	}
+	req := httpx.NewRequest(http.MethodGet, f.cfg.APIBaseURL, f.cfg.PageID).
+		Query("fields", "id,name").
+		Query("access_token", f.cfg.Token)
+	if err := f.client.JSON(ctx, req, &out); err != nil {
+		return Identity{}, err
+	}
+	return Identity{ID: out.ID, Name: out.Name}, nil
+}

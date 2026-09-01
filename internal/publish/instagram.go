@@ -167,3 +167,26 @@ func (i *Instagram) await(ctx context.Context, containerID string) error {
 	}
 	return nil
 }
+
+// Ping reads the Instagram account the token and user id point at.
+//
+// The same call the publisher would make first, minus everything that writes:
+// a wrong user id and a wrong token fail here in the same way they would fail
+// halfway through a post.
+func (i *Instagram) Ping(ctx context.Context) (Identity, error) {
+	var out struct {
+		ID       string `json:"id"`
+		Username string `json:"username"`
+	}
+	req := httpx.NewRequest(http.MethodGet, i.cfg.APIBaseURL, i.cfg.UserID).
+		Query("fields", "id,username").
+		Query("access_token", i.cfg.Token)
+	if err := i.client.JSON(ctx, req, &out); err != nil {
+		return Identity{}, err
+	}
+	name := out.Username
+	if name != "" {
+		name = "@" + name
+	}
+	return Identity{ID: out.ID, Name: name}, nil
+}

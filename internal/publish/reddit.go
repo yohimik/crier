@@ -385,3 +385,28 @@ func (r *Reddit) findPermalink(ctx context.Context, token, title string) (link, 
 	}
 	return link, id
 }
+
+// Ping gets a token and reads the account it belongs to.
+//
+// The token grant is the half of a Reddit setup that goes wrong — a password
+// grant against an account with two-factor authentication, a client secret
+// from the wrong app — so getting one is most of the check. /api/v1/me then
+// confirms the token is good for a read and names the user.
+func (r *Reddit) Ping(ctx context.Context) (Identity, error) {
+	token, err := r.token(ctx)
+	if err != nil {
+		return Identity{}, err
+	}
+	var out struct {
+		ID   string `json:"id"`
+		Name string `json:"name"`
+	}
+	if err := r.client.JSON(ctx, r.authed(http.MethodGet, token, "api/v1/me"), &out); err != nil {
+		return Identity{}, err
+	}
+	id := Identity{ID: out.ID, Name: "u/" + out.Name}
+	if s := strings.TrimPrefix(r.cfg.Subreddit, "r/"); s != "" {
+		id.Note = "posting to r/" + s
+	}
+	return id, nil
+}

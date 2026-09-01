@@ -103,4 +103,15 @@ else.
 | [LinkedIn](./linkedin.md) | yes | no | yes | two mandatory headers |
 | [Reddit](./reddit.md) | yes | link mode | yes | descriptive User-Agent required |
 
+## Check a setup before you post
+
+```sh
+crier ping
+```
+
+Every enabled platform is asked who its credentials belong to, over a read-only
+endpoint, and nothing is posted. It is the way to find out a token is wrong
+that does not involve a real post on a real feed. See
+[the command line](../operations/cli.md#crier-ping).
+
 Configuration keys: [`publish.*`](../configuration/reference/publish.md).

@@ -48,4 +48,12 @@ TikTok answers `200 OK` with an error object inside. crier reads it and reports
 the code, the message and the log id — which is what their support will ask
 for.
 
+## Check it
+
+```sh
+crier ping
+```
+
+Nothing is posted: ping calls `creator_info/query/`, which is also the call the posting scope has to allow. See [the command line](../operations/cli.md#crier-ping).
+
 Configuration keys: [`publish.tiktok.*`](../configuration/reference/publish-tiktok.md).

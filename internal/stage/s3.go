@@ -168,3 +168,19 @@ func sanitiseName(name string) string {
 	}
 	return out
 }
+
+// Ping checks the bucket is there and the keys are accepted.
+//
+// A HEAD on the bucket is the cheapest call an object store offers, and it
+// fails for every reason an upload would: wrong endpoint, wrong keys, wrong
+// region, a bucket that does not exist.
+func (s *S3) Ping(ctx context.Context) (string, error) {
+	ok, err := s.client.BucketExists(ctx, s.cfg.Bucket)
+	if err != nil {
+		return "", fmt.Errorf("reaching s3://%s: %w", s.cfg.Bucket, err)
+	}
+	if !ok {
+		return "", fmt.Errorf("the bucket %q does not exist, or these credentials cannot see it", s.cfg.Bucket)
+	}
+	return fmt.Sprintf("bucket %s at %s", s.cfg.Bucket, s.client.EndpointURL().Host), nil
+}

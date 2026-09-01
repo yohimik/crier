@@ -137,6 +137,7 @@ publish:
 
 ```sh
 crier render                             # card.png
+CRIER_PUBLISH_TELEGRAM_TOKEN=… crier ping  # are the credentials right?
 CRIER_PUBLISH_TELEGRAM_TOKEN=… crier     # rendered and posted
 crier --dry-run                          # what would be sent, no network
 ```
@@ -169,6 +170,7 @@ The fonts the examples bundle are OFL-licensed and live in
 | --- | --- |
 | `crier` | render and post to every enabled platform — publishing is the default |
 | `crier render` | render the template and write the file |
+| `crier ping` | check every enabled platform's credentials, without posting |
 | `crier platforms` | which platforms are enabled, and which are configured |
 | `crier config` | the resolved configuration, secrets redacted |
 | `crier init` | write a configuration file to start from (`--full` for every option) |

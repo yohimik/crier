@@ -90,7 +90,46 @@ func (f *fakes) serve(w http.ResponseWriter, r *http.Request) {
 	req := f.record(r)
 	path := req.Path
 
+	// A token spelled "bad-token" is refused everywhere, which is how the
+	// one-bad-credential scenario is written without a second server.
+	if strings.Contains(req.Header.Get("Authorization"), "bad-token") || strings.Contains(path, "bad-token") {
+		w.WriteHeader(http.StatusUnauthorized)
+		writeJSON(w, map[string]any{"ok": false, "description": "Unauthorized", "error": "invalid_grant"})
+		return
+	}
+
 	switch {
+	// --- identity, for crier ping ---------------------------------------
+	//
+	// One read-only endpoint per platform, which is the whole of what ping
+	// touches. They come first so a prefix meant for the publish flow cannot
+	// swallow one of them — /tiktok/v2/post/publish/ would otherwise claim
+	// creator_info/query/.
+	case strings.HasSuffix(path, "/getMe"):
+		writeJSON(w, map[string]any{"ok": true, "result": map[string]any{
+			"id": 42, "username": "crier_bot", "first_name": "Crier",
+		}})
+	case path == "/discord/webhook" && r.Method == http.MethodGet:
+		writeJSON(w, map[string]any{"id": "d-1", "name": "crier hook", "channel_id": "c-1"})
+	case strings.HasPrefix(path, "/mastodon/api/v1/accounts/verify_credentials"):
+		writeJSON(w, map[string]any{"id": "ma-1", "username": "crier", "acct": "crier@example.social"})
+	case strings.HasPrefix(path, "/x/2/users/me"):
+		writeJSON(w, map[string]any{"data": map[string]any{
+			"id": "x-1", "name": "Crier", "username": "criertest",
+		}})
+	case path == "/instagram/ig-user":
+		writeJSON(w, map[string]any{"id": "ig-user", "username": "crier_ig"})
+	case path == "/facebook/fb-page":
+		writeJSON(w, map[string]any{"id": "fb-page", "name": "Crier Page"})
+	case strings.HasPrefix(path, "/tiktok/v2/post/publish/creator_info/query/"):
+		writeJSON(w, map[string]any{"data": map[string]any{
+			"creator_nickname": "Crier", "creator_username": "criertt",
+		}})
+	case strings.HasPrefix(path, "/linkedin/v2/userinfo"):
+		writeJSON(w, map[string]any{"sub": "li-1", "name": "Crier Member"})
+	case strings.HasPrefix(path, "/reddit/api/v1/me"):
+		writeJSON(w, map[string]any{"id": "rd-1", "name": "crierbot"})
+
 	// --- telegram -------------------------------------------------------
 	case strings.Contains(path, "/sendPhoto"), strings.Contains(path, "/sendVideo"):
 		writeJSON(w, map[string]any{

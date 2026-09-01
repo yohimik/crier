@@ -30,6 +30,7 @@ would be handed to `publish` as a flag `publish` has never heard of.
 | `crier` / `crier publish` | render, then post to every enabled platform |
 | `crier render` | render and write the file; no network |
 | `crier init` | write a configuration file to start from |
+| `crier ping` | check every enabled platform's credentials, without posting |
 | `crier platforms` | which platforms are enabled, and which are configured |
 | `crier config` | the resolved configuration, secrets redacted |
 
@@ -88,6 +89,67 @@ crier render        # see the picture
 crier --dry-run     # see what would be posted, without posting it
 crier               # post it
 ```
+
+## `crier ping`
+
+Asks every enabled platform who the credentials belong to, and posts nothing.
+
+```sh
+crier ping
+```
+
+```
+TARGET     STATUS  ACCOUNT              MS   DETAIL
+discord    ok      crier hook (d-1)     91   channel 55
+mastodon   ok      @crier@example.social 140
+telegram   ok      @crier_bot (42)      88
+stage:s3   ok      bucket media at s3.example.com  63
+```
+
+It is the answer to "is this set up right" that is not "post something and
+see". Every call it makes is a read against the cheapest identity endpoint the
+platform offers:
+
+| Platform | What it calls |
+| -------- | ------------- |
+| Instagram | `GET /{user-id}?fields=id,username` |
+| Facebook | `GET /{page-id}?fields=id,name` |
+| TikTok | `POST /v2/post/publish/creator_info/query/` |
+| Telegram | `getMe` |
+| X | `GET /2/users/me` |
+| Mastodon | `GET /api/v1/accounts/verify_credentials` |
+| Discord | `GET` on the webhook URL |
+| LinkedIn | `GET /v2/userinfo` |
+| Reddit | a token grant, then `GET /api/v1/me` |
+
+When staging holds a credential — `stage.mode: s3` — the bucket is checked too,
+with a HEAD. The other modes have nothing to check: `none` does nothing, `url`
+is a string you vouched for, and `server` binds a socket rather than holding a
+key, so they get no row rather than a row saying "ok".
+
+There is no `--dry-run`. ping *is* the safe check, and a dry ping would check
+nothing at all.
+
+### Exit codes
+
+| Code | Meaning |
+| ---- | ------- |
+| 0 | every credential was accepted |
+| 4 | some were, some were not — the table names which |
+| 5 | none were |
+| 1 | nothing is enabled, or the configuration is wrong |
+
+### LinkedIn is a special case
+
+Posting needs `w_member_social`; every endpoint that could name the account
+needs something else — `/v2/me` needs `r_liteprofile`, `/v2/userinfo` needs
+`openid` and `profile`. So a perfectly good posting token may be unable to say
+who it belongs to.
+
+crier tells the two refusals apart. A 401 means the token is not valid and the
+row fails. A 403 means the token is valid and merely cannot read a profile: the
+row passes, shows the configured `author-urn`, and notes that adding the
+`openid` and `profile` scopes would let ping report the name as well.
 
 ## `crier render`
 

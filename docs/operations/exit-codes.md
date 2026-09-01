@@ -29,6 +29,9 @@ The distinction that matters most is **4 against 5**. A 4 means some platforms
 already have the post: re-running the whole thing would double-post to those.
 A 5 means nothing went out and re-running is safe.
 
+`crier ping` reuses the same three codes for the same reason: 0 when every
+credential was accepted, 4 when some were and some were not, 5 when none were.
+
 ## Why a failure is a 1 rather than a 5
 
 Everything crier can find out before sending anything is a configuration error:

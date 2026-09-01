@@ -106,3 +106,31 @@ func (t *Telegram) Publish(ctx context.Context, in Input) (Result, error) {
 	}
 	return res, nil
 }
+
+// Ping asks the Bot API who the bot is.
+//
+// getMe is the cheapest call there is and needs no permission beyond the token
+// itself, which is exactly what a credential check wants.
+func (t *Telegram) Ping(ctx context.Context) (Identity, error) {
+	var out struct {
+		OK          bool   `json:"ok"`
+		Description string `json:"description"`
+		Result      struct {
+			ID       int64  `json:"id"`
+			Username string `json:"username"`
+			Name     string `json:"first_name"`
+		} `json:"result"`
+	}
+	req := httpx.NewRequest(http.MethodGet, t.cfg.APIBaseURL, "bot"+t.cfg.Token, "getMe")
+	if err := t.client.JSON(ctx, req, &out); err != nil {
+		return Identity{}, err
+	}
+	if !out.OK {
+		return Identity{}, fmt.Errorf("telegram refused the token: %s", out.Description)
+	}
+	name := firstNonEmpty("@"+strings.TrimPrefix(out.Result.Username, "@"), out.Result.Name)
+	if out.Result.Username == "" {
+		name = out.Result.Name
+	}
+	return Identity{ID: strconv.FormatInt(out.Result.ID, 10), Name: name}, nil
+}

@@ -40,4 +40,12 @@ Chunked, because X has no other way:
 
 Limits: 512MB, 140 seconds. crier checks the size before starting.
 
+## Check it
+
+```sh
+crier ping
+```
+
+Nothing is posted: ping calls `GET /2/users/me`. See [the command line](../operations/cli.md#crier-ping).
+
 Configuration keys: [`publish.x.*`](../configuration/reference/publish-x.md).

@@ -88,3 +88,24 @@ func (d *Discord) Publish(ctx context.Context, in Input) (Result, error) {
 	}
 	return res, nil
 }
+
+// Ping reads the webhook back.
+//
+// A webhook URL is the whole credential, and a GET on it returns the webhook
+// itself — so the check is whether the URL still exists, which is the only
+// thing that can be wrong with a Discord setup.
+func (d *Discord) Ping(ctx context.Context) (Identity, error) {
+	var out struct {
+		ID        string `json:"id"`
+		Name      string `json:"name"`
+		ChannelID string `json:"channel_id"`
+	}
+	if err := d.client.JSON(ctx, httpx.NewRequest(http.MethodGet, d.cfg.WebhookURL), &out); err != nil {
+		return Identity{}, err
+	}
+	id := Identity{ID: out.ID, Name: out.Name}
+	if out.ChannelID != "" {
+		id.Note = "channel " + out.ChannelID
+	}
+	return id, nil
+}

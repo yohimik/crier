@@ -974,6 +974,96 @@ func TestVideoWithoutFFmpegIsARenderError(t *testing.T) {
 	}
 }
 
+// --- ping ------------------------------------------------------------------
+
+// TestPingChecksEveryEnabledPlatform is the safe setup check: nine identity
+// endpoints, no post anywhere.
+func TestPingChecksEveryEnabledPlatform(t *testing.T) {
+	f := newFakes(t)
+	dir := newProject(t, enableAll(f, ""))
+
+	res := crier(t, dir, nil, "ping", "--json")
+	if res.Code != exitOK {
+		t.Fatalf("code=%d stderr=%s", res.Code, res.Stderr)
+	}
+	var rep struct {
+		Results []struct {
+			Target  string `json:"target"`
+			OK      bool   `json:"ok"`
+			Account string `json:"account"`
+			Error   string `json:"error"`
+		} `json:"results"`
+	}
+	if err := json.Unmarshal([]byte(res.Stdout), &rep); err != nil {
+		t.Fatalf("%v\n%s", err, res.Stdout)
+	}
+	if len(rep.Results) != 9 {
+		t.Fatalf("checked %d targets, want 9: %+v", len(rep.Results), rep.Results)
+	}
+	for _, r := range rep.Results {
+		if !r.OK {
+			t.Errorf("%s failed: %s", r.Target, r.Error)
+		}
+		if r.Account == "" {
+			t.Errorf("%s reported no account", r.Target)
+		}
+	}
+
+	// The read-only endpoint of each platform was the one that got hit.
+	for _, fragment := range []string{
+		"/getMe", "/mastodon/api/v1/accounts/verify_credentials", "/x/2/users/me",
+		"/instagram/ig-user", "/facebook/fb-page",
+		"/tiktok/v2/post/publish/creator_info/query/",
+		"/linkedin/v2/userinfo", "/reddit/api/v1/me",
+	} {
+		if _, ok := f.find(fragment); !ok {
+			t.Errorf("ping did not reach %s", fragment)
+		}
+	}
+
+	// And nothing that posts was touched. This is the property that makes ping
+	// safe to run against a live account.
+	for _, fragment := range []string{
+		"/sendPhoto", "/sendVideo", "/x/2/tweets", "/mastodon/api/v1/statuses",
+		"/instagram/ig-user/media_publish", "/facebook/fb-page/photos",
+		"/linkedin/rest/posts", "/reddit/api/submit",
+	} {
+		if _, ok := f.find(fragment); ok {
+			t.Errorf("ping posted something: %s was called", fragment)
+		}
+	}
+}
+
+// TestPingWithOneBadTokenIsExitFour checks the partial case reports which
+// platform is broken rather than only that something is.
+func TestPingWithOneBadTokenIsExitFour(t *testing.T) {
+	f := newFakes(t)
+	dir := newProject(t, strings.ReplaceAll(enableAll(f, ""), "token: x-token", "token: bad-token"))
+
+	res := crier(t, dir, nil, "ping")
+	if res.Code != exitPartial {
+		t.Fatalf("code=%d stderr=%s stdout=%s", res.Code, res.Stderr, res.Stdout)
+	}
+	if !strings.Contains(res.Stdout, "x") || !strings.Contains(res.Stdout, "failed") {
+		t.Errorf("the failing platform should be named in the table:\n%s", res.Stdout)
+	}
+	if !strings.Contains(res.Stderr, "x") {
+		t.Errorf("the failure should be logged: %s", res.Stderr)
+	}
+	// The other eight still reported.
+	if strings.Count(res.Stdout, "ok") < 8 {
+		t.Errorf("the other platforms should still have been checked:\n%s", res.Stdout)
+	}
+}
+
+func TestPingWithNoPlatformIsAConfigError(t *testing.T) {
+	dir := newProject(t, "")
+	res := crier(t, dir, nil, "ping")
+	if res.Code != exitConfig || !strings.Contains(res.Stderr, "no platform is enabled") {
+		t.Errorf("code=%d stderr=%s", res.Code, res.Stderr)
+	}
+}
+
 // --- init ------------------------------------------------------------------
 
 // TestInitThenPublish is the first five minutes with crier, end to end: run

@@ -39,4 +39,12 @@ publish:
 The message id and its channel, because crier appends `?wait=true` — without it
 Discord answers 204 and says nothing.
 
+## Check it
+
+```sh
+crier ping
+```
+
+Nothing is posted: ping reads the webhook back with a `GET` on its URL. See [the command line](../operations/cli.md#crier-ping).
+
 Configuration keys: [`publish.discord.*`](../configuration/reference/publish-discord.md).

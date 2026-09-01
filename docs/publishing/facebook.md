@@ -44,4 +44,12 @@ It makes the platform need staging, which it otherwise does not.
 `POST /{page-id}/videos` with `source` (or `file_url`) and the caption as
 `description`. Up to 1GB and 20 minutes.
 
+## Check it
+
+```sh
+crier ping
+```
+
+Nothing is posted: ping reads the Page with `GET /{page-id}?fields=id,name`. See [the command line](../operations/cli.md#crier-ping).
+
 Configuration keys: [`publish.facebook.*`](../configuration/reference/publish-facebook.md).

@@ -39,4 +39,12 @@ crier checks both before uploading.
 The message id, and a `https://t.me/<channel>/<id>` link when the chat has a
 username.
 
+## Check it
+
+```sh
+crier ping
+```
+
+Nothing is posted: ping calls `getMe`. See [the command line](../operations/cli.md#crier-ping).
+
 Configuration keys: [`publish.telegram.*`](../configuration/reference/publish-telegram.md).

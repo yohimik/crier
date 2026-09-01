@@ -64,6 +64,8 @@ func (a App) Run(ctx context.Context) int {
 		return a.report(a.runPublish(ctx, args))
 	case "platforms":
 		return a.report(a.runPlatforms(args))
+	case "ping":
+		return a.report(a.runPing(ctx, args))
 	case "config":
 		return a.report(a.runConfig(args))
 	case "init":
@@ -129,6 +131,7 @@ of the everyday flow — cd into a project, run crier.
 Commands:
   publish     render and post to every enabled platform (the default)
   render      render the template and write the image or video to a file
+  ping        check every enabled platform's credentials, without posting
   platforms   list the platforms and whether they are configured
   config      print the resolved configuration, with secrets redacted
   init        write a starter configuration file

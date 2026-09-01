@@ -65,6 +65,19 @@ type Stager interface {
 	Close(ctx context.Context) error
 }
 
+// Pinger is a Stager whose configuration can be checked without staging
+// anything.
+//
+// It is optional because most modes have nothing to check: `none` does
+// nothing, `url` is a string the operator vouched for, and `server` binds a
+// socket rather than holding a credential. Only the object store has something
+// that can be wrong in a way a request would reveal, so only it implements
+// this.
+type Pinger interface {
+	// Ping verifies the staging configuration and describes what it reached.
+	Ping(ctx context.Context) (string, error)
+}
+
 // ErrNoStaging is returned when a platform needs a URL and nothing is set up
 // to produce one.
 var ErrNoStaging = errors.New("this platform can only be given a URL, and stage.mode is none")

@@ -41,4 +41,12 @@ control how patiently.
 crier sends an `Idempotency-Key` derived from the artifact and the caption, so
 an instance collapses a repeat rather than posting twice.
 
+## Check it
+
+```sh
+crier ping
+```
+
+Nothing is posted: ping calls `GET /api/v1/accounts/verify_credentials`. See [the command line](../operations/cli.md#crier-ping).
+
 Configuration keys: [`publish.mastodon.*`](../configuration/reference/publish-mastodon.md).

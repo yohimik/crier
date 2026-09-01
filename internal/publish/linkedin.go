@@ -2,6 +2,7 @@ package publish
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"net/http"
 	"strings"
@@ -258,4 +259,45 @@ func (l *LinkedIn) awaitVideo(ctx context.Context, urn string) error {
 		return fmt.Errorf("waiting for the video: %w", err)
 	}
 	return nil
+}
+
+// Ping reads the member the token belongs to.
+//
+// LinkedIn is the one platform with no identity endpoint a posting token is
+// guaranteed to reach. /v2/me needs r_liteprofile and /v2/userinfo needs the
+// OpenID scopes, while posting needs only w_member_social — so a perfectly good
+// posting token may be refused by every endpoint that could name its owner.
+//
+// The two refusals are told apart rather than lumped together: 401 means the
+// token is not valid and the setup is broken; 403 means it is valid and merely
+// cannot see a profile, which is a working configuration and is reported as
+// one, with a note saying how to get the name as well.
+//
+// Verified against the LinkedIn docs on 2026-09-01: userinfo_endpoint is
+// https://api.linkedin.com/v2/userinfo in the OpenID discovery document, and
+// its scopes_supported are openid, profile and email.
+func (l *LinkedIn) Ping(ctx context.Context) (Identity, error) {
+	var out struct {
+		Sub  string `json:"sub"`
+		Name string `json:"name"`
+	}
+	// Without the LinkedIn-Version header: it belongs to the versioned /rest
+	// API, and /v2 answers 426 when it is sent.
+	req := httpx.NewRequest(http.MethodGet, l.cfg.APIBaseURL, "v2/userinfo").
+		Bearer(l.cfg.Token).
+		Header("X-Restli-Protocol-Version", RestliVersion)
+	err := l.client.JSON(ctx, req, &out)
+	if err == nil {
+		return Identity{ID: firstNonEmpty(out.Sub, l.cfg.AuthorURN), Name: out.Name}, nil
+	}
+
+	var apiErr *httpx.APIError
+	if errors.As(err, &apiErr) && apiErr.Status == http.StatusForbidden {
+		return Identity{
+			ID: l.cfg.AuthorURN,
+			Note: "the token can post but cannot read a profile; " +
+				"add the openid and profile scopes for crier ping to name the account",
+		}, nil
+	}
+	return Identity{}, err
 }

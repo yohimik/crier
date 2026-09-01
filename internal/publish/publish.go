@@ -85,6 +85,29 @@ type Result struct {
 	Extra map[string]string
 }
 
+// Identity is who a platform says the credentials belong to.
+type Identity struct {
+	// ID is the platform's own identifier for the account.
+	ID string
+	// Name is the handle or display name, when the platform returns one.
+	Name string
+	// Note carries a caveat worth reporting alongside a success — a token
+	// that works but cannot be traced back to an account, for instance.
+	Note string
+}
+
+// String is the identity as it appears in a log line.
+func (i Identity) String() string {
+	switch {
+	case i.Name != "" && i.ID != "" && i.Name != i.ID:
+		return i.Name + " (" + i.ID + ")"
+	case i.Name != "":
+		return i.Name
+	default:
+		return i.ID
+	}
+}
+
 // Publisher posts to one platform.
 type Publisher interface {
 	// Name is the platform's configuration key: "instagram", "reddit".
@@ -93,6 +116,14 @@ type Publisher interface {
 	Needs() Needs
 	// Publish posts the input and returns what the platform said.
 	Publish(ctx context.Context, in Input) (Result, error)
+	// Ping asks the platform who the credentials belong to, without posting
+	// anything.
+	//
+	// It is a read-only call against the cheapest identity endpoint each
+	// platform offers, and it is the answer to the question every setup
+	// eventually asks: are these credentials right? Finding that out by
+	// posting is how a test post ends up on a real feed.
+	Ping(ctx context.Context) (Identity, error)
 }
 
 // Deps are what every publisher is built with.
@@ -199,6 +230,85 @@ func Build(cfg *config.Config, d Deps) ([]Publisher, error) {
 		return nil, errors.Join(errs...)
 	}
 	return out, nil
+}
+
+// BuildAll constructs every enabled publisher, whatever the pipeline needs.
+//
+// It is Build under another name, kept separate so a reader of `crier ping`
+// does not have to wonder whether pinging validates a different set of
+// platforms than publishing would. It does not: the same constructors, the
+// same configuration errors, the same order.
+func BuildAll(cfg *config.Config, d Deps) ([]Publisher, error) { return Build(cfg, d) }
+
+// PingAll checks every publisher's credentials, a bounded number at a time.
+//
+// The shape mirrors RunAll exactly — same fan-out, same panic containment, same
+// platform-ordered report — because the two commands answer for the same set of
+// platforms and a difference in how they report would be a difference nobody
+// could explain.
+func PingAll(ctx context.Context, publishers []Publisher, concurrency int, log zerolog.Logger) Report {
+	if concurrency < 1 {
+		concurrency = 1
+	}
+	outcomes := make([]Outcome, len(publishers))
+	sem := make(chan struct{}, concurrency)
+	var wg sync.WaitGroup
+
+	for i, p := range publishers {
+		wg.Add(1)
+		go func(i int, p Publisher) {
+			defer wg.Done()
+			sem <- struct{}{}
+			defer func() { <-sem }()
+			outcomes[i] = ping(ctx, p, log)
+		}(i, p)
+	}
+	wg.Wait()
+
+	sort.SliceStable(outcomes, func(i, j int) bool { return outcomes[i].Platform < outcomes[j].Platform })
+	return Report{Outcomes: outcomes}
+}
+
+// ping checks one publisher, turning a panic into a failure.
+func ping(ctx context.Context, p Publisher, log zerolog.Logger) (out Outcome) {
+	name := p.Name()
+	out = Outcome{Platform: name}
+	start := time.Now()
+
+	defer func() {
+		out.Elapsed = time.Since(start)
+		if r := recover(); r != nil {
+			out.OK = false
+			out.Err = fmt.Errorf("the %s publisher panicked: %v", name, r)
+			out.Error = out.Err.Error()
+		}
+		if out.OK {
+			ev := log.Info().Str("platform", name).Dur("elapsed", out.Elapsed)
+			if out.ID != "" {
+				ev = ev.Str("account", out.ID)
+			}
+			if note := out.Extra["note"]; note != "" {
+				ev = ev.Str("note", note)
+			}
+			ev.Msg("credentials accepted")
+			return
+		}
+		log.Error().Str("platform", name).Dur("elapsed", out.Elapsed).Err(out.Err).Msg("credentials rejected")
+	}()
+
+	log.Debug().Str("platform", name).Msg("checking credentials")
+	id, err := p.Ping(ctx)
+	if err != nil {
+		out.Err = err
+		out.Error = err.Error()
+		return out
+	}
+	out.OK = true
+	out.ID = id.String()
+	if id.Note != "" {
+		out.Extra = map[string]string{"note": id.Note}
+	}
+	return out
 }
 
 // Job is one publisher and the input it was given.

@@ -52,4 +52,12 @@ MP4 only, 3 seconds to 30 minutes.
 
 The post URN, from the `x-restli-id` response header.
 
+## Check it
+
+```sh
+crier ping
+```
+
+Nothing is posted: ping calls `GET /v2/userinfo` — see [the caveat](../operations/cli.md#linkedin-is-a-special-case), because a posting-only token cannot read a profile. See [the command line](../operations/cli.md#crier-ping).
+
 Configuration keys: [`publish.linkedin.*`](../configuration/reference/publish-linkedin.md).

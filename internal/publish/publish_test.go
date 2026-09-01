@@ -1378,12 +1378,20 @@ type stubPublisher struct {
 	name  string
 	needs Needs
 	fn    func(ctx context.Context, in Input) (Result, error)
+	ping  func(ctx context.Context) (Identity, error)
 }
 
 func (s stubPublisher) Name() string { return s.name }
 func (s stubPublisher) Needs() Needs { return s.needs }
 func (s stubPublisher) Publish(ctx context.Context, in Input) (Result, error) {
 	return s.fn(ctx, in)
+}
+
+func (s stubPublisher) Ping(ctx context.Context) (Identity, error) {
+	if s.ping == nil {
+		return Identity{ID: s.name}, nil
+	}
+	return s.ping(ctx)
 }
 
 func TestRunAllKeepsGoingAfterAFailure(t *testing.T) {

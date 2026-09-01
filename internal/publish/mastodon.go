@@ -140,3 +140,18 @@ func (m *Mastodon) upload(ctx context.Context, in Input) (string, error) {
 	}
 	return att.ID, nil
 }
+
+// Ping verifies the token against the instance it belongs to.
+func (m *Mastodon) Ping(ctx context.Context) (Identity, error) {
+	var out struct {
+		ID       string `json:"id"`
+		Username string `json:"username"`
+		Acct     string `json:"acct"`
+	}
+	req := httpx.NewRequest(http.MethodGet, m.cfg.APIBaseURL, "api/v1/accounts/verify_credentials").
+		Bearer(m.cfg.Token)
+	if err := m.client.JSON(ctx, req, &out); err != nil {
+		return Identity{}, err
+	}
+	return Identity{ID: out.ID, Name: "@" + firstNonEmpty(out.Acct, out.Username)}, nil
+}

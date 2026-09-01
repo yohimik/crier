@@ -77,4 +77,12 @@ order of likelihood:
 - a presigned URL that expired between staging and the fetch;
 - a redirect: Meta's fetcher does not follow them.
 
+## Check it
+
+```sh
+crier ping
+```
+
+Nothing is posted: ping reads the account with `GET /{user-id}?fields=id,username`. See [the command line](../operations/cli.md#crier-ping).
+
 Configuration keys: [`publish.instagram.*`](../configuration/reference/publish-instagram.md).

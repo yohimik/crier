@@ -233,3 +233,23 @@ func (x *X) awaitProcessing(ctx context.Context, id string, fin xMediaResponse) 
 		x.log.Debug().Str("state", info.State).Int("percent", info.ProgressPct).Msg("x is processing the video")
 	}
 }
+
+// Ping reads the account the token posts as.
+func (x *X) Ping(ctx context.Context) (Identity, error) {
+	var out struct {
+		Data struct {
+			ID       string `json:"id"`
+			Name     string `json:"name"`
+			Username string `json:"username"`
+		} `json:"data"`
+	}
+	req := httpx.NewRequest(http.MethodGet, x.cfg.APIBaseURL, "2/users/me").Bearer(x.cfg.Token)
+	if err := x.client.JSON(ctx, req, &out); err != nil {
+		return Identity{}, err
+	}
+	name := out.Data.Username
+	if name != "" {
+		name = "@" + name
+	}
+	return Identity{ID: out.Data.ID, Name: firstNonEmpty(name, out.Data.Name)}, nil
+}

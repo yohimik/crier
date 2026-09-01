@@ -631,6 +631,9 @@ func (s formatStub) Needs() publish.Needs {
 func (formatStub) Publish(context.Context, publish.Input) (publish.Result, error) {
 	return publish.Result{}, nil
 }
+func (formatStub) Ping(context.Context) (publish.Identity, error) {
+	return publish.Identity{}, nil
+}
 
 func TestFormatsForAddsWhatAPlatformInsistsOn(t *testing.T) {
 	cfg := config.Defaults()
