@@ -29,18 +29,55 @@ everyday flow is: change directory, run `crier`.
 
 ## Install
 
+### Install script
+
+macOS and Linux:
+
 ```sh
 curl -fsSL https://raw.githubusercontent.com/yohimik/crier/main/install.sh | sh
 ```
+
+Windows:
 
 ```powershell
 irm https://raw.githubusercontent.com/yohimik/crier/main/install.ps1 | iex
 ```
 
+Resolves the latest stable release, verifies the download against the sha256
+digest GitHub publishes for it, and installs to `/usr/local/bin` when that is
+writable or `~/.local/bin` otherwise. Pin a version with `CRIER_VERSION`, and
+choose the directory with `CRIER_BIN_DIR`.
+
+### dispat install
+
 ```sh
 dispat install yohimik/crier --asset 'crier-{os}-{arch}'
+```
+
+`--asset` is **required**: a crier release carries six binaries, and a bare
+`dispat install` only resolves when a release has exactly one.
+
+Before the first stable release, add `--prerelease` — the release candidates
+are prereleases, and `dispat install` skips those by default:
+
+```sh
+dispat install yohimik/crier --asset 'crier-{os}-{arch}' --prerelease
+```
+
+### go install
+
+```sh
 go install github.com/yohimik/crier/cmd/crier@latest
 ```
+
+Builds from source and needs Go 1.26 or newer. The binary reports the module
+version rather than the one stamped at release time — released binaries carry
+the version, the commit and the build date in their ldflags, and a `go install`
+build reads what it can from the module's own build info instead. Everything
+else is identical.
+
+`@latest` follows Go's prerelease rule and skips release candidates; name one
+explicitly during the rc period.
 
 More ways, and what each does: [installing](./docs/operations/install.md).
 
