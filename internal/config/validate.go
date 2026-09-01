@@ -115,6 +115,18 @@ func validateRender(r *Render) error {
 		errs = append(errs, invalid("render.height", strconv.Itoa(r.Height),
 			fmt.Sprintf("want 0 to %d", MaxDimension)))
 	}
+	// Both or neither. crier emits an @page rule only when it has both, so one
+	// on its own is silently ignored — the render comes out at the engine's
+	// default size and nothing anywhere says why the width was not honoured.
+	if (r.Width > 0) != (r.Height > 0) {
+		set, unset := "render.width", "render.height"
+		if r.Height > 0 {
+			set, unset = "render.height", "render.width"
+		}
+		errs = append(errs, fmt.Errorf(
+			"%s is set and %s is not; crier sizes a page with both or neither, "+
+				"and one on its own would be ignored", set, unset))
+	}
 	scale, err := strconv.ParseFloat(strings.TrimSpace(r.Scale), 64)
 	switch {
 	case err != nil:
@@ -322,6 +334,9 @@ func validatePublish(p *Publish) []error {
 			errs = append(errs, invalid("publish."+name+".height", strconv.Itoa(l.Height),
 				fmt.Sprintf("want 0 to %d", MaxDimension)))
 		}
+		// A per-platform layout may override one dimension alone: the other
+		// falls back to render.width or render.height, so nothing is silently
+		// ignored the way it would be at the top level.
 	}
 	return errs
 }

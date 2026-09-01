@@ -2,6 +2,7 @@ package raster
 
 import (
 	"bytes"
+	"fmt"
 	"image"
 	"math"
 
@@ -44,7 +45,7 @@ func (c *Canvas) AddFont(font backend.Font, content []byte) *backend.FontChars {
 		outline: map[backend.GID]*canvas.Path{},
 	}
 	if len(content) > 0 {
-		if face, err := truetype.Parse(bytes.NewReader(content)); err == nil {
+		if face, err := loadFace(content, e.origin); err == nil {
 			e.face = face
 			if u := face.Upem(); u > 0 {
 				e.upem = float64(u)
@@ -56,6 +57,43 @@ func (c *Canvas) AddFont(font backend.Font, content []byte) *backend.FontChars {
 	}
 	c.sh.fonts[font] = e
 	return e.chars
+}
+
+// loadFace parses the font file and picks out the face the layout used.
+//
+// The index is the whole point. A .ttc holds several faces in one file —
+// Helvetica.ttc and PingFang.ttc are how macOS ships most of its fonts, and
+// Windows does the same — and parsing only the first one means the glyph ids
+// the layout produced for face 3 are looked up in face 0's outlines. That
+// draws the wrong letters, confidently, with no error anywhere.
+//
+// The variation instance matters for the same reason: a variable font asked
+// for its Bold instance and drawn at its default one is the wrong weight.
+func loadFace(content []byte, origin text.FontOrigin) (*truetype.Font, error) {
+	faces, err := truetype.Load(bytes.NewReader(content))
+	if err != nil {
+		return nil, err
+	}
+	if len(faces) == 0 {
+		return nil, fmt.Errorf("the file holds no faces")
+	}
+	index := int(origin.Index)
+	if index >= len(faces) {
+		return nil, fmt.Errorf("face %d was asked for and the file holds %d", index, len(faces))
+	}
+	face, ok := faces[index].(*truetype.Font)
+	if !ok {
+		return nil, fmt.Errorf("face %d is a %T rather than a TrueType font", index, faces[index])
+	}
+
+	// Instance is 1 + the index, so that zero can mean "no variations".
+	if origin.Instance > 0 {
+		fvar := face.Variations()
+		if i := int(origin.Instance) - 1; i < len(fvar.Instances) {
+			face.SetVarCoordinates(face.NormalizeVariations(fvar.Instances[i].Coords))
+		}
+	}
+	return face, nil
 }
 
 // DrawText draws the glyphs webrender laid out.

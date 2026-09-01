@@ -196,6 +196,20 @@ func deviceRect(p *canvas.Path) (image.Rectangle, bool) {
 	if len(xs) != 2 || len(ys) != 2 {
 		return image.Rectangle{}, false
 	}
+	// Two distinct x values and two distinct y values are not enough: a
+	// bow-tie visits the same four corners in an order that crosses itself, so
+	// its filled area is two triangles rather than the rectangle its bounding
+	// box describes. Adjacent corners of a rectangle share exactly one
+	// coordinate; adjacent corners of a bow-tie share none.
+	for i := range pts {
+		next := pts[(i+1)%len(pts)]
+		sameX := math.Round(pts[i].X) == math.Round(next.X)
+		sameY := math.Round(pts[i].Y) == math.Round(next.Y)
+		if sameX == sameY {
+			// Either a diagonal (neither shared) or a zero-length edge (both).
+			return image.Rectangle{}, false
+		}
+	}
 	b := p.Bounds()
 	return image.Rect(
 		int(math.Round(b.X0)), int(math.Round(b.Y0)),

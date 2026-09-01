@@ -37,7 +37,7 @@ func (e *Engine) RenderCaption(tmpl string, data any, platform string) (string, 
 		return tmpl, nil
 	}
 	t, err := texttemplate.New("caption").
-		Funcs(texttemplate.FuncMap(e.funcs)).
+		Funcs(texttemplate.FuncMap(e.execFuncs())).
 		Option("missingkey=error").
 		Parse(tmpl)
 	if err != nil {

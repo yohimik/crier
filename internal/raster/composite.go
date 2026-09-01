@@ -154,6 +154,12 @@ func separableBlend(mode string) func(cb, cs float32) float32 {
 	}
 }
 
+// isSeparableBlend reports whether the mode is one this package implements.
+// The empty string is normal compositing, which every mode falls back to.
+func isSeparableBlend(mode string) bool {
+	return mode == "" || mode == "normal" || separableBlend(mode) != nil
+}
+
 // isNonSeparableBlend reports the four modes that mix channels and are not
 // supported.
 func isNonSeparableBlend(mode string) bool {

@@ -170,9 +170,15 @@ func (c *Canvas) SetBoundingBox(left, top, right, bottom backend.Fl) {
 // either, and webrender is written against those semantics.
 func (c *Canvas) OnNewStack(task func()) {
 	c.stack = append(c.stack, c.st)
+	// Deferred, so a panic through a paint operation unwinds the stack rather
+	// than leaving it one deep for every frame after it. A rasteriser that
+	// crashed once and then drew everything under a stale clip would be much
+	// harder to understand than one that crashed.
+	defer func() {
+		c.st = c.stack[len(c.stack)-1]
+		c.stack = c.stack[:len(c.stack)-1]
+	}()
 	task()
-	c.st = c.stack[len(c.stack)-1]
-	c.stack = c.stack[:len(c.stack)-1]
 }
 
 // --- transform -------------------------------------------------------------
@@ -222,6 +228,15 @@ func (c *Canvas) SetBlendingMode(mode string) {
 	if isNonSeparableBlend(mode) {
 		c.sh.warnOnce("blend:"+mode,
 			"blend mode "+mode+" mixes colour channels and is not supported; drawing normally instead")
+		c.st.blend = ""
+		return
+	}
+	if !isSeparableBlend(mode) {
+		// Silently drawing normally is how a template author spends an hour
+		// wondering why their blend mode does nothing. The package warns once
+		// about everything else it cannot do; this was the gap.
+		c.sh.warnOnce("blend:"+mode,
+			"blend mode "+mode+" is not one this renderer knows; drawing normally instead")
 		c.st.blend = ""
 		return
 	}

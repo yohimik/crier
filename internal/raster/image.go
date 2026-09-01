@@ -23,6 +23,14 @@ import (
 // cannot make the renderer allocate without limit.
 const MaxImagePixels = 64 << 20
 
+// MaxImageBytes bounds an encoded image resource.
+//
+// It is a separate number from MaxImagePixels because they measure different
+// things, and using the pixel budget as a byte cap silently truncated any
+// resource over 64MB into an undecodable prefix. 64MB of compressed image is
+// far more than a card needs and far less than a machine minds.
+const MaxImageBytes = 64 << 20
+
 // DrawRasterImage draws an image into the rectangle (0,0)-(width,height) of
 // the current user space.
 //
@@ -86,19 +94,45 @@ func (c *Canvas) decode(img backend.RasterImage) image.Image {
 	if cached, ok := c.sh.images[img.ID]; ok {
 		return cached
 	}
-	data, err := io.ReadAll(io.LimitReader(img.Content, MaxImagePixels))
+	// One byte past the cap, so a resource that reaches it is recognised as
+	// truncated here rather than as a corrupt image further down.
+	data, err := io.ReadAll(io.LimitReader(img.Content, MaxImageBytes+1))
 	if err != nil {
 		c.sh.warnOnce("imgread", "could not read an image resource: "+err.Error())
 		c.sh.images[img.ID] = nil
 		return nil
 	}
+	if len(data) > MaxImageBytes {
+		c.sh.log.Warn().Int("bytes", len(data)).Str("mime", img.MimeType).
+			Msg("image resource is too large to read; it will not be drawn")
+		c.sh.images[img.ID] = nil
+		return nil
+	}
+
+	// The size is checked from the header, before anything is decoded.
+	//
+	// Checking it afterwards is checking it too late: a two kilobyte PNG can
+	// declare itself 30000 by 30000, and decoding that allocates three and a
+	// half gigabytes before there is anything to measure. A document crier
+	// renders can name any URL, so the header is not something to trust.
+	if cfg, _, cfgErr := image.DecodeConfig(bytes.NewReader(data)); cfgErr == nil {
+		if pixels := int64(cfg.Width) * int64(cfg.Height); pixels > MaxImagePixels {
+			c.sh.log.Warn().Int("width", cfg.Width).Int("height", cfg.Height).
+				Msg("image is too large to draw")
+			c.sh.images[img.ID] = nil
+			return nil
+		}
+	}
+
 	decoded, err := decodeImage(data, img.MimeType)
 	if err != nil {
 		c.sh.log.Warn().Err(err).Str("mime", img.MimeType).Msg("could not decode an image; it will not be drawn")
 		c.sh.images[img.ID] = nil
 		return nil
 	}
-	if b := decoded.Bounds(); b.Dx()*b.Dy() > MaxImagePixels {
+	// And again from what actually came out, for a format whose header the
+	// standard library cannot read on its own.
+	if b := decoded.Bounds(); int64(b.Dx())*int64(b.Dy()) > MaxImagePixels {
 		c.sh.log.Warn().Int("width", b.Dx()).Int("height", b.Dy()).Msg("image is too large to draw")
 		c.sh.images[img.ID] = nil
 		return nil

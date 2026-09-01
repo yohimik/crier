@@ -58,6 +58,23 @@ func randomSeed() int64 {
 // Seed is the value that reproduces this run.
 func (s *Rand) Seed() int64 { return s.seed }
 
+// Fork returns a generator that starts where this run's randomness started.
+//
+// It is what one template execution gets. A single stream shared across
+// executions advances as it is read, so the second execution of the same
+// template continues where the first left off and picks different values —
+// which means a video strobes, because every frame is another execution, and a
+// platform variant differs from the base for the same reason. The contract
+// this type documents is the opposite: one run, one set of choices.
+//
+// The pool pick and anything else drawing from the run's own stream are
+// unaffected: a fork is a new stream from the same seed, not a rewind of the
+// old one.
+func (s *Rand) Fork() *Rand {
+	//nolint:gosec // reinterpreted, not narrowed; see NewRand
+	return &Rand{seed: s.seed, r: rand.New(rand.NewPCG(uint64(s.seed), goldenGamma))}
+}
+
 // IntN returns a number in [0,n).
 func (s *Rand) IntN(n int) int {
 	if n <= 0 {

@@ -7,6 +7,7 @@ import (
 	"github.com/benoitkugler/webrender/backend"
 	"github.com/benoitkugler/webrender/css/parser"
 	"github.com/benoitkugler/webrender/matrix"
+	"github.com/tdewolff/canvas"
 )
 
 // DrawGradient fills the rectangle (0,0)-(width,height) of the current user
@@ -37,13 +38,21 @@ func (c *Canvas) DrawGradient(g backend.GradientLayout, width, height backend.Fl
 
 	// The painted area is the rectangle webrender asked for, mapped into
 	// device space and clipped.
-	c.MoveTo(0, 0)
-	c.LineTo(width, 0)
-	c.LineTo(width, height)
-	c.LineTo(0, height)
-	c.ClosePath()
-	path := c.path
-	c.path, c.hasPoint = nil, false
+	//
+	// Built on a path of its own rather than through the canvas's current
+	// path: borrowing that would discard whatever the caller had been
+	// building, and the only reason it is safe today is that webrender happens
+	// not to call this mid-path.
+	path := &canvas.Path{}
+	x0, y0 := c.dev(0, 0)
+	x1, y1 := c.dev(width, 0)
+	x2, y2 := c.dev(width, height)
+	x3, y3 := c.dev(0, height)
+	path.MoveTo(x0, y0)
+	path.LineTo(x1, y1)
+	path.LineTo(x2, y2)
+	path.LineTo(x3, y3)
+	path.Close()
 
 	area := c.drawArea()
 	if area.Empty() {
@@ -75,8 +84,26 @@ type gradientShader struct {
 }
 
 type gradientStop struct {
-	pos            float64
+	pos float64
+	// r, g, b are the straight colour, which is what an exact hit on this stop
+	// paints.
 	r, g, b, alpha float64
+	// pr, pg, pb are the same colour premultiplied by alpha, which is what
+	// interpolation between two stops has to use.
+	//
+	// CSS says gradient stops interpolate in premultiplied space, and the
+	// difference is not subtle: red to transparent interpolated straight runs
+	// through half-red at half alpha — a muddy grey-black — because
+	// "transparent" is rgba(0,0,0,0) and its black is dragged into the mix.
+	// Premultiplied, the same fade stays red the whole way and only its alpha
+	// falls, which is what every browser draws and what the overlay pattern
+	// linear-gradient(red, transparent) is for.
+	pr, pg, pb float64
+}
+
+// premultiply fills the premultiplied fields from the straight ones.
+func (s *gradientStop) premultiply() {
+	s.pr, s.pg, s.pb = s.r*s.alpha, s.g*s.alpha, s.b*s.alpha
 }
 
 func newGradientShader(g backend.GradientLayout, inv matrix.Transform) *gradientShader {
@@ -124,7 +151,9 @@ func makeStops(positions []backend.Fl, colors []parser.RGBA) []gradientStop {
 			return nil
 		}
 		c := colors[0]
-		return []gradientStop{{pos: 0, r: float64(c.R), g: float64(c.G), b: float64(c.B), alpha: float64(c.A)}}
+		only := gradientStop{pos: 0, r: float64(c.R), g: float64(c.G), b: float64(c.B), alpha: float64(c.A)}
+		only.premultiply()
+		return []gradientStop{only}
 	}
 	out := make([]gradientStop, 0, n)
 	prev := math.Inf(-1)
@@ -135,7 +164,9 @@ func makeStops(positions []backend.Fl, colors []parser.RGBA) []gradientStop {
 		}
 		prev = p
 		c := colors[i]
-		out = append(out, gradientStop{pos: p, r: float64(c.R), g: float64(c.G), b: float64(c.B), alpha: float64(c.A)})
+		stop := gradientStop{pos: p, r: float64(c.R), g: float64(c.G), b: float64(c.B), alpha: float64(c.A)}
+		stop.premultiply()
+		out = append(out, stop)
 	}
 	return rescale(out)
 }
@@ -239,10 +270,12 @@ func (s *gradientShader) sample(t float64) (uint8, uint8, uint8, uint8) {
 		if f < 0 {
 			f = 0
 		}
-		return toRGBA(
-			a.r+(b.r-a.r)*f,
-			a.g+(b.g-a.g)*f,
-			a.b+(b.b-a.b)*f,
+		// Premultiplied, per CSS, then back to the straight colour the
+		// compositor expects.
+		return unpremultiply(
+			a.pr+(b.pr-a.pr)*f,
+			a.pg+(b.pg-a.pg)*f,
+			a.pb+(b.pb-a.pb)*f,
 			a.alpha+(b.alpha-a.alpha)*f,
 		)
 	}
@@ -251,6 +284,22 @@ func (s *gradientShader) sample(t float64) (uint8, uint8, uint8, uint8) {
 
 func toRGBA(r, g, b, a float64) (uint8, uint8, uint8, uint8) {
 	return clamp8(float32(r)), clamp8(float32(g)), clamp8(float32(b)), clamp8(float32(a))
+}
+
+// unpremultiply turns an interpolated premultiplied colour back into the
+// straight colour and alpha the compositor works in.
+//
+// A fully transparent result has no colour to recover — every premultiplied
+// channel is zero whatever the colour was — and returns black, which is what
+// zero alpha paints anyway.
+func unpremultiply(pr, pg, pb, a float64) (uint8, uint8, uint8, uint8) {
+	if a <= 0 {
+		return 0, 0, 0, 0
+	}
+	if a > 1 {
+		a = 1
+	}
+	return toRGBA(pr/a, pg/a, pb/a, a)
 }
 
 var _ image.Image = (*image.RGBA)(nil)

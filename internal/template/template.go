@@ -64,11 +64,26 @@ func NewWithRand(r *Rand) *Engine {
 	if r == nil {
 		r = NewRand(0)
 	}
-	funcs := Funcs()
-	for name, fn := range randomFuncs(r) {
-		funcs[name] = fn
+	return &Engine{funcs: Funcs(), rnd: r}
+}
+
+// execFuncs is the function set for one execution.
+//
+// The random helpers are bound per execution, to a generator forked from the
+// run's seed, so every execution of every template in one run sees the same
+// sequence. Binding them once to a shared stream instead means the second
+// execution continues where the first left off — which makes a video strobe,
+// because each frame is another execution, and makes a platform variant differ
+// from the base card it is supposed to be a variant of.
+func (e *Engine) execFuncs() template.FuncMap {
+	out := make(template.FuncMap, len(e.funcs)+6)
+	for name, fn := range e.funcs {
+		out[name] = fn
 	}
-	return &Engine{funcs: funcs, rnd: r}
+	for name, fn := range randomFuncs(e.rnd.Fork()) {
+		out[name] = fn
+	}
+	return out
 }
 
 // Rand is the engine's random source.
@@ -162,7 +177,7 @@ func (e *Engine) RenderWith(o Options, data any) (string, error) {
 	}
 	data = merge(data, o.Extra)
 
-	tpl, err := template.New(filepath.Base(o.Path)).Funcs(e.funcs).Parse(string(body))
+	tpl, err := template.New(filepath.Base(o.Path)).Funcs(e.execFuncs()).Parse(string(body))
 	if err != nil {
 		return "", fmt.Errorf("parsing template %s: %w", o.Path, err)
 	}

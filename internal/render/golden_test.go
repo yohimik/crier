@@ -75,6 +75,22 @@ func goldenCases() []goldenCase {
 			html: head + `<div style="width:200px;height:120px;background:radial-gradient(circle at 50% 50%,#ffffff,#000000)"></div>`,
 		},
 		{
+			// The commonest overlay there is: a fade to transparent over a
+			// photo, so a caption stays readable. CSS interpolates gradient
+			// stops premultiplied; interpolating straight drags
+			// "transparent" — which is rgba(0,0,0,0) — into the mix and runs
+			// the fade through a muddy grey.
+			// Two stops differing in both colour and alpha, which is where
+			// straight and premultiplied interpolation actually part company.
+			// (A plain fade to `transparent` does not: webrender resolves it
+			// to the carried colour at zero alpha, so both agree.)
+			name:  "gradient_premultiplied",
+			width: 200, height: 120,
+			html: head + `<div style="width:200px;height:120px;background:#ffffff">` +
+				`<div style="width:200px;height:120px;` +
+				`background:linear-gradient(90deg,rgba(255,0,0,1),rgba(0,0,255,0.2))"></div></div>`,
+		},
+		{
 			name:  "text_basic",
 			width: 320, height: 90,
 			html: head + `<div style="padding:16px;font-size:28px;color:#111">Crier renders text</div>`,
