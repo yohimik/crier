@@ -102,19 +102,51 @@ func TestAnnounceNotesBuildsTheCardsData(t *testing.T) {
 		}
 	}
 
+	// All three sections are present, so the card's vertical budget drops
+	// each to two entries: the install block is pinned to the bottom edge,
+	// and three sections of three would spill into it.
 	features := doc.Sections[1]
-	if len(features.Items) != 3 {
-		t.Errorf("features shows %d items, want the first three", len(features.Items))
+	if len(features.Items) != 2 {
+		t.Errorf("features shows %d items, want two when all three sections are present", len(features.Items))
 	}
-	if features.Items[0] != "add streaming" || features.Items[2] != "add caching" {
+	if features.Items[0] != "add streaming" || features.Items[1] != "add retries" {
 		t.Errorf("features = %v, want them in history order", features.Items)
 	}
-	if features.More != 2 {
-		t.Errorf("more = %d, want the two that did not fit", features.More)
+	if features.More != 3 {
+		t.Errorf("more = %d, want the three that did not fit", features.More)
 	}
 	// A section that fits entirely says nothing is left.
 	if doc.Sections[2].More != 0 {
 		t.Errorf("fixes.more = %d", doc.Sections[2].More)
+	}
+}
+
+// TestAnnounceNotesKeepsTheFullAllowanceForFewerSections: the budget rule is
+// section-count-aware — with two sections or fewer, three entries each fit
+// above the pinned install block.
+func TestAnnounceNotesKeepsTheFullAllowanceForFewerSections(t *testing.T) {
+	requireSh(t)
+
+	out, stderr, code := runScript(t, "notes.sh", []string{
+		"DISPAT_NEW_VERSION=1.2.3",
+		"DISPAT_FEATURES=add streaming\nadd retries\nadd caching\nadd metrics",
+		"DISPAT_FIXES=close a leak",
+	})
+	if code != 0 {
+		t.Fatalf("code=%d stderr=%s", code, stderr)
+	}
+	var doc notesDoc
+	if err := json.Unmarshal([]byte(out), &doc); err != nil {
+		t.Fatalf("not JSON: %v\n%s", err, out)
+	}
+	if len(doc.Sections) != 2 {
+		t.Fatalf("sections = %+v, want features and fixes", doc.Sections)
+	}
+	if got := len(doc.Sections[0].Items); got != 3 {
+		t.Errorf("features shows %d items, want the full three with only two sections", got)
+	}
+	if doc.Sections[0].More != 1 {
+		t.Errorf("more = %d, want the one that did not fit", doc.Sections[0].More)
 	}
 }
 

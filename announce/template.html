@@ -12,6 +12,12 @@
   body { font-family: "Space Mono", monospace }
 
   .card {
+    /* position: relative so the install block can pin itself to the bottom
+       edge: a short changelist would otherwise leave it floating mid-card,
+       and a long one would push it against the edge. Absolute positioning
+       rather than a flex column because the layout engine's flexbox is the
+       weaker of the two. */
+    position: relative;
     width: 100%; height: 100%; box-sizing: border-box;
     background:
       repeating-linear-gradient(0deg,
@@ -32,7 +38,7 @@
     padding: 6px 22px;
   }
 
-  .section { margin-top: 34px }
+  .section { margin-top: 26px }
   .section h2 {
     font-size: 22px; font-weight: 700; margin: 0 0 10px 0;
     letter-spacing: 4px; color: #2fd98a;
@@ -52,7 +58,13 @@
   .breaking li { color: #ffb9a1 }
   .breaking li:before { color: #a85138 }
 
-  .install { margin-top: 40px; border-top: 2px solid #14432c; padding-top: 26px }
+  /* Pinned to the bottom of the card, changelist long or short. The changes
+     above are truncated to three lines a section, so they can never grow
+     down into this. */
+  .install {
+    position: absolute; left: 60px; right: 60px; bottom: 118px;
+    border-top: 2px solid #14432c; padding-top: 26px;
+  }
   .install h2 {
     font-size: 22px; font-weight: 700; margin: 0 0 14px 0;
     letter-spacing: 4px; color: #2fd98a;
@@ -69,7 +81,10 @@
   .install .cmd + .cmd { margin-top: 2px }
   .install .cmd span { color: #2f7f56 }
 
-  .footer { margin-top: 34px; font-size: 20px; color: #2f7f56 }
+  .footer {
+    position: absolute; left: 60px; bottom: 64px;
+    font-size: 20px; color: #2f7f56;
+  }
 </style>
 </head>
 <body>

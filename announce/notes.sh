@@ -56,6 +56,19 @@ section() {
 	printf '],"more":%d}' "$more"
 }
 
+# The card pins its install block to the bottom edge, so the changes above
+# share a fixed vertical budget. Three sections at three entries each spill
+# into it; the budget is therefore spent by section count — one or two
+# sections keep the full allowance, all three drop to two entries each, and
+# "+N more" absorbs the rest. ANNOUNCE_MAX_ITEMS still overrides.
+present=0
+for body in "${DISPAT_BREAKING_CHANGES:-}" "${DISPAT_FEATURES:-}" "${DISPAT_FIXES:-}"; do
+	[ -z "$(printf '%s' "$body" | tr -d '[:space:]')" ] || present=$((present + 1))
+done
+if [ -z "${ANNOUNCE_MAX_ITEMS:-}" ] && [ "$present" -ge 3 ]; then
+	max=2
+fi
+
 # The three groups, in the order the changelog and the GitHub release use.
 sections=""
 for pair in "BREAKING:${DISPAT_BREAKING_CHANGES:-}" \
