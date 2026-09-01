@@ -64,6 +64,12 @@ type Descriptor struct {
 	Usage string
 	// Secret marks a credential, which is redacted by `crier config`.
 	Secret bool
+	// Path marks a value that names a file or a directory. A relative path
+	// written in a config file resolves against that file's own directory,
+	// which is what lets a project keep its template next to its config; a
+	// relative path given as a flag or an environment variable resolves
+	// against the working directory, because that is where it was typed.
+	Path bool
 }
 
 // FlagName is the command line flag for a key: dots become dashes.
@@ -78,6 +84,14 @@ func FlagName(key string) string { return strings.ReplaceAll(key, ".", "-") }
 // EnvName converts a config key into its environment variable name.
 func EnvName(key string) string {
 	return dispat.EnvVarName(EnvPrefix, key, dispat.DefaultKeyDelim)
+}
+
+// Platforms are every publisher crier knows, in the order they are documented
+// and reported. It is the list the per-platform layout keys are generated from
+// and the list the publisher registry is built against.
+var Platforms = []string{
+	"instagram", "facebook", "tiktok", "telegram", "x",
+	"mastodon", "discord", "linkedin", "reddit",
 }
 
 // Aliases are extra, shorter flag names for keys people type often. They are
@@ -104,21 +118,31 @@ var registry = []Descriptor{
 	{Key: "log.level", Kind: KindString, Default: "info", Usage: "log level: trace, debug, info, warn, error"},
 	{Key: "log.format", Kind: KindString, Default: "console", Usage: "log format: console or json"},
 
-	{Key: "render.template", Kind: KindString, Usage: "path to the Go html/template file to render"},
-	{Key: "render.data", Kind: KindString, Usage: `path to a JSON or YAML data file, or "-" to read it from stdin`},
-	{Key: "render.css", Kind: KindStrings, Usage: "extra stylesheet files applied after the document's own CSS"},
+	{Key: "render.template", Kind: KindString, Path: true, Usage: "path to the Go html/template file to render"},
+	{Key: "render.data", Kind: KindString, Path: true, Usage: `path to a JSON or YAML data file, or "-" to read it from stdin`},
+	{Key: "render.css", Kind: KindStrings, Path: true, Usage: "extra stylesheet files applied after the document's own CSS"},
+	{Key: "render.overlays", Kind: KindStrings, Path: true, Usage: `template files parsed after the base one, redefining its {{block}} sections`},
 	{Key: "render.width", Kind: KindInt, Default: "1080", Usage: "output width in CSS pixels (0 lets the document's @page rule decide)"},
 	{Key: "render.height", Kind: KindInt, Default: "1920", Usage: "output height in CSS pixels (0 lets the document's @page rule decide)"},
 	{Key: "render.scale", Kind: KindFloat, Default: "1", Usage: "device pixel ratio: output pixels per CSS pixel (max 4)"},
 	{Key: "render.supersample", Kind: KindInt, Default: "1", Usage: "extra supersampling factor applied on top of scale, then downsampled"},
 	{Key: "render.format", Kind: KindString, Default: "png", Usage: "output image format: png or jpeg"},
 	{Key: "render.jpeg-quality", Kind: KindInt, Default: "90", Usage: "JPEG quality, 1 to 100"},
-	{Key: "render.output", Kind: KindString, Usage: "output file path; empty writes into a temporary directory"},
+	{Key: "render.output", Kind: KindString, Path: true, Usage: "output file path; empty writes into a temporary directory"},
 	{Key: "render.base-url", Kind: KindString, Usage: "base URL used to resolve relative resources in the template"},
 	{Key: "render.media-type", Kind: KindString, Default: "screen", Usage: "CSS media type used for the cascade: screen or print"},
 	{Key: "render.background", Kind: KindString, Default: "#ffffff", Usage: "background colour transparent pixels are flattened onto for JPEG"},
-	{Key: "render.fonts-dir", Kind: KindStrings, Usage: "extra directories scanned for fonts"},
+	{Key: "render.fonts-dir", Kind: KindStrings, Path: true, Usage: "extra directories scanned for fonts"},
 	{Key: "render.hermetic-fonts", Kind: KindBool, Usage: "ignore system fonts and use only the embedded Go fonts (deterministic output)"},
+
+	{Key: "render.video.enabled", Kind: KindBool, Usage: "render an animated template into an MP4 instead of a still image"},
+	{Key: "render.video.fps", Kind: KindInt, Default: "30", Usage: "video frame rate"},
+	{Key: "render.video.duration", Kind: KindDuration, Default: "3s", Usage: "video length; ignored when render.video.frames is set"},
+	{Key: "render.video.frames", Kind: KindInt, Usage: "exact number of frames to render; 0 derives it from the duration and the frame rate"},
+	{Key: "render.video.ffmpeg-bin", Kind: KindString, Default: "ffmpeg", Usage: "ffmpeg executable, resolved on PATH; ffmpeg is a prerequisite crier does not bundle"},
+	{Key: "render.video.ffmpeg-args", Kind: KindStrings, Usage: "extra ffmpeg arguments, inserted before the output file"},
+	{Key: "render.video.codec-preset", Kind: KindString, Default: "h264", Usage: "output codec preset: h264, h265, vp9 or none to rely on ffmpeg-args alone"},
+	{Key: "render.video.audio", Kind: KindString, Path: true, Usage: "audio file mixed into the video"},
 
 	{Key: "http.timeout", Kind: KindDuration, Default: "60s", Usage: "per-request HTTP timeout"},
 	{Key: "http.retry-max", Kind: KindInt, Default: "3", Usage: "maximum number of retries for retryable requests"},
@@ -213,6 +237,51 @@ var registry = []Descriptor{
 	{Key: "publish.linkedin.author-urn", Kind: KindString, Usage: "author URN, e.g. urn:li:person:XXXX or urn:li:organization:NNNN"},
 	{Key: "publish.linkedin.version", Kind: KindString, Default: "202606", Usage: "value of the mandatory LinkedIn-Version header"},
 	{Key: "publish.linkedin.caption", Kind: KindString, Usage: "LinkedIn specific commentary"},
+
+	{Key: "publish.reddit.enabled", Kind: KindBool, Usage: "publish to Reddit"},
+	{Key: "publish.reddit.api-base-url", Kind: KindString, Default: "https://oauth.reddit.com", Usage: "Reddit API base URL (the OAuth host)"},
+	{Key: "publish.reddit.auth-base-url", Kind: KindString, Default: "https://www.reddit.com", Usage: "Reddit token endpoint base URL"},
+	{Key: "publish.reddit.client-id", Kind: KindString, Usage: "Reddit script app client id", Secret: true},
+	{Key: "publish.reddit.client-secret", Kind: KindString, Usage: "Reddit script app client secret", Secret: true},
+	{Key: "publish.reddit.refresh-token", Kind: KindString, Usage: "Reddit refresh token; when set it is used instead of the password grant", Secret: true},
+	{Key: "publish.reddit.username", Kind: KindString, Usage: "Reddit account name, also used in the mandatory User-Agent"},
+	{Key: "publish.reddit.password", Kind: KindString, Usage: "Reddit account password, for the script-app password grant", Secret: true},
+	{Key: "publish.reddit.user-agent", Kind: KindString, Usage: "override the User-Agent; empty builds the descriptive one Reddit requires"},
+	{Key: "publish.reddit.subreddit", Kind: KindString, Usage: "subreddit to post to, without the r/ prefix"},
+	{Key: "publish.reddit.title", Kind: KindString, Usage: "Reddit post title"},
+	{Key: "publish.reddit.flair-id", Kind: KindString, Usage: "flair template id applied to the post"},
+	{Key: "publish.reddit.kind", Kind: KindString, Default: "auto", Usage: "post kind: auto, image, video or link"},
+	{Key: "publish.reddit.nsfw", Kind: KindBool, Usage: "mark the post NSFW"},
+	{Key: "publish.reddit.spoiler", Kind: KindBool, Usage: "mark the post a spoiler"},
+	{Key: "publish.reddit.caption", Kind: KindString, Usage: "Reddit specific text; used as the title when no title is set"},
+	{Key: "publish.reddit.poll-interval", Kind: KindDuration, Default: "2s", Usage: "how often the new post is looked for after submitting"},
+	{Key: "publish.reddit.poll-timeout", Kind: KindDuration, Default: "30s", Usage: "how long to look for the new post's permalink"},
+}
+
+// layoutDescriptors are the three keys every platform has for overriding what
+// gets rendered for it. They are generated rather than written out nine times,
+// because a platform silently missing one would be a hole nobody notices.
+func layoutDescriptors(platform string) []Descriptor {
+	return []Descriptor{
+		{
+			Key: "publish." + platform + ".overlay", Kind: KindStrings, Path: true,
+			Usage: "template overlays applied for " + platform + " only, after the global ones",
+		},
+		{
+			Key: "publish." + platform + ".width", Kind: KindInt,
+			Usage: "render width for " + platform + "; 0 inherits render.width",
+		},
+		{
+			Key: "publish." + platform + ".height", Kind: KindInt,
+			Usage: "render height for " + platform + "; 0 inherits render.height",
+		},
+	}
+}
+
+func init() {
+	for _, p := range Platforms {
+		registry = append(registry, layoutDescriptors(p)...)
+	}
 }
 
 // Registry returns every declared key, in declaration order.

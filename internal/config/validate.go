@@ -19,6 +19,9 @@ const (
 	MaxScale = 4
 	// MaxSuperSample is the largest extra supersampling factor.
 	MaxSuperSample = 4
+	// MaxVideoFrames caps a clip, because a frame is a full page layout and a
+	// mistyped duration would otherwise run for hours.
+	MaxVideoFrames = 36000
 )
 
 // InvalidError reports one configuration key whose value cannot be used.
@@ -68,6 +71,7 @@ func Validate(cfg *Config) error {
 
 	add(validateLog(&cfg.Log))
 	add(validateRender(&cfg.Render))
+	add(validateVideo(&cfg.Render.Video))
 	add(validateHTTP(&cfg.HTTP))
 	errs = append(errs, validateStage(&cfg.Stage)...)
 	errs = append(errs, validatePublish(&cfg.Publish)...)
@@ -135,6 +139,33 @@ func validateRender(r *Render) error {
 	}
 	if _, err := ParseColor(r.Background); err != nil {
 		errs = append(errs, invalid("render.background", r.Background, err.Error()))
+	}
+	return errors.Join(errs...)
+}
+
+func validateVideo(v *Video) error {
+	var errs []error
+	if v.FPS < 1 || v.FPS > 240 {
+		errs = append(errs, invalid("render.video.fps", strconv.Itoa(v.FPS), "want 1 to 240"))
+	}
+	if err := checkDuration("render.video.duration", v.Duration, true); err != nil {
+		errs = append(errs, err)
+	}
+	if v.Frames < 0 || v.Frames > MaxVideoFrames {
+		errs = append(errs, invalid("render.video.frames", strconv.Itoa(v.Frames),
+			fmt.Sprintf("want 0 to %d", MaxVideoFrames)))
+	}
+	switch strings.ToLower(strings.TrimSpace(v.CodecPreset)) {
+	case "h264", "h265", "vp9", "none":
+	default:
+		errs = append(errs, invalid("render.video.codec-preset", v.CodecPreset, "want h264, h265, vp9 or none"))
+	}
+	if v.Enabled && strings.TrimSpace(v.FFmpegBin) == "" {
+		errs = append(errs, missing("render.video.ffmpeg-bin", "video rendering needs an ffmpeg executable"))
+	}
+	if v.Enabled && v.Frames == 0 && Duration(v.Duration) <= 0 {
+		errs = append(errs, missing("render.video.duration",
+			"video rendering needs either a duration or a frame count"))
 	}
 	return errors.Join(errs...)
 }
@@ -257,12 +288,61 @@ func validatePublish(p *Publish) []error {
 		{"publish.tiktok.poll-timeout", p.TikTok.PollTimeout},
 		{"publish.mastodon.poll-interval", p.Mastodon.PollInterval},
 		{"publish.mastodon.poll-timeout", p.Mastodon.PollTimeout},
+		{"publish.reddit.poll-interval", p.Reddit.PollInterval},
+		{"publish.reddit.poll-timeout", p.Reddit.PollTimeout},
 	} {
 		if err := checkDuration(d.key, d.val, true); err != nil {
 			errs = append(errs, err)
 		}
 	}
+	switch strings.ToLower(strings.TrimSpace(p.Reddit.Kind)) {
+	case "auto", "image", "video", "link":
+	default:
+		errs = append(errs, invalid("publish.reddit.kind", p.Reddit.Kind, "want auto, image, video or link"))
+	}
+
+	for _, name := range Platforms {
+		l := LayoutOf(p, name)
+		if l == nil {
+			continue
+		}
+		if l.Width < 0 || l.Width > MaxDimension {
+			errs = append(errs, invalid("publish."+name+".width", strconv.Itoa(l.Width),
+				fmt.Sprintf("want 0 to %d", MaxDimension)))
+		}
+		if l.Height < 0 || l.Height > MaxDimension {
+			errs = append(errs, invalid("publish."+name+".height", strconv.Itoa(l.Height),
+				fmt.Sprintf("want 0 to %d", MaxDimension)))
+		}
+	}
 	return errs
+}
+
+// LayoutOf returns a platform's render overrides, or nil when the name is not
+// a platform crier knows.
+func LayoutOf(p *Publish, name string) *Layout {
+	switch name {
+	case "instagram":
+		return &p.Instagram.Layout
+	case "facebook":
+		return &p.Facebook.Layout
+	case "tiktok":
+		return &p.TikTok.Layout
+	case "telegram":
+		return &p.Telegram.Layout
+	case "x":
+		return &p.X.Layout
+	case "mastodon":
+		return &p.Mastodon.Layout
+	case "discord":
+		return &p.Discord.Layout
+	case "linkedin":
+		return &p.LinkedIn.Layout
+	case "reddit":
+		return &p.Reddit.Layout
+	default:
+		return nil
+	}
 }
 
 func checkDuration(key, value string, positive bool) error {

@@ -43,15 +43,17 @@ func Bindings(cfg *Config) map[string]Binding {
 	s3, srv := &s.S3, &s.Server
 	tun := &srv.Tunnel
 	ig, fb, tt, tg := &p.Instagram, &p.Facebook, &p.TikTok, &p.Telegram
-	x, ma, dc, li := &p.X, &p.Mastodon, &p.Discord, &p.LinkedIn
+	x, ma, dc, li, rd := &p.X, &p.Mastodon, &p.Discord, &p.LinkedIn, &p.Reddit
+	vid := &r.Video
 
-	return map[string]Binding{
+	out := map[string]Binding{
 		"log.level":  bindString(&l.Level),
 		"log.format": bindString(&l.Format),
 
 		"render.template":       bindString(&r.Template),
 		"render.data":           bindString(&r.Data),
 		"render.css":            bindStrings(&r.CSS),
+		"render.overlays":       bindStrings(&r.Overlays),
 		"render.width":          bindInt(&r.Width),
 		"render.height":         bindInt(&r.Height),
 		"render.scale":          bindString(&r.Scale),
@@ -64,6 +66,15 @@ func Bindings(cfg *Config) map[string]Binding {
 		"render.background":     bindString(&r.Background),
 		"render.fonts-dir":      bindStrings(&r.FontsDir),
 		"render.hermetic-fonts": bindBool(&r.HermeticFonts),
+
+		"render.video.enabled":      bindBool(&vid.Enabled),
+		"render.video.fps":          bindInt(&vid.FPS),
+		"render.video.duration":     bindString(&vid.Duration),
+		"render.video.frames":       bindInt(&vid.Frames),
+		"render.video.ffmpeg-bin":   bindString(&vid.FFmpegBin),
+		"render.video.ffmpeg-args":  bindStrings(&vid.FFmpegArgs),
+		"render.video.codec-preset": bindString(&vid.CodecPreset),
+		"render.video.audio":        bindString(&vid.Audio),
 
 		"http.timeout":          bindString(&h.Timeout),
 		"http.retry-max":        bindInt(&h.RetryMax),
@@ -158,7 +169,39 @@ func Bindings(cfg *Config) map[string]Binding {
 		"publish.linkedin.author-urn":   bindString(&li.AuthorURN),
 		"publish.linkedin.version":      bindString(&li.Version),
 		"publish.linkedin.caption":      bindString(&li.Caption),
+
+		"publish.reddit.enabled":       bindBool(&rd.Enabled),
+		"publish.reddit.api-base-url":  bindString(&rd.APIBaseURL),
+		"publish.reddit.auth-base-url": bindString(&rd.AuthBaseURL),
+		"publish.reddit.client-id":     bindString(&rd.ClientID),
+		"publish.reddit.client-secret": bindString(&rd.ClientSecret),
+		"publish.reddit.refresh-token": bindString(&rd.RefreshToken),
+		"publish.reddit.username":      bindString(&rd.Username),
+		"publish.reddit.password":      bindString(&rd.Password),
+		"publish.reddit.user-agent":    bindString(&rd.UserAgent),
+		"publish.reddit.subreddit":     bindString(&rd.Subreddit),
+		"publish.reddit.title":         bindString(&rd.Title),
+		"publish.reddit.flair-id":      bindString(&rd.FlairID),
+		"publish.reddit.kind":          bindString(&rd.Kind),
+		"publish.reddit.nsfw":          bindBool(&rd.NSFW),
+		"publish.reddit.spoiler":       bindBool(&rd.Spoiler),
+		"publish.reddit.caption":       bindString(&rd.Caption),
+		"publish.reddit.poll-interval": bindString(&rd.PollInterval),
+		"publish.reddit.poll-timeout":  bindString(&rd.PollTimeout),
 	}
+
+	// The layout keys are generated exactly like their descriptors are, so a
+	// platform can never have the descriptor and not the field.
+	for name, l := range map[string]*Layout{
+		"instagram": &ig.Layout, "facebook": &fb.Layout, "tiktok": &tt.Layout,
+		"telegram": &tg.Layout, "x": &x.Layout, "mastodon": &ma.Layout,
+		"discord": &dc.Layout, "linkedin": &li.Layout, "reddit": &rd.Layout,
+	} {
+		out["publish."+name+".overlay"] = bindStrings(&l.Overlay)
+		out["publish."+name+".width"] = bindInt(&l.Width)
+		out["publish."+name+".height"] = bindInt(&l.Height)
+	}
+	return out
 }
 
 // Fields builds the nested decode table the loader wants from the flat

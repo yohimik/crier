@@ -35,6 +35,7 @@ type Render struct {
 	Template      string
 	Data          string
 	CSS           []string
+	Overlays      []string
 	Width         int
 	Height        int
 	Scale         string
@@ -47,6 +48,31 @@ type Render struct {
 	Background    string
 	FontsDir      []string
 	HermeticFonts bool
+	Video         Video
+}
+
+// Video configures rendering an animated template into an MP4 through ffmpeg.
+//
+// The template is executed and laid out once per frame, with the frame counter
+// injected as .Video, and the frames are streamed straight into ffmpeg's stdin
+// so memory stays at one frame however long the clip is.
+type Video struct {
+	Enabled     bool
+	FPS         int
+	Duration    string
+	Frames      int
+	FFmpegBin   string
+	FFmpegArgs  []string
+	CodecPreset string
+	Audio       string
+}
+
+// Layout is the per-platform override of what gets rendered: extra template
+// overlays and the output size. Platforms sharing a layout share a render.
+type Layout struct {
+	Overlay []string
+	Width   int
+	Height  int
 }
 
 // HTTP configures the shared HTTP client used by every publisher and stager.
@@ -114,10 +140,13 @@ type Publish struct {
 	Mastodon  Mastodon
 	Discord   Discord
 	LinkedIn  LinkedIn
+	Reddit    Reddit
 }
 
 // Instagram configures the Instagram Graph API publisher.
 type Instagram struct {
+	Layout
+
 	Enabled      bool
 	APIBaseURL   string
 	Token        string
@@ -130,6 +159,8 @@ type Instagram struct {
 
 // Facebook configures the Facebook Page publisher.
 type Facebook struct {
+	Layout
+
 	Enabled    bool
 	APIBaseURL string
 	Token      string
@@ -141,6 +172,8 @@ type Facebook struct {
 
 // TikTok configures the TikTok Content Posting API publisher.
 type TikTok struct {
+	Layout
+
 	Enabled      bool
 	APIBaseURL   string
 	Token        string
@@ -153,6 +186,8 @@ type TikTok struct {
 
 // Telegram configures the Telegram Bot API publisher.
 type Telegram struct {
+	Layout
+
 	Enabled    bool
 	APIBaseURL string
 	Token      string
@@ -162,6 +197,8 @@ type Telegram struct {
 
 // X configures the X (Twitter) v2 publisher.
 type X struct {
+	Layout
+
 	Enabled    bool
 	APIBaseURL string
 	Token      string
@@ -170,6 +207,8 @@ type X struct {
 
 // Mastodon configures the Mastodon publisher.
 type Mastodon struct {
+	Layout
+
 	Enabled      bool
 	APIBaseURL   string
 	Token        string
@@ -182,6 +221,8 @@ type Mastodon struct {
 
 // Discord configures the Discord webhook publisher.
 type Discord struct {
+	Layout
+
 	Enabled    bool
 	WebhookURL string
 	Username   string
@@ -190,10 +231,40 @@ type Discord struct {
 
 // LinkedIn configures the LinkedIn REST publisher.
 type LinkedIn struct {
+	Layout
+
 	Enabled    bool
 	APIBaseURL string
 	Token      string
 	AuthorURN  string
 	Version    string
 	Caption    string
+}
+
+// Reddit configures the Reddit publisher.
+//
+// Reddit is the only platform with two hosts: tokens come from the www host
+// and everything else goes to the oauth host, and both are configurable so the
+// end-to-end tests can point them at a fake.
+type Reddit struct {
+	Layout
+
+	Enabled      bool
+	APIBaseURL   string
+	AuthBaseURL  string
+	ClientID     string
+	ClientSecret string
+	RefreshToken string
+	Username     string
+	Password     string
+	UserAgent    string
+	Subreddit    string
+	Title        string
+	FlairID      string
+	Kind         string
+	NSFW         bool
+	Spoiler      bool
+	Caption      string
+	PollInterval string
+	PollTimeout  string
 }

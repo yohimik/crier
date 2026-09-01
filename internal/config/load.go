@@ -5,7 +5,6 @@ import (
 	"errors"
 	"flag"
 	"fmt"
-	"io/fs"
 	"os"
 	"path/filepath"
 	"sort"
@@ -19,9 +18,9 @@ import (
 // variable) naming the configuration file.
 const ConfigFlag = "config"
 
-// DefaultFileNames are looked for in the working directory when no
-// configuration file was named explicitly, in this order.
-var DefaultFileNames = []string{"crier.yaml", "crier.yml", "crier.json", "crier.toml"}
+// DefaultFileNames are the configuration file names looked for while walking
+// up from the working directory, in this order within one directory.
+var DefaultFileNames = []string{"crier.yaml", "crier.yml", "crier.json", "crier.toml", ".crier.yaml"}
 
 // Defaults returns a Config with every registry default applied.
 //
@@ -166,7 +165,7 @@ func EnvBinding(environ []string) dispat.EnvBinding {
 // Options configures Load.
 type Options struct {
 	// Path is the configuration file named on the command line. When empty,
-	// CRIER_CONFIG and then the default file names are tried.
+	// CRIER_CONFIG and then the ascent from Dir are tried.
 	Path string
 	// Environ is the process environment as KEY=value pairs. A nil slice means
 	// os.Environ(); a non-nil empty slice means an empty environment.
@@ -174,8 +173,8 @@ type Options struct {
 	// FlagOverrides are the values the operator typed, which outrank both the
 	// file and the environment.
 	FlagOverrides dispat.Overrides
-	// Dir is the directory the default file names are looked for in. Empty
-	// means the process working directory.
+	// Dir is where the search for a configuration file starts. Empty means the
+	// process working directory.
 	Dir string
 }
 
@@ -184,6 +183,9 @@ type Result struct {
 	Config Config
 	// File is the configuration file that was read, empty when none was found.
 	File string
+	// Dir is the directory the configuration file sits in — the project root.
+	// Relative paths written in the file are resolved against it.
+	Dir string
 	// Files are every file that was read, including the ones pulled in by
 	// `$ref`.
 	Files []string
@@ -192,8 +194,11 @@ type Result struct {
 // Load composes the three layers into a Config: registry defaults underneath,
 // then the file, then the environment, then the flags.
 //
-// An explicitly named file that does not exist is an error; the default file
-// names are only tried when no name was given, and their absence is not.
+// The file is found by walking up from the working directory, the way git
+// finds a repository, so running crier inside one project uses that project's
+// configuration and running it inside another uses the other's. An explicitly
+// named file skips the search; a file that was named and does not exist is an
+// error, while finding nothing on the way up is not.
 func Load(ctx context.Context, o Options) (*Result, error) {
 	cfg := Defaults()
 
@@ -201,23 +206,37 @@ func Load(ctx context.Context, o Options) (*Result, error) {
 	if environ == nil {
 		environ = os.Environ()
 	}
-
-	path, explicit, err := resolvePath(o, environ)
-	if err != nil {
-		return nil, err
+	dir := o.Dir
+	if dir == "" {
+		dir = "."
 	}
 
 	loader := dispat.NewLoader(dispat.Options{})
-	tree := &dispat.Tree{Root: map[string]any{}}
-	if path != "" {
-		tree, err = loader.ReadTree(ctx, path)
-		if err != nil {
-			if !explicit && errors.Is(err, fs.ErrNotExist) {
-				tree = &dispat.Tree{Root: map[string]any{}}
-			} else {
-				return nil, fmt.Errorf("reading config %s: %w", path, err)
-			}
+	path := explicitPath(o, environ)
+	if path == "" {
+		found, _, err := loader.Resolve(ctx, dir, dispat.Resolver{Names: DefaultFileNames})
+		if err != nil && !errors.Is(err, dispat.ErrNoConfig) {
+			return nil, err
 		}
+		path = found
+	}
+
+	tree := &dispat.Tree{Root: map[string]any{}}
+	configDir := ""
+	if path != "" {
+		read, err := loader.ReadTree(ctx, path)
+		if err != nil {
+			// A config file that was named, or that the ascent found, and that
+			// cannot be read is broken rather than absent: stepping over it
+			// would silently run with somebody else's settings.
+			return nil, fmt.Errorf("reading config %s: %w", path, err)
+		}
+		tree = read
+		abs, err := filepath.Abs(path)
+		if err != nil {
+			abs = path
+		}
+		configDir = filepath.Dir(abs)
 	}
 
 	envOverrides, err := EnvBinding(environ).Overrides(ctx)
@@ -225,35 +244,105 @@ func Load(ctx context.Context, o Options) (*Result, error) {
 		return nil, err
 	}
 
+	fileSettings := tree.Settings(loader, nil)
 	settings := tree.Settings(loader, dispat.MergeOverrides(envOverrides, o.FlagOverrides))
 	if err := dispat.DecodeObject(settings, "", Fields(&cfg)); err != nil {
 		return nil, err
 	}
 
+	if configDir != "" {
+		anchorPaths(&cfg, configDir, fileSettings, envOverrides, o.FlagOverrides)
+	}
+
 	res := &Result{Config: cfg, Files: tree.Files}
-	if path != "" && len(tree.Files) > 0 {
+	if path != "" {
 		res.File = path
+		res.Dir = configDir
 	}
 	return res, nil
 }
 
-// resolvePath decides which configuration file to read: the flag, then
-// CRIER_CONFIG, then the first default name that exists in Dir.
-func resolvePath(o Options, environ []string) (path string, explicit bool, err error) {
+// explicitPath is the configuration file the operator named, empty when they
+// named none and the ascent has to find one.
+func explicitPath(o Options, environ []string) string {
 	if o.Path != "" {
-		return o.Path, true, nil
+		return o.Path
 	}
 	if v, ok := lookupEnv(environ, EnvPrefix+"CONFIG"); ok && v != "" {
-		return v, true, nil
+		return v
 	}
-	dir := o.Dir
-	for _, name := range DefaultFileNames {
-		candidate := filepath.Join(dir, name)
-		if st, statErr := os.Stat(candidate); statErr == nil && !st.IsDir() {
-			return candidate, false, nil
+	return ""
+}
+
+// anchorPaths resolves the relative file names a config file wrote against
+// that file's own directory.
+//
+// A project's config sits next to its template, and `template: story.html`
+// there has to mean the file beside it however deep in the tree crier was run
+// from. A path given on the command line or in the environment is left alone,
+// because it was typed where the shell is and means what it says there.
+func anchorPaths(cfg *Config, dir string, fileSettings map[string]any, env, flags dispat.Overrides) {
+	b := Bindings(cfg)
+	for _, d := range registry {
+		if !d.Path {
+			continue
+		}
+		if _, set := flags[d.Key]; set {
+			continue
+		}
+		if _, set := env[d.Key]; set {
+			continue
+		}
+		if !settingsHave(fileSettings, d.Key) {
+			continue
+		}
+		bind, ok := b[d.Key]
+		if !ok {
+			continue
+		}
+		switch v := bind.Get().(type) {
+		case string:
+			_ = bind.Set(anchorOne(dir, v), d.Key)
+		case []string:
+			out := make([]string, len(v))
+			for i, item := range v {
+				out[i] = anchorOne(dir, item)
+			}
+			_ = bind.Set(out, d.Key)
 		}
 	}
-	return "", false, nil
+}
+
+// anchorOne resolves one path against dir, leaving alone what must not move:
+// an empty value, an absolute path, and the "-" that means standard input.
+func anchorOne(dir, value string) string {
+	if value == "" || value == "-" || filepath.IsAbs(value) {
+		return value
+	}
+	return filepath.Join(dir, value)
+}
+
+// settingsHave reports whether a rendered settings map holds a value at a
+// dotted key, matching every level case-insensitively the way the decoder
+// does.
+func settingsHave(settings map[string]any, key string) bool {
+	node := settings
+	segs := strings.Split(key, dispat.DefaultKeyDelim)
+	for i, seg := range segs {
+		_, value, ok := dispat.LookupFold(node, seg)
+		if !ok {
+			return false
+		}
+		if i == len(segs)-1 {
+			return value != nil
+		}
+		child, isObject := value.(map[string]any)
+		if !isObject {
+			return false
+		}
+		node = child
+	}
+	return false
 }
 
 // lookupEnv finds a variable in an explicit environment slice. The last
