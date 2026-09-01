@@ -55,6 +55,11 @@ linters:
         # spelled. Style, and the code says what it means as it is.
         - -QF1001
         - -QF1002
+        # QF1008: "you could drop the embedded struct's name". A custom
+        # platform carries both its own settings and a render Layout, and
+        # c.Layout.Width says which of the two Width belongs to where c.Width
+        # would leave a reader guessing.
+        - -QF1008
 
   exclusions:
     rules:
@@ -65,6 +70,14 @@ linters:
       # narrows float coverage into bytes, which is what a rasterizer is.
       - path: internal/raster/
         linters: [gosec]
+      # S1016 in internal/selfupdate: the suggestion is to convert GitHub's
+      # asset struct to ours, which works only while the two happen to have
+      # identical fields. The explicit literal is the mapping across an API
+      # boundary, and it is the only place that says browser_download_url is
+      # our URL.
+      - path: internal/selfupdate/source\.go
+        linters: [staticcheck]
+        text: "S1016"
       # httpx.Send hands the response to its caller to close, and JSON, Bytes
       # and Discard close it through drainClose — which bodyclose cannot see,
       # because it only recognises a literal resp.Body.Close().

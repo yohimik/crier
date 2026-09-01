@@ -25,10 +25,24 @@ func TestSystemFontScanSurvivesAPanickingFont(t *testing.T) {
 		t.Fatalf("safeScan = %v, %v; want an empty fontset and no error", set, err)
 	}
 
-	// A real error still comes back as an error: only a crash is swallowed.
-	want := errors.New("no font directories")
-	if _, err := safeScan(zerolog.Nop(), func() (fc.Fontset, error) { return nil, want }); !errors.Is(err, want) {
-		t.Errorf("safeScan swallowed a real error: %v", err)
+}
+
+// TestNoSystemFontsIsNotAFailure is a regression test.
+//
+// A container with no fonts installed at all — which is what a scratch image
+// and most CI images are — made the scan return "no font directory found", and
+// crier refused to render. It ships its own faces precisely so it can render
+// there, and a static binary that needs fonts installed alongside it is not
+// the thing crier claims to be.
+func TestNoSystemFontsIsNotAFailure(t *testing.T) {
+	set, err := safeScan(zerolog.Nop(), func() (fc.Fontset, error) {
+		return nil, errors.New("no font directory found")
+	})
+	if err != nil {
+		t.Fatalf("safeScan = %v; a machine with no fonts still has to render", err)
+	}
+	if set != nil {
+		t.Errorf("set = %v, want none", set)
 	}
 }
 

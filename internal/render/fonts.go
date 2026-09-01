@@ -144,7 +144,17 @@ func systemFontset(o FontOptions) (fc.Fontset, error) {
 	return safeScan(o.Logger, func() (fc.Fontset, error) { return scanSystemFonts(o) })
 }
 
-// safeScan runs a font scan, turning a panic into an empty fontset.
+// safeScan runs a font scan, turning both a panic and a failure into an empty
+// fontset.
+//
+// A failure is swallowed for the same reason a panic is: the machine's fonts
+// are not crier's to control, and a machine with none — a scratch container, a
+// minimal CI image — is a machine crier is meant to work on. It ships its own
+// faces so that it can. Refusing to render there would contradict the whole
+// point of a static binary with nothing to install alongside it.
+//
+// Only the system scan is treated this way. A font directory the configuration
+// named still fails loudly: that one is a promise the operator made.
 func safeScan(log zerolog.Logger, scan func() (fc.Fontset, error)) (set fc.Fontset, err error) {
 	defer func() {
 		if r := recover(); r != nil {
@@ -153,7 +163,13 @@ func safeScan(log zerolog.Logger, scan func() (fc.Fontset, error)) (set fc.Fonts
 			set, err = nil, nil
 		}
 	}()
-	return scan()
+	set, err = scan()
+	if err != nil {
+		log.Warn().Err(err).
+			Msg("this machine has no readable system fonts; continuing with the bundled fonts only")
+		return nil, nil
+	}
+	return set, nil
 }
 
 // scanSystemFonts is systemFontset without the recover, so the recover has

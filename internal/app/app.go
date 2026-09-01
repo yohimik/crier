@@ -98,16 +98,6 @@ func (a App) Run(ctx context.Context) int {
 // agreeing.
 var Commands = []string{"publish", "render", "init", "ping", "platforms", "config", "self-update", "help"}
 
-// known reports whether a word is a command.
-func known(name string) bool {
-	for _, c := range Commands {
-		if c == name {
-			return true
-		}
-	}
-	return false
-}
-
 // dispatch decides which command was asked for, and what is left for it.
 //
 // publish is the default, so `crier` inside a project directory renders and
