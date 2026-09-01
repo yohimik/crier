@@ -1,0 +1,41 @@
+<!doctype html>
+<html>
+<head>
+<style>
+  @font-face { font-family: "PT Serif"; font-weight: 400; src: url("../fonts/pt-serif/PTSerif-Regular.ttf") }
+  @font-face { font-family: "PT Serif"; font-weight: 700; src: url("../fonts/pt-serif/PTSerif-Bold.ttf") }
+
+  {{ $accent := randChoice .accents }}
+
+  html, body { height: 100%; margin: 0 }
+  body { font-family: "PT Serif", serif }
+  .card {
+    width: 100%; height: 100%; box-sizing: border-box;
+    background: linear-gradient({{ randInt 100 260 }}deg, #2b1d16 0%, #4a2f22 100%);
+    color: #f7ead9;
+    /* The padding lives on the card rather than as a margin on the panel:
+       a child's top margin would collapse out of the card and take the
+       background with it. */
+    padding: 64px;
+  }
+  .panel {
+    margin: 0; padding: 64px 72px; box-sizing: border-box;
+    width: 100%; height: 100%;
+    background: rgba(247, 234, 217, .07);
+    border: 3px solid {{ $accent }};
+  }
+  blockquote {
+    margin: 0; font-size: 48px; line-height: 1.4; font-weight: 700;
+    overflow: hidden; overflow-wrap: break-word;
+    max-lines: 4; continue: discard; block-ellipsis: auto;
+  }
+  .who { margin-top: 40px; font-size: 28px; letter-spacing: 3px; color: {{ $accent }} }
+</style>
+</head>
+<body>
+  <div class="card"><div class="panel">
+    <blockquote>{{ .quote }}</blockquote>
+    <div class="who">{{ .author }} — {{ .source }}</div>
+  </div></div>
+</body>
+</html>

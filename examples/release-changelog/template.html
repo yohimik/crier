@@ -1,0 +1,56 @@
+<!doctype html>
+<html>
+<head>
+<style>
+  @font-face { font-family: "Space Mono"; font-weight: 400; src: url("../fonts/space-mono/SpaceMono-Regular.ttf") }
+  @font-face { font-family: "Space Mono"; font-weight: 700; src: url("../fonts/space-mono/SpaceMono-Bold.ttf") }
+
+  html, body { height: 100%; margin: 0 }
+  body { font-family: "Space Mono", monospace }
+  .card {
+    width: 100%; height: 100%; box-sizing: border-box;
+    /* Terminal: green on near-black, with a faint scanline pattern. */
+    background:
+      repeating-linear-gradient(0deg,
+        rgba(0,255,140,.05) 0px, rgba(0,255,140,.05) 1px,
+        rgba(0,0,0,0) 1px, rgba(0,0,0,0) 4px),
+      #04140c;
+    color: #6cffa8;
+    padding: 76px 72px;
+  }
+  .prompt { font-size: 26px; color: #2f7f56 }
+  h1 { font-size: 92px; font-weight: 700; margin: 18px 0 0 0; color: #b6ffd6 }
+  .section { margin-top: 44px }
+  .section h2 {
+    font-size: 26px; font-weight: 700; margin: 0 0 12px 0;
+    letter-spacing: 4px; color: #2fd98a;
+  }
+  .section p {
+    margin: 0; font-size: 27px; line-height: 1.7; color: #8ff0bd;
+    /* Release notes are as long as they are; clamp rather than overflow. */
+    overflow: hidden; overflow-wrap: break-word;
+    max-lines: 4; continue: discard; block-ellipsis: auto;
+  }
+  .breaking h2, .breaking p { color: #ff8d6b }
+  .footer { margin-top: 56px; font-size: 22px; color: #2f7f56 }
+</style>
+</head>
+<body>
+  <div class="card">
+    <div class="prompt">$ dispat release</div>
+    <h1>{{ .package }} {{ .version }}</h1>
+
+    {{ if .features }}
+    <div class="section"><h2>FEATURES</h2><p>{{ .features }}</p></div>
+    {{ end }}
+    {{ if .fixes }}
+    <div class="section"><h2>FIXES</h2><p>{{ .fixes }}</p></div>
+    {{ end }}
+    {{ if .breaking }}
+    <div class="section breaking"><h2>BREAKING</h2><p>{{ .breaking }}</p></div>
+    {{ end }}
+
+    <div class="footer">{{ .footer }}</div>
+  </div>
+</body>
+</html>

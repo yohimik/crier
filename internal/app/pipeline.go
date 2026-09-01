@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"image"
 	"io"
+	"net/url"
 	"os"
 	"path/filepath"
 	"sort"
@@ -327,9 +328,14 @@ func (p *Pipeline) renderFrame(ctx context.Context, v Variant, data any, frameVa
 	}
 	bg, _ := config.ParseColor(r.Background)
 
+	base, err := baseURL(r.BaseURL)
+	if err != nil {
+		return nil, fail(ExitConfig, err)
+	}
+
 	img, err := render.RenderOne(ctx, render.Options{
 		HTML:        html,
-		BaseURL:     r.BaseURL,
+		BaseURL:     base,
 		Width:       v.Width,
 		Height:      v.Height,
 		Scale:       config.Float(r.Scale, 1),
@@ -402,6 +408,35 @@ func (p *Pipeline) renderVideo(ctx context.Context, v Variant, data any) (*rende
 		return nil, nil, fail(ExitRender, err)
 	}
 	return &art, &poster, nil
+}
+
+// baseURL turns render.base-url into something webrender can resolve against.
+//
+// An absolute URL is used as it is; anything else is a directory on this
+// machine, which becomes a file URL — that is what lets a template say
+// url("../fonts/poppins/Poppins-Bold.ttf") and mean the file next to it.
+func baseURL(value string) (string, error) {
+	value = strings.TrimSpace(value)
+	if value == "" {
+		return "", nil
+	}
+	if u, err := url.Parse(value); err == nil && u.IsAbs() && u.Scheme != "" {
+		return value, nil
+	}
+	abs, err := filepath.Abs(value)
+	if err != nil {
+		return "", fmt.Errorf("render.base-url: %w", err)
+	}
+	st, err := os.Stat(abs)
+	if err != nil {
+		return "", fmt.Errorf("render.base-url: %w", err)
+	}
+	if st.IsDir() && !strings.HasSuffix(abs, string(filepath.Separator)) {
+		// Without the trailing separator a relative reference would resolve
+		// from the parent directory.
+		abs += string(filepath.Separator)
+	}
+	return "file://" + filepath.ToSlash(abs), nil
 }
 
 // readAllFiles reads the extra stylesheets.

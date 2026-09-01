@@ -1,0 +1,26 @@
+<!doctype html>
+<html>
+<head>
+<style>
+  /* The simplest possible starter: no bundled fonts, no overlays, no pool.
+     render.hermetic-fonts uses the Go faces compiled into crier, so this
+     renders the same everywhere with nothing to install. */
+  html, body { height: 100%; margin: 0 }
+  body { font-family: "Go", sans-serif }
+  .card {
+    width: 100%; height: 100%; box-sizing: border-box;
+    background: {{ .background }};
+    color: {{ .foreground }};
+    padding: 96px;
+  }
+  h1 { font-size: 96px; line-height: 1.1; margin: 0 }
+  p { font-size: 40px; line-height: 1.5; margin: 32px 0 0 0; opacity: .8 }
+</style>
+</head>
+<body>
+  <div class="card">
+    <h1>{{ .title }}</h1>
+    <p>{{ .body }}</p>
+  </div>
+</body>
+</html>

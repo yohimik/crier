@@ -1,0 +1,11 @@
+# announce.sh overwrites these from dispat's release environment. The values
+# here are what `crier render` uses on its own, so the example works standalone.
+package: crier
+version: v0.1.0
+features: >-
+  Nine platform publishers, template overlays per platform, seeded template
+  randomisation, and video rendering through ffmpeg.
+fixes: >-
+  Glyph outlines are no longer transformed in place, so repeated letters render.
+breaking: ""
+footer: github.com/yohimik/crier

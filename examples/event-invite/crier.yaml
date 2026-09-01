@@ -1,0 +1,20 @@
+# A full-bleed story invitation.
+#
+#   crier render --config examples/event-invite/crier.yaml
+render:
+  template: template.html
+  data: data.yaml
+  width: 1080
+  height: 1920
+  format: png
+  output: preview.png
+  hermetic-fonts: true
+  base-url: .
+
+publish:
+  caption: "{{ .title }} — {{ .when }}, {{ .where }}. {{ .cta }}"
+  instagram:
+    enabled: false
+    story: true
+  telegram:
+    enabled: false

@@ -1,0 +1,15 @@
+badge: PATCH NOTES
+title: NEBULA DRIFT 2.4
+storyTitle: NEBULA DRIFT 2.4
+version: BUILD 2.4.0 — LIVE NOW
+notes:
+  - "New biome: the Shattered Belt, with six hand-built encounters"
+  - Grapple rework — momentum now carries through wall runs
+  - Co-op matchmaking is region-aware and roughly twice as fast
+  - Fixed the save corruption when quitting during a cutscene
+  - Twenty-one smaller fixes, listed in the full notes
+storyNotes:
+  - "New biome, six encounters"
+  - Grapple rework
+  - Faster co-op matchmaking
+footer: PATCH NOTES IN FULL AT NEBULADRIFT.EXAMPLE

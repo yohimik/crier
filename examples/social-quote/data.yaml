@@ -1,0 +1,11 @@
+quote: >-
+  A programming language is low level when its programs require attention to
+  the irrelevant, and the whole craft of designing one is deciding, once, what
+  everybody afterwards will be allowed to stop thinking about entirely.
+author: Alan Perlis
+source: Epigrams on Programming
+accents:
+  - "#c25b2c"
+  - "#8a6f3d"
+  - "#a33b5a"
+  - "#3f6f5c"

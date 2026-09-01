@@ -58,9 +58,8 @@ func (c *Canvas) DrawGradient(g backend.GradientLayout, width, height backend.Fl
 
 // gradientShader evaluates a gradient per device pixel.
 type gradientShader struct {
-	inv       matrix.Transform // device -> gradient space
-	radial    bool
-	repeating bool
+	inv    matrix.Transform // device -> gradient space
+	radial bool
 
 	// linear: the gradient axis, precomputed for a dot product.
 	x0, y0     float64
@@ -81,7 +80,7 @@ type gradientStop struct {
 }
 
 func newGradientShader(g backend.GradientLayout, inv matrix.Transform) *gradientShader {
-	s := &gradientShader{inv: inv, repeating: g.Reapeating}
+	s := &gradientShader{inv: inv}
 	s.stops = makeStops(g.Positions, g.Colors)
 	if len(s.stops) == 0 {
 		return nil
@@ -107,9 +106,14 @@ func newGradientShader(g backend.GradientLayout, inv matrix.Transform) *gradient
 	return s
 }
 
-// makeStops sorts and clamps the colour stops. Positions and colours come in
-// as parallel slices; a mismatch would be a webrender bug, and the shorter of
-// the two is used rather than panicking on it.
+// makeStops turns the parallel position and colour slices into stops in [0,1].
+//
+// The rescaling is the part that matters. webrender hands over a repeating
+// gradient with the repetitions already written out as extra stops, and those
+// stops run past 1 and below 0 — they are normalised against the *original*
+// colour run, while Coords spans the whole expanded range. Reading them as if
+// they were already [0,1] renders a repeating gradient as a single band, which
+// is what this used to do.
 func makeStops(positions []backend.Fl, colors []parser.RGBA) []gradientStop {
 	n := len(colors)
 	if len(positions) < n {
@@ -133,7 +137,24 @@ func makeStops(positions []backend.Fl, colors []parser.RGBA) []gradientStop {
 		c := colors[i]
 		out = append(out, gradientStop{pos: p, r: float64(c.R), g: float64(c.G), b: float64(c.B), alpha: float64(c.A)})
 	}
-	return out
+	return rescale(out)
+}
+
+// rescale maps the stop positions onto [0,1], which is the range the parameter
+// computed from Coords lives in.
+func rescale(stops []gradientStop) []gradientStop {
+	if len(stops) < 2 {
+		return stops
+	}
+	lo, hi := stops[0].pos, stops[len(stops)-1].pos
+	span := hi - lo
+	if span <= 0 {
+		return stops
+	}
+	for i := range stops {
+		stops[i].pos = (stops[i].pos - lo) / span
+	}
+	return stops
 }
 
 func (s *gradientShader) colorAt(x, y int) (uint8, uint8, uint8, uint8) {
@@ -186,13 +207,14 @@ func (s *gradientShader) param(x, y float64) (float64, bool) {
 	return 0, false
 }
 
-// sample interpolates the stop colours at t, repeating or clamping first.
+// sample interpolates the stop colours at t, clamping outside the range.
+//
+// There is deliberately no wrapping here: a repeating gradient arrives with
+// its repetitions already expanded into the stop list, covering the whole
+// painting area, so wrapping would fold it back on itself.
 func (s *gradientShader) sample(t float64) (uint8, uint8, uint8, uint8) {
 	if math.IsNaN(t) || math.IsInf(t, 0) {
 		return 0, 0, 0, 0
-	}
-	if s.repeating {
-		t -= math.Floor(t)
 	}
 	first, last := s.stops[0], s.stops[len(s.stops)-1]
 	if t <= first.pos {

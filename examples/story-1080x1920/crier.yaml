@@ -1,0 +1,17 @@
+# A story-shaped card, 1080x1920.
+#
+#   crier render --config examples/story-1080x1920/crier.yaml
+render:
+  template: template.html
+  data: data.yaml
+  width: 1080
+  height: 1920
+  format: png
+  output: preview.png
+  hermetic-fonts: true
+
+publish:
+  caption: "{{ .title }} — {{ .subtitle }}"
+  instagram:
+    enabled: false
+    story: true

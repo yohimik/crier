@@ -1,0 +1,23 @@
+# A square product card for a feed post.
+#
+#   crier render --config examples/business-promo/crier.yaml
+render:
+  template: template.html
+  data: data.yaml
+  width: 1080
+  height: 1080
+  format: png
+  output: preview.png
+  # The fonts ship with the example, and hermetic-fonts keeps the machine's own
+  # fonts out, so the preview is the same everywhere.
+  # hermetic-fonts keeps the machine's own fonts out; base-url is what makes
+  # the @font-face src in the template resolve to the shipped file.
+  hermetic-fonts: true
+  base-url: .
+
+publish:
+  caption: "{{ .headline }} — {{ .cta }} ({{ .Platform }})"
+  telegram:
+    enabled: false
+  discord:
+    enabled: false

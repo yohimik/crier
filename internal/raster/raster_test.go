@@ -1021,14 +1021,65 @@ func TestGradientDegenerateCases(t *testing.T) {
 	}
 }
 
-func TestGradientRepeats(t *testing.T) {
-	l := linearLayout()
-	l.Reapeating = true
-	s := newGradientShader(l, matrix.Identity())
-	r1, _, b1, _ := s.sample(0.25)
-	r2, _, b2, _ := s.sample(1.25)
-	if r1 != r2 || b1 != b2 {
-		t.Errorf("a repeating gradient should wrap: %v/%v vs %v/%v", r1, b1, r2, b2)
+// TestRepeatingGradientDrawsEveryBand is the regression test for reading
+// webrender's expanded stop list as if it were already normalised. A repeating
+// gradient arrives with every repetition written out as extra stops, running
+// past 1 and below 0; scaling them wrongly rendered the whole thing as one
+// band, so a scanline pattern came out as a single stripe.
+func TestRepeatingGradientDrawsEveryBand(t *testing.T) {
+	// Four cycles of black then white across 80 pixels, the way webrender
+	// hands one over: positions normalised against the first cycle only.
+	var (
+		positions []backend.Fl
+		colors    []parser.RGBA
+	)
+	for i := 0; i < 4; i++ {
+		base := backend.Fl(i)
+		positions = append(positions, base, base+0.5, base+0.5, base+1)
+		colors = append(colors,
+			rgba(0, 0, 0, 1), rgba(0, 0, 0, 1),
+			rgba(1, 1, 1, 1), rgba(1, 1, 1, 1))
+	}
+
+	c, img := newTestCanvas(80, 8)
+	c.DrawGradient(backend.GradientLayout{
+		GradientKind: backend.GradientKind{Kind: "linear", Coords: [6]backend.Fl{0, 0, 80, 0}},
+		Positions:    positions,
+		Colors:       colors,
+		ScaleY:       1,
+		Reapeating:   true,
+	}, 80, 8)
+
+	// Count the black-to-white transitions along a row: four cycles means
+	// four of them.
+	transitions := 0
+	prev := img.RGBAAt(0, 4).R > 128
+	for x := 1; x < 80; x++ {
+		now := img.RGBAAt(x, 4).R > 128
+		if now != prev {
+			transitions++
+		}
+		prev = now
+	}
+	if transitions < 6 {
+		t.Fatalf("only %d colour changes across the gradient; the repetitions were collapsed", transitions)
+	}
+}
+
+func TestGradientStopsAreRescaled(t *testing.T) {
+	stops := rescale([]gradientStop{{pos: -1}, {pos: 0}, {pos: 3}})
+	if stops[0].pos != 0 || stops[2].pos != 1 {
+		t.Errorf("stops = %v, want them mapped onto [0,1]", stops)
+	}
+	if stops[1].pos < 0.24 || stops[1].pos > 0.26 {
+		t.Errorf("middle stop = %v, want a quarter of the way", stops[1].pos)
+	}
+	// Degenerate inputs are left alone rather than dividing by zero.
+	if got := rescale([]gradientStop{{pos: 2}}); got[0].pos != 2 {
+		t.Errorf("a single stop should be untouched: %v", got)
+	}
+	if got := rescale([]gradientStop{{pos: 2}, {pos: 2}}); got[0].pos != 2 {
+		t.Errorf("a zero span should be untouched: %v", got)
 	}
 }
 

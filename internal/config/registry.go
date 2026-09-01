@@ -131,7 +131,7 @@ var registry = []Descriptor{
 	{Key: "render.format", Kind: KindString, Default: "png", Usage: "output image format: png or jpeg"},
 	{Key: "render.jpeg-quality", Kind: KindInt, Default: "90", Usage: "JPEG quality, 1 to 100"},
 	{Key: "render.output", Kind: KindString, Path: true, Usage: "output file path; empty writes into a temporary directory"},
-	{Key: "render.base-url", Kind: KindString, Usage: "base URL used to resolve relative resources in the template"},
+	{Key: "render.base-url", Kind: KindString, Path: true, Usage: "base URL, or a directory, that relative resources in the template resolve against"},
 	{Key: "render.media-type", Kind: KindString, Default: "screen", Usage: "CSS media type used for the cascade: screen or print"},
 	{Key: "render.background", Kind: KindString, Default: "#ffffff", Usage: "background colour transparent pixels are flattened onto for JPEG"},
 	{Key: "render.fonts-dir", Kind: KindStrings, Path: true, Usage: "extra directories scanned for fonts"},

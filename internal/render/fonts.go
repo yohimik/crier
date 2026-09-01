@@ -93,18 +93,24 @@ func NewFonts(o FontOptions) (*Fonts, error) {
 		fetcher = utils.DefaultUrlFetcher
 	}
 
+	// Hermetic means "none of this machine's fonts", not "no fonts at all": a
+	// project that ships its own faces still gets them, and still renders the
+	// same pixels anywhere, because the faces travel with the project.
 	var (
 		database fc.Fontset
 		err      error
 	)
-	if o.Hermetic {
-		database = fc.Fontset{}
-	} else {
+	if !o.Hermetic {
 		database, err = systemFontset(o)
 		if err != nil {
 			return nil, err
 		}
 	}
+	extra, err := scanDirs(o.Dirs, o.Logger)
+	if err != nil {
+		return nil, err
+	}
+	database = append(database, extra...)
 
 	fontmap := fcfonts.NewFontMap(fc.Standard.Copy(), database)
 	cfg := text.NewFontConfigurationPango(fontmap)
@@ -161,19 +167,31 @@ func systemFontset(o FontOptions) (fc.Fontset, error) {
 		o.Logger.Debug().Int("fonts", len(set)).Msg("scanned system fonts")
 	}
 
-	for _, dir := range o.Dirs {
+	return set, nil
+}
+
+// scanDirs reads the font directories the configuration named.
+//
+// A directory that cannot be read is a mistake worth reporting: a project that
+// says where its fonts are and then renders with substitutes has produced the
+// wrong image quietly.
+func scanDirs(dirs []string, log zerolog.Logger) (fc.Fontset, error) {
+	var out fc.Fontset
+	for _, dir := range dirs {
 		if strings.TrimSpace(dir) == "" {
 			continue
 		}
-		extra, scanErr := fc.Standard.ScanFontDirectories(dir)
-		if scanErr != nil {
-			o.Logger.Warn().Str("dir", dir).Err(scanErr).Msg("could not scan a font directory")
-			continue
+		set, err := fc.Standard.ScanFontDirectories(dir)
+		if err != nil {
+			return nil, fmt.Errorf("scanning the font directory %s: %w", dir, err)
 		}
-		o.Logger.Debug().Str("dir", dir).Int("fonts", len(extra)).Msg("scanned an extra font directory")
-		set = append(set, extra...)
+		if len(set) == 0 {
+			log.Warn().Str("dir", dir).Msg("a font directory held no fonts")
+		}
+		log.Debug().Str("dir", dir).Int("fonts", len(set)).Msg("scanned a font directory")
+		out = append(out, set...)
 	}
-	return set, nil
+	return out, nil
 }
 
 // wrapFetcher answers the crier-font scheme and passes everything else on.

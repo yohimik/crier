@@ -1,0 +1,11 @@
+eyebrow: Spring sale
+headline: 40% off every plan
+# Deliberately far too long: it shows the line-clamp recipe doing its job
+# rather than spilling out of the card. See docs/templates.md.
+blurb: >-
+  Every plan, every seat, every add-on, for the whole of April, including the
+  enterprise tier that nobody ever discounts, and the priority support hours
+  that usually cost extra, and the onboarding session as well.
+price: "$29"
+was: "$49"
+cta: Claim the offer

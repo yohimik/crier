@@ -1,0 +1,26 @@
+# A quote card, drawn from a pool of two layouts with a random accent colour.
+#
+#   crier render --config examples/social-quote/crier.yaml
+#   crier render --config examples/social-quote/crier.yaml --render-seed 0   # a new one
+render:
+  # With a pool, crier picks one layout per run and logs which. render.template
+  # is not needed.
+  pool:
+    - template-serif.html
+    - template-panel.html
+  # The seed is pinned so the committed preview is reproducible. Set it to 0,
+  # or pass --render-seed 0, to get a different card every run.
+  seed: 20260901
+  data: data.yaml
+  width: 1200
+  height: 675
+  format: png
+  output: preview.png
+  hermetic-fonts: true
+  base-url: .
+
+publish:
+  caption: "{{ .quote }}\n\n— {{ .author }}, {{ .source }}"
+  mastodon:
+    enabled: false
+    alt-text: "A quote card: {{ .quote }}"

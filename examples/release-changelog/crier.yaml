@@ -1,0 +1,20 @@
+# The card a release posts about itself. announce.sh fills the data from
+# dispat's release environment and then publishes it.
+#
+#   crier render --config examples/release-changelog/crier.yaml
+render:
+  template: template.html
+  data: data.yaml
+  width: 1080
+  height: 1080
+  format: png
+  output: preview.png
+  hermetic-fonts: true
+  base-url: .
+
+publish:
+  caption: "{{ .package }} {{ .version }} is out.\n\n{{ .features }}"
+  mastodon:
+    enabled: false
+  discord:
+    enabled: false

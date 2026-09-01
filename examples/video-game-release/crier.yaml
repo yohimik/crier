@@ -1,0 +1,26 @@
+# A wide patch-notes announcement, plus a taller Instagram story rendered from
+# the same base layout through an overlay.
+#
+#   crier render --config examples/video-game-release/crier.yaml
+#   crier render --config examples/video-game-release/crier.yaml --render-variant instagram
+render:
+  template: template.html
+  data: data.yaml
+  width: 1920
+  height: 1080
+  format: png
+  output: preview.png
+  hermetic-fonts: true
+  base-url: .
+
+publish:
+  caption: "{{ .title }} is live. {{ .version }}"
+  # Instagram gets a story-shaped variant of the very same layout.
+  instagram:
+    enabled: false
+    story: true
+    overlay: story-overlay.html
+    width: 1080
+    height: 1920
+  discord:
+    enabled: false

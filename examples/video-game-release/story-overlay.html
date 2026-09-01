@@ -1,0 +1,8 @@
+{{/* The Instagram story is the same layout, taller, with a shorter headline
+     and only the first three notes. Overlays redefine {{block}} sections; the
+     rest of the base template is untouched. */}}
+{{ define "badge" }}<div class="badge" style="margin-top:420px">{{ .badge }}</div>{{ end }}
+{{ define "headline" }}<h1 style="font-size:52px">{{ .storyTitle }}</h1>{{ end }}
+{{ define "notes" }}
+<ul>{{ range .storyNotes }}<li style="font-size:34px;line-height:2">{{ . }}</li>{{ end }}</ul>
+{{ end }}

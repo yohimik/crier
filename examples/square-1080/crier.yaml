@@ -1,0 +1,11 @@
+# The smallest useful crier project.
+#
+#   crier render --config examples/square-1080/crier.yaml
+render:
+  template: template.html
+  data: data.yaml
+  width: 1080
+  height: 1080
+  format: png
+  output: preview.png
+  hermetic-fonts: true
