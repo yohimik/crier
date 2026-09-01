@@ -149,6 +149,11 @@ func Start(ctx context.Context, o Options) (*Process, error) {
 	p.wg.Add(2)
 	go p.read(stdout, "stdout", o)
 	go p.read(stderr, "stderr", o)
+	// The process is reaped as soon as it exits, without waiting to be asked.
+	// Done is what a caller watches while it waits for the program to say
+	// something, and a tunnel that dies on startup has to close that channel
+	// then rather than at the end of the caller's timeout.
+	go func() { _ = p.Wait() }()
 	return p, nil
 }
 
