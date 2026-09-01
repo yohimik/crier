@@ -142,11 +142,15 @@ publish:
     chat-id: "@my_channel"
 ```
 
+Then:
+
 ```sh
-crier render                             # card.png
-CRIER_PUBLISH_TELEGRAM_TOKEN=… crier ping  # are the credentials right?
-CRIER_PUBLISH_TELEGRAM_TOKEN=… crier     # rendered and posted
-crier --dry-run                          # what would be sent, no network
+export CRIER_PUBLISH_TELEGRAM_TOKEN=…
+
+crier render      # 1. see the picture: card.png, no network
+crier ping        # 2. are the credentials right? nothing is posted
+crier --dry-run   # 3. what would be sent, still no network
+crier             # 4. post it
 ```
 
 Every option with its default is in
