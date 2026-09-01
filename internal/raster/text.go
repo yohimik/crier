@@ -194,8 +194,14 @@ func segmentsToPath(segs []fonts.Segment) *canvas.Path {
 
 // transformPath maps a path through an affine transform, which is exact for
 // the Béziers a glyph outline is made of.
+//
+// The copy is not optional. Path.Transform rewrites its receiver in place, and
+// the outline it is handed comes out of the glyph cache: transforming that one
+// would move the cached glyph itself, so the second "i" of "italic" would be
+// drawn wherever the first one had been placed, plus the first placement
+// again — off the page, in practice, leaving a gap.
 func transformPath(p *canvas.Path, m matrix.Transform) *canvas.Path {
-	return p.Transform(canvas.Matrix{
+	return p.Copy().Transform(canvas.Matrix{
 		{float64(m.A), float64(m.C), float64(m.E)},
 		{float64(m.B), float64(m.D), float64(m.F)},
 	})

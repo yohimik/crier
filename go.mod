@@ -4,6 +4,7 @@ go 1.26.0
 
 require (
 	github.com/benoitkugler/textlayout v0.3.2
+	github.com/benoitkugler/textprocessing v0.0.6
 	github.com/benoitkugler/webrender v0.0.14
 	github.com/rs/zerolog v1.35.1
 	github.com/tdewolff/canvas v0.0.0-20260829174008-0338c272fe72
@@ -21,7 +22,6 @@ require (
 	github.com/ByteArena/poly2tri-go v0.0.0-20170716161910-d102ad91854f // indirect
 	github.com/andybalholm/brotli v1.2.2 // indirect
 	github.com/benoitkugler/pstokenizer v1.0.1 // indirect
-	github.com/benoitkugler/textprocessing v0.0.6 // indirect
 	github.com/go-fonts/latin-modern v0.3.3 // indirect
 	github.com/go-text/typesetting v0.3.4 // indirect
 	github.com/golang/freetype v0.0.0-20170609003504-e2365dfdc4a0 // indirect

@@ -43,7 +43,7 @@ func (c *Canvas) DrawGradient(g backend.GradientLayout, width, height backend.Fl
 	c.LineTo(0, height)
 	c.ClosePath()
 	path := c.path
-	c.path = nil
+	c.path, c.hasPoint = nil, false
 
 	area := c.drawArea()
 	if area.Empty() {
@@ -201,9 +201,12 @@ func (s *gradientShader) sample(t float64) (uint8, uint8, uint8, uint8) {
 	if t >= last.pos {
 		return toRGBA(last.r, last.g, last.b, last.alpha)
 	}
+	// The segment is the one ending at the first stop strictly past t. Taking
+	// the first stop at or past t instead would read a hard stop — two stops at
+	// the same position — as the colour before the break rather than after it.
 	for i := 1; i < len(s.stops); i++ {
 		a, b := s.stops[i-1], s.stops[i]
-		if t > b.pos {
+		if b.pos <= t {
 			continue
 		}
 		span := b.pos - a.pos
@@ -211,6 +214,9 @@ func (s *gradientShader) sample(t float64) (uint8, uint8, uint8, uint8) {
 			return toRGBA(b.r, b.g, b.b, b.alpha)
 		}
 		f := (t - a.pos) / span
+		if f < 0 {
+			f = 0
+		}
 		return toRGBA(
 			a.r+(b.r-a.r)*f,
 			a.g+(b.g-a.g)*f,

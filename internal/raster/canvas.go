@@ -94,6 +94,13 @@ type Canvas struct {
 	// CTM as it is appended, which an affine transform lets us do without
 	// distorting the Béziers.
 	path *canvas.Path
+	// hasPoint says whether the path has a current point.
+	//
+	// It is tracked here rather than asked of the path, because a path holding
+	// nothing but a MoveTo reports itself as empty — and reading that as "no
+	// current point" turns every LineTo after a MoveTo into another MoveTo,
+	// which leaves a shape as a scatter of unconnected points.
+	hasPoint bool
 }
 
 // NewCanvas builds a canvas drawing onto dst, which must be premultiplied
@@ -273,14 +280,16 @@ func (c *Canvas) dev(x, y backend.Fl) (float64, float64) {
 func (c *Canvas) MoveTo(x, y backend.Fl) {
 	px, py := c.dev(x, y)
 	c.ensurePath().MoveTo(px, py)
+	c.hasPoint = true
 }
 
 // LineTo adds a straight segment.
 func (c *Canvas) LineTo(x, y backend.Fl) {
 	px, py := c.dev(x, y)
 	p := c.ensurePath()
-	if p.Empty() {
+	if !c.hasPoint {
 		p.MoveTo(px, py)
+		c.hasPoint = true
 		return
 	}
 	p.LineTo(px, py)
@@ -293,15 +302,16 @@ func (c *Canvas) CubicTo(x1, y1, x2, y2, x3, y3 backend.Fl) {
 	px1, py1 := c.dev(x1, y1)
 	px2, py2 := c.dev(x2, y2)
 	px3, py3 := c.dev(x3, y3)
-	if p.Empty() {
+	if !c.hasPoint {
 		p.MoveTo(px1, py1)
+		c.hasPoint = true
 	}
 	p.CubeTo(px1, py1, px2, py2, px3, py3)
 }
 
 // ClosePath closes the current subpath.
 func (c *Canvas) ClosePath() {
-	if c.path == nil || c.path.Empty() {
+	if c.path == nil || !c.hasPoint {
 		return
 	}
 	c.path.Close()
@@ -321,6 +331,7 @@ func (c *Canvas) Rectangle(x, y, width, height backend.Fl) {
 	p.LineTo(x2, y2)
 	p.LineTo(x3, y3)
 	p.Close()
+	c.hasPoint = true
 }
 
 // --- painting --------------------------------------------------------------
@@ -328,7 +339,7 @@ func (c *Canvas) Rectangle(x, y, width, height backend.Fl) {
 // Paint fills and/or strokes the current path and clears it.
 func (c *Canvas) Paint(op backend.PaintOp) {
 	path := c.path
-	c.path = nil
+	c.path, c.hasPoint = nil, false
 	if path == nil || path.Empty() {
 		return
 	}
@@ -400,7 +411,7 @@ func (c *Canvas) scaledDashes() []float64 {
 // Clip narrows the clip region to the current path and clears the path.
 func (c *Canvas) Clip(evenOdd bool) {
 	path := c.path
-	c.path = nil
+	c.path, c.hasPoint = nil, false
 	if path == nil || path.Empty() {
 		return
 	}

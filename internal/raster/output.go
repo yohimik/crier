@@ -30,8 +30,8 @@ func EncodeJPEG(w io.Writer, img image.Image, bg color.Color, quality int) error
 }
 
 // Flatten composites an image onto a solid background and returns an opaque
-// result. An image that is already opaque is returned unchanged.
-func Flatten(img image.Image, bg color.Color) image.Image {
+// result.
+func Flatten(img image.Image, bg color.Color) *image.RGBA {
 	if bg == nil {
 		bg = color.White
 	}
