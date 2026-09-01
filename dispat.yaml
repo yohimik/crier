@@ -1,0 +1,122 @@
+# crier's release configuration.
+#
+# One package, one Go module, one binary. dispat reads the conventional commits
+# since the last tag, works out the version, writes the changelog, tags, and
+# attaches the cross-compiled binaries to a GitHub release.
+#
+#   dispat status          # what would be released, and why
+#   dispat                 # release it (CI does this; see .github/workflows)
+#
+# Every gate is a build of the Dockerfile, so a job needs Docker, git and
+# dispat and no Go toolchain of its own — and `dispat run tests` means the same
+# thing on a laptop and on a runner. The bare `go test ./...` path still works
+# for local development; see docs/operations/development.md.
+
+tagFormat: v{version}
+
+# There is no `initials` block on purpose: the baseline stays 0.0.0, and the
+# first release is cut by a breaking change on the rc channel, which lands
+# 1.0.0-rc.0. See docs/operations/release.md.
+#
+# Every commit is scoped — feat(crier): …, fix(crier): … — because the scope is
+# what attributes a change under internal/ to the package whose path is
+# cmd/crier. A scopeless commit would be attributed by changed files, and only
+# files under cmd/crier would count.
+
+packages:
+  crier:
+    # A package path is a folder, never the repository root. Scripts run with
+    # this as their working directory, which is why the ones that need the root
+    # ask git for it rather than assuming.
+    path: cmd/crier
+    flow:
+      build: build
+      publish: [changelog, commit, github]
+
+changelog:
+  enabled: true
+  authors:
+    placement: both
+    exclude: ["*[bot]"]
+  commitRefs:
+    placement: suffix
+    link: auto
+
+commit:
+  enabled: true
+  push: true
+  name: github-actions[bot]
+  email: github-actions[bot]@users.noreply.github.com
+
+github:
+  enabled: true
+  footer: |
+
+    ## Install
+
+    ```sh
+    curl -fsSL https://raw.githubusercontent.com/yohimik/crier/v${DISPAT_NEW_VERSION}/install.sh | CRIER_VERSION=${DISPAT_NEW_VERSION} sh
+    ```
+
+    ```powershell
+    $env:CRIER_VERSION = '${DISPAT_NEW_VERSION}'
+    irm https://raw.githubusercontent.com/yohimik/crier/v${DISPAT_NEW_VERSION}/install.ps1 | iex
+    ```
+
+    ```sh
+    dispat install yohimik/crier --asset 'crier-{os}-{arch}'
+    ```
+
+scripts:
+  # --- release steps --------------------------------------------------------
+  changelog: dispat changelog
+  commit: dispat commit --tag --push
+  github: dispat github
+  build: sh build.sh
+
+  # --- the gates ------------------------------------------------------------
+  #
+  # Each one is a target of the root Dockerfile, built with the repository as
+  # the context. Scripts run in cmd/crier, so the context is read from git
+  # rather than assumed. --output type=cacheonly because the log is the whole
+  # product: a gate produces a verdict, not a file.
+  gofmt: >-
+    docker buildx build --file "$(git rev-parse --show-toplevel)/Dockerfile"
+    --target gofmt --output type=cacheonly "$(git rev-parse --show-toplevel)"
+
+  vet: >-
+    docker buildx build --file "$(git rev-parse --show-toplevel)/Dockerfile"
+    --target vet --output type=cacheonly "$(git rev-parse --show-toplevel)"
+
+  lint: >-
+    docker buildx build --file "$(git rev-parse --show-toplevel)/Dockerfile"
+    --target golangci-lint --output type=cacheonly "$(git rev-parse --show-toplevel)"
+
+  # The generated documentation and the sample config, regenerated and
+  # compared: a key added without either is a failing gate rather than a later
+  # surprise.
+  docs: >-
+    docker buildx build --file "$(git rev-parse --show-toplevel)/Dockerfile"
+    --target docs --output type=cacheonly "$(git rev-parse --show-toplevel)"
+
+  # The unit suite, the black-box suite, the real-ffmpeg smoke and the coverage
+  # floor, all in the test target — and the same target the release's export
+  # descends from, so a release cannot carry binaries this did not pass.
+  tests: >-
+    docker buildx build --file "$(git rev-parse --show-toplevel)/Dockerfile"
+    --target test --output type=cacheonly "$(git rev-parse --show-toplevel)"
+
+  # The same suite, with the merged coverage profile exported for a caller that
+  # wants the numbers.
+  coverage: >-
+    docker buildx build --file "$(git rev-parse --show-toplevel)/Dockerfile"
+    --target coverage-export
+    --output "type=local,dest=$(git rev-parse --show-toplevel)/coverage"
+    "$(git rev-parse --show-toplevel)"
+
+  # Every target the release builds, plus the validation each binary gets: a
+  # change that only breaks the Windows build fails here rather than during a
+  # release.
+  cross-compile: >-
+    docker buildx build --file "$(git rev-parse --show-toplevel)/Dockerfile"
+    --target build --output type=cacheonly "$(git rev-parse --show-toplevel)"

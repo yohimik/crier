@@ -1,0 +1,8 @@
+# The build context is the whole repository minus what a build never reads.
+# .git is deliberately kept: the build stamps the commit it came from.
+dist/
+coverage/
+*.test
+*.out
+.idea/
+.DS_Store

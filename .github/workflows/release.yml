@@ -1,0 +1,108 @@
+# Cut a release: work out the version from the conventional commits, write the
+# changelog, tag, and attach the cross-compiled binaries to a GitHub release.
+#
+# Manual rather than tag-triggered: the tag does not exist until dispat creates
+# it, and a tag pushed with GITHUB_TOKEN does not re-trigger a workflow anyway.
+name: release
+
+on:
+  workflow_dispatch:
+
+# One release at a time, and never cancelled halfway: a run interrupted between
+# the tag and the GitHub release leaves a tag with nothing attached to it.
+concurrency:
+  group: release
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  plan:
+    name: Plan
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Set up dispat
+        uses: yohimik/dispat@v1
+      # --require-release exits 3 when the commits since the last tag hold
+      # nothing releasable, which is a normal outcome rather than a failure —
+      # but it still stops the run, because there is nothing to do.
+      - name: What would be released
+        run: |
+          set +e
+          dispat status --require-release
+          case $? in
+            0) echo "there is a release to cut" ;;
+            3) echo "nothing to release since the last tag"; exit 1 ;;
+            *) echo "dispat status failed"; exit 1 ;;
+          esac
+
+  tests:
+    name: Tests
+    needs: plan
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-go@v5
+        with:
+          go-version: '1.25'
+          check-latest: true
+      - name: Set up dispat
+        uses: yohimik/dispat@v1
+      - run: dispat run vet --since all
+      - run: dispat run tests --since all
+      - run: dispat run tests:e2e --since all
+      - run: dispat run cross-compile --since all
+
+  release:
+    name: Release
+    needs: tests
+    runs-on: ubuntu-latest
+    permissions:
+      # Writing the changelog commit, the tag, and the release itself — and the
+      # remote lock tag dispat takes while it does.
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-go@v5
+        with:
+          go-version: '1.25'
+          check-latest: true
+      - name: Set up dispat
+        uses: yohimik/dispat@v1
+      # The whole release is one command: version, changelog, commit, tag,
+      # build, GitHub release. JSON logging because a released run is one a
+      # machine may want to read back.
+      - name: Release
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: dispat --log-format json
+
+  install:
+    name: Install the released binary
+    needs: release
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest, windows-latest]
+    runs-on: ${{ matrix.os }}
+    steps:
+      # The release is only finished when the assets it published actually
+      # install and run, which is a thing only a fresh machine can answer.
+      - name: Set up dispat
+        uses: yohimik/dispat@v1
+      # A crier release carries six binaries, so the asset has to be named: a
+      # bare `dispat install` only resolves when a release has exactly one.
+      - name: Install crier
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: dispat install yohimik/crier --asset 'crier-{os}-{arch}'
+      - name: It runs
+        run: crier version

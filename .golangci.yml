@@ -1,0 +1,40 @@
+# The lint gate, run as a Docker build target (see the Dockerfile).
+#
+# The set is deliberately small and all of it is about correctness rather than
+# style: gofmt is a gate of its own, and a linter that argues about naming is a
+# linter people learn to ignore.
+version: "2"
+
+linters:
+  default: none
+  enable:
+    - errcheck      # an unchecked error is the bug that costs the most
+    - govet
+    - ineffassign
+    - staticcheck
+    - unused
+    - bodyclose     # an unclosed response body leaks a connection per request
+    - noctx         # a request without a context cannot be cancelled
+    - gosec
+
+  settings:
+    gosec:
+      excludes:
+        # G304: crier's whole job is reading files the operator named.
+        - G304
+        # G204: the tunnel and ffmpeg are subprocesses the operator configured.
+        - G204
+
+  exclusions:
+    rules:
+      # A test may ignore an error the code under test is not about.
+      - path: _test\.go
+        linters: [errcheck, gosec, bodyclose, noctx]
+      # The raster backend reads pixel buffers with computed indices, which is
+      # what a rasterizer is.
+      - path: internal/raster/
+        linters: [gosec]
+
+issues:
+  max-issues-per-linter: 0
+  max-same-issues: 0

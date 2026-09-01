@@ -66,7 +66,9 @@ func run(m *testing.M) (int, error) {
 		crierBin += ".exe"
 	}
 	// -cover instruments the binary; GOCOVERDIR at run time is where it writes.
-	build := exec.Command("go", "build", "-cover",
+	// atomic rather than the default set mode: the profile is merged with the
+	// unit suite's, and covdata refuses to merge two modes.
+	build := exec.Command("go", "build", "-cover", "-covermode=atomic",
 		"-coverpkg=github.com/yohimik/crier/...", "-o", crierBin, "./cmd/crier")
 	build.Dir = root
 	build.Env = append(os.Environ(), "CGO_ENABLED=0")
