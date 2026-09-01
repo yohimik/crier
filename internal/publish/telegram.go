@@ -48,7 +48,7 @@ func (t *Telegram) Name() string { return "telegram" }
 
 // Needs implements Publisher.
 func (t *Telegram) Needs() Needs {
-	return Needs{Formats: imageFormats, Kinds: imageAndVideo}
+	return Needs{Formats: imageFormats, Kinds: imageVideoAndGIF}
 }
 
 // telegramResponse is the envelope every Bot API method returns.
@@ -68,8 +68,15 @@ type telegramResponse struct {
 func (t *Telegram) Publish(ctx context.Context, in Input) (Result, error) {
 	method, field := "sendPhoto", "photo"
 	limit := int64(TelegramPhotoLimit)
-	if in.Artifact.Kind == render.KindVideo {
+	switch in.Artifact.Kind {
+	case render.KindVideo:
 		method, field = "sendVideo", "video"
+		limit = TelegramVideoLimit
+	case render.KindGIF:
+		// sendAnimation, not sendVideo. sendVideo with a GIF is accepted and
+		// then shown as a still: Telegram converts an animation to MPEG4 and
+		// only the animation method keeps it playing.
+		method, field = "sendAnimation", "animation"
 		limit = TelegramVideoLimit
 	}
 	if err := checkSize(in.Artifact, limit, "telegram"); err != nil {

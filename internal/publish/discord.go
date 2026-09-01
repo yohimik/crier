@@ -43,7 +43,7 @@ func (d *Discord) Name() string { return "discord" }
 
 // Needs implements Publisher.
 func (d *Discord) Needs() Needs {
-	return Needs{Formats: []config.Format{config.PNG, config.JPEG}, Kinds: imageAndVideo}
+	return Needs{Formats: []config.Format{config.PNG, config.JPEG}, Kinds: imageVideoAndGIF}
 }
 
 // discordMessage is the JSON half of the multipart request.

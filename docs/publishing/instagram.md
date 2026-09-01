@@ -85,4 +85,11 @@ crier ping
 
 Nothing is posted: ping reads the account with `GET /{user-id}?fields=id,username`. See [the command line](../operations/cli.md#crier-ping).
 
+## Animated GIFs
+
+**Not supported.** Instagram has no animation path that does not mean uploading an
+MP4, so `render.video.format: gif` with this platform enabled is a
+configuration error named before anything is rendered. Use
+`render.video.format: mp4` — see [video](../rendering/video.md).
+
 Configuration keys: [`publish.instagram.*`](../configuration/reference/publish-instagram.md).

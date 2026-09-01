@@ -95,4 +95,10 @@ crier ping
 
 Nothing is posted: ping gets a token and calls `GET /api/v1/me`, which is where a two-factor account fails. See [the command line](../operations/cli.md#crier-ping).
 
+## Animated GIFs
+
+A GIF is leased with mime type `image/gif` and submitted as `kind=image`, which keeps it animated. `videogif` is for an MP4 standing in for a GIF and wants a poster URL crier has no reason to produce.
+
+Set `render.video.format: gif` — see [video](../rendering/video.md).
+
 Configuration keys: [`publish.reddit.*`](../configuration/reference/publish-reddit.md).

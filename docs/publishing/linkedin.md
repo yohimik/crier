@@ -60,4 +60,11 @@ crier ping
 
 Nothing is posted: ping calls `GET /v2/userinfo` — see [the caveat](../operations/cli.md#linkedin-is-a-special-case), because a posting-only token cannot read a profile. See [the command line](../operations/cli.md#crier-ping).
 
+## Animated GIFs
+
+**Not supported.** LinkedIn has no animation path that does not mean uploading an
+MP4, so `render.video.format: gif` with this platform enabled is a
+configuration error named before anything is rendered. Use
+`render.video.format: mp4` — see [video](../rendering/video.md).
+
 Configuration keys: [`publish.linkedin.*`](../configuration/reference/publish-linkedin.md).

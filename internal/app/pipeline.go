@@ -385,7 +385,7 @@ func (p *Pipeline) renderVideo(ctx context.Context, v Variant, data any) (*rende
 	}
 
 	bg, _ := config.ParseColor(p.cfg.Render.Background)
-	output := filepath.Join(p.dir, v.Key()+".mp4")
+	output := filepath.Join(p.dir, v.Key()+render.VideoExt(vid.Format))
 	art, err := render.EncodeVideo(ctx, render.VideoOptions{
 		Output:     output,
 		Frames:     frames,
@@ -394,6 +394,7 @@ func (p *Pipeline) renderVideo(ctx context.Context, v Variant, data any) (*rende
 		Height:     bounds.Dy(),
 		Bin:        vid.FFmpegBin,
 		Preset:     vid.CodecPreset,
+		Format:     vid.Format,
 		ExtraArgs:  vid.FFmpegArgs,
 		Audio:      vid.Audio,
 		Background: bg,

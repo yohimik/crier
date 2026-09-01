@@ -70,6 +70,7 @@ func Bindings(cfg *Config) map[string]Binding {
 		"render.hermetic-fonts": bindBool(&r.HermeticFonts),
 
 		"render.video.enabled":      bindBool(&vid.Enabled),
+		"render.video.format":       bindString(&vid.Format),
 		"render.video.fps":          bindInt(&vid.FPS),
 		"render.video.duration":     bindString(&vid.Duration),
 		"render.video.frames":       bindInt(&vid.Frames),

@@ -47,4 +47,10 @@ crier ping
 
 Nothing is posted: ping calls `getMe`. See [the command line](../operations/cli.md#crier-ping).
 
+## Animated GIFs
+
+A GIF goes out through `sendAnimation` rather than `sendVideo`. `sendVideo` accepts one and then shows it as a still, which is a bug that only appears on the feed.
+
+Set `render.video.format: gif` — see [video](../rendering/video.md).
+
 Configuration keys: [`publish.telegram.*`](../configuration/reference/publish-telegram.md).

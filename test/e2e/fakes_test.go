@@ -131,7 +131,8 @@ func (f *fakes) serve(w http.ResponseWriter, r *http.Request) {
 		writeJSON(w, map[string]any{"id": "rd-1", "name": "crierbot"})
 
 	// --- telegram -------------------------------------------------------
-	case strings.Contains(path, "/sendPhoto"), strings.Contains(path, "/sendVideo"):
+	case strings.Contains(path, "/sendPhoto"), strings.Contains(path, "/sendVideo"),
+		strings.Contains(path, "/sendAnimation"):
 		writeJSON(w, map[string]any{
 			"ok": true,
 			"result": map[string]any{

@@ -43,7 +43,7 @@ func (m *Mastodon) Name() string { return "mastodon" }
 
 // Needs implements Publisher.
 func (m *Mastodon) Needs() Needs {
-	return Needs{Formats: imageFormats, Kinds: imageAndVideo}
+	return Needs{Formats: imageFormats, Kinds: imageVideoAndGIF}
 }
 
 type mastodonAttachment struct {

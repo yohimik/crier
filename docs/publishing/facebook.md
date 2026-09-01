@@ -52,4 +52,11 @@ crier ping
 
 Nothing is posted: ping reads the Page with `GET /{page-id}?fields=id,name`. See [the command line](../operations/cli.md#crier-ping).
 
+## Animated GIFs
+
+**Not supported.** Facebook has no animation path that does not mean uploading an
+MP4, so `render.video.format: gif` with this platform enabled is a
+configuration error named before anything is rendered. Use
+`render.video.format: mp4` — see [video](../rendering/video.md).
+
 Configuration keys: [`publish.facebook.*`](../configuration/reference/publish-facebook.md).

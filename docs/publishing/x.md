@@ -48,4 +48,10 @@ crier ping
 
 Nothing is posted: ping calls `GET /2/users/me`. See [the command line](../operations/cli.md#crier-ping).
 
+## Animated GIFs
+
+A GIF goes up through the chunked upload with `media_category=tweet_gif` — as `tweet_video` it would come out as a silent video. The limit is **15MB**, not the 512MB a video gets, and crier checks it before uploading.
+
+Set `render.video.format: gif` — see [video](../rendering/video.md).
+
 Configuration keys: [`publish.x.*`](../configuration/reference/publish-x.md).

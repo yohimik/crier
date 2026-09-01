@@ -49,4 +49,10 @@ crier ping
 
 Nothing is posted: ping calls `GET /api/v1/accounts/verify_credentials`. See [the command line](../operations/cli.md#crier-ping).
 
+## Animated GIFs
+
+A GIF goes through the same v2 media endpoint as a video, including the 202-and-poll wait while the instance processes it.
+
+Set `render.video.format: gif` — see [video](../rendering/video.md).
+
 Configuration keys: [`publish.mastodon.*`](../configuration/reference/publish-mastodon.md).

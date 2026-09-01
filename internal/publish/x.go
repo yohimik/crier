@@ -20,6 +20,10 @@ const XSegmentSize = 5 << 20
 // XVideoLimit is the largest video X accepts.
 const XVideoLimit = 512 << 20
 
+// XGIFLimit is the largest animation X accepts. It is a thirty-fourth of the
+// video limit, which is worth checking before uploading rather than after.
+const XGIFLimit = 15 << 20
+
 // X posts to X, formerly Twitter.
 //
 // Images go up in one request; video has to go through the chunked
@@ -48,7 +52,7 @@ func (x *X) Name() string { return "x" }
 
 // Needs implements Publisher.
 func (x *X) Needs() Needs {
-	return Needs{Formats: imageFormats, Kinds: imageAndVideo}
+	return Needs{Formats: imageFormats, Kinds: imageVideoAndGIF}
 }
 
 type xMediaResponse struct {
@@ -80,12 +84,18 @@ func (x *X) Publish(ctx context.Context, in Input) (Result, error) {
 		mediaID string
 		err     error
 	)
-	if in.Artifact.Kind == render.KindVideo {
+	switch in.Artifact.Kind {
+	case render.KindVideo:
 		if err := checkSize(in.Artifact, XVideoLimit, "x"); err != nil {
 			return Result{}, err
 		}
 		mediaID, err = x.uploadChunked(ctx, in.Artifact)
-	} else {
+	case render.KindGIF:
+		if err := checkSize(in.Artifact, XGIFLimit, "x"); err != nil {
+			return Result{}, err
+		}
+		mediaID, err = x.uploadChunked(ctx, in.Artifact)
+	default:
 		mediaID, err = x.uploadSimple(ctx, in.Artifact)
 	}
 	if err != nil {
@@ -169,6 +179,16 @@ func (x *X) uploadChunked(ctx context.Context, a render.Artifact) (string, error
 	return id, nil
 }
 
+// xCategory is what X calls the thing being uploaded. It decides how the
+// media is transcoded and where it may be attached, so a GIF sent as
+// tweet_video comes out as a silent video rather than an animation.
+func xCategory(kind render.Kind) string {
+	if kind == render.KindGIF {
+		return "tweet_gif"
+	}
+	return "tweet_video"
+}
+
 func (x *X) initUpload(ctx context.Context, a render.Artifact) (string, error) {
 	var out xMediaResponse
 	req := httpx.NewRequest(http.MethodPost, x.cfg.APIBaseURL, "2/media/upload").
@@ -177,7 +197,7 @@ func (x *X) initUpload(ctx context.Context, a render.Artifact) (string, error) {
 			"command":        {"INIT"},
 			"total_bytes":    {strconv.FormatInt(a.Size, 10)},
 			"media_type":     {a.ContentType},
-			"media_category": {"tweet_video"},
+			"media_category": {xCategory(a.Kind)},
 		})
 	// INIT reserves a media id; repeating it would leak one, so it is not
 	// retried beyond a rate limit.

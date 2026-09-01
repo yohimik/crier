@@ -270,12 +270,14 @@ render:
     codec-preset: "h264"
     # video length; ignored when render.video.frames is set
     duration: "3s"
-    # render an animated template into an MP4 instead of a still image
+    # render an animated template into a clip instead of a still image
     enabled: false
     # extra ffmpeg arguments, inserted before the output file
     ffmpeg-args: []
     # ffmpeg executable, resolved on PATH; ffmpeg is a prerequisite crier does not bundle
     ffmpeg-bin: "ffmpeg"
+    # clip format: mp4 or gif
+    format: "mp4"
     # video frame rate
     fps: 30
     # exact number of frames to render; 0 derives it from the duration and the frame rate

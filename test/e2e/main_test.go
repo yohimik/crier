@@ -138,10 +138,16 @@ func helperMain(mode string) {
 		fmt.Fprintf(os.Stdout, "tunnel ready url=%s\n", os.Getenv(helperURLEnv))
 		time.Sleep(2 * time.Minute)
 	case "ffmpeg":
-		// Read the raw frames, then write a file that stands in for an MP4.
+		// Read the raw frames, then write a file that stands in for the clip.
+		// A GIF gets the real magic bytes, so a test can assert that what
+		// reached a platform is an animation rather than a video.
 		n, _ := copyAll(os.Stdin)
 		out := os.Args[len(os.Args)-1]
-		_ = os.WriteFile(out, []byte("fake mp4 from "+strconv.FormatInt(n, 10)+" bytes"), 0o600)
+		body := "fake mp4 from " + strconv.FormatInt(n, 10) + " bytes"
+		if strings.HasSuffix(out, ".gif") {
+			body = "GIF89a fake gif from " + strconv.FormatInt(n, 10) + " bytes"
+		}
+		_ = os.WriteFile(out, []byte(body), 0o600)
 		_ = os.WriteFile(out+".bytes", []byte(strconv.FormatInt(n, 10)), 0o600)
 		fmt.Fprintln(os.Stderr, "fake ffmpeg wrote", n, "bytes")
 	}

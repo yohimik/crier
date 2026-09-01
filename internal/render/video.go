@@ -8,6 +8,7 @@ import (
 	"image/color"
 	"os"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/rs/zerolog"
@@ -32,8 +33,11 @@ type VideoOptions struct {
 	Width, Height int
 	// Bin is the ffmpeg executable.
 	Bin string
-	// Preset selects the codec arguments: h264, h265, vp9 or none.
+	// Preset selects the codec arguments: h264, h265, vp9 or none. It is
+	// ignored when Format is GIF, which has one encoder.
 	Preset string
+	// Format is mp4 or gif. Empty means mp4.
+	Format string
 	// ExtraArgs are appended after the preset and before the output.
 	ExtraArgs []string
 	// Audio is an optional audio file mixed in.
@@ -137,14 +141,31 @@ func EncodeVideo(ctx context.Context, o VideoOptions, frame FrameFunc) (Artifact
 		Dur("elapsed", time.Since(start)).
 		Msg("encoded video")
 
+	kind, contentType := KindVideo, VideoContentType
+	if IsGIF(o.Format) {
+		kind, contentType = KindGIF, GIFContentType
+	}
 	return Artifact{
-		Kind:        KindVideo,
-		ContentType: VideoContentType,
+		Kind:        kind,
+		ContentType: contentType,
 		Path:        o.Output,
 		Size:        st.Size(),
 		Width:       o.Width,
 		Height:      o.Height,
 	}, nil
+}
+
+// IsGIF reports whether a render.video.format names an animation.
+func IsGIF(format string) bool {
+	return strings.EqualFold(strings.TrimSpace(format), "gif")
+}
+
+// VideoExt is the file extension a format writes.
+func VideoExt(format string) string {
+	if IsGIF(format) {
+		return ".gif"
+	}
+	return ".mp4"
 }
 
 // writeFrames renders and streams every frame.
@@ -204,6 +225,22 @@ func FFmpegArgs(o VideoOptions) []string {
 		"-s", strconv.Itoa(o.Width) + "x" + strconv.Itoa(o.Height),
 		"-r", strconv.Itoa(fps),
 		"-i", "-",
+	}
+	if IsGIF(o.Format) {
+		// A GIF has a 256 colour palette, and ffmpeg's default one is built
+		// from a fixed table that turns a gradient into bands. palettegen
+		// derives the palette from this clip's own frames and paletteuse
+		// applies it, in one pass: the stream is split, one branch measures
+		// and the other waits for the answer.
+		//
+		// Audio is dropped rather than refused: a GIF has none, and a
+		// configuration that names an audio file is asking for something the
+		// format cannot carry.
+		args = append(args,
+			"-vf", "split[s0][s1];[s0]palettegen=stats_mode=diff[p];[s1][p]paletteuse=dither=bayer:bayer_scale=3",
+			"-loop", "0")
+		args = append(args, o.ExtraArgs...)
+		return append(args, o.Output)
 	}
 	if o.Audio != "" {
 		args = append(args, "-i", o.Audio)

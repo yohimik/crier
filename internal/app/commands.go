@@ -89,8 +89,9 @@ func (a App) runRender(ctx context.Context, args []string) error {
 
 	rep := RenderReport{Variant: v.Name(), Kind: string(render.KindImage)}
 	if arts.Video != nil {
-		rep.Kind = string(render.KindVideo)
-		path, err := placeOutput(s.Config.Render.Output, arts.Video.Path, ".mp4")
+		rep.Kind = string(arts.Video.Kind)
+		path, err := placeOutput(s.Config.Render.Output, arts.Video.Path,
+			render.VideoExt(s.Config.Render.Video.Format))
 		if err != nil {
 			return fail(ExitRender, err)
 		}
@@ -236,14 +237,21 @@ func (a App) runPublish(ctx context.Context, args []string) error {
 		return err
 	}
 
-	// A video that a platform cannot take is a configuration mistake, and
-	// saying so before anything is rendered saves the whole render.
+	// A clip a platform cannot take is a configuration mistake, and saying so
+	// before anything is rendered saves the whole render. A GIF is checked
+	// separately from an MP4 because four platforms take one and not the
+	// other.
 	if cfg.Render.Video.Enabled {
+		kind := render.KindVideo
+		what := "video"
+		if render.IsGIF(cfg.Render.Video.Format) {
+			kind, what = render.KindGIF, "an animated GIF"
+		}
 		for _, pub := range publishers {
-			if !pub.Needs().Accepts(render.KindVideo) {
+			if !pub.Needs().Accepts(kind) {
 				return failf(ExitConfig,
-					"render.video.enabled is set but %s cannot post video; disable it or turn the video off",
-					pub.Name())
+					"render.video.enabled is set but %s cannot post %s; disable it, or set render.video.format",
+					pub.Name(), what)
 			}
 		}
 	}
@@ -278,7 +286,9 @@ func (a App) runPublish(ctx context.Context, args []string) error {
 			if pub.Needs().URL {
 				needsURL = true
 			}
-			if name == "reddit" && cfg.Render.Video.Enabled {
+			// Reddit's video posts require a poster image. A GIF is submitted
+			// as an image rather than as a video, so it needs none.
+			if name == "reddit" && cfg.Render.Video.Enabled && !render.IsGIF(cfg.Render.Video.Format) {
 				needsPoster = true
 			}
 		}

@@ -47,4 +47,10 @@ crier ping
 
 Nothing is posted: ping reads the webhook back with a `GET` on its URL. See [the command line](../operations/cli.md#crier-ping).
 
+## Animated GIFs
+
+A GIF is attached exactly as it is; Discord animates it inline.
+
+Set `render.video.format: gif` — see [video](../rendering/video.md).
+
 Configuration keys: [`publish.discord.*`](../configuration/reference/publish-discord.md).

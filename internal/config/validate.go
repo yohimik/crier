@@ -155,6 +155,11 @@ func validateVideo(v *Video) error {
 		errs = append(errs, invalid("render.video.frames", strconv.Itoa(v.Frames),
 			fmt.Sprintf("want 0 to %d", MaxVideoFrames)))
 	}
+	switch strings.ToLower(strings.TrimSpace(v.Format)) {
+	case "", "mp4", "gif":
+	default:
+		errs = append(errs, invalid("render.video.format", v.Format, "want mp4 or gif"))
+	}
 	switch strings.ToLower(strings.TrimSpace(v.CodecPreset)) {
 	case "h264", "h265", "vp9", "none":
 	default:

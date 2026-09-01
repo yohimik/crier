@@ -95,7 +95,7 @@ func (r *Reddit) Needs() Needs {
 	return Needs{
 		URL:     strings.EqualFold(strings.TrimSpace(r.cfg.Kind), "link"),
 		Formats: []config.Format{config.JPEG, config.PNG},
-		Kinds:   imageAndVideo,
+		Kinds:   imageVideoAndGIF,
 	}
 }
 
@@ -233,6 +233,12 @@ func (r *Reddit) kindFor(in Input) string {
 		if in.Artifact.Kind == render.KindVideo {
 			return "video"
 		}
+		// An animation is submitted as an image, not as `videogif`.
+		//
+		// The asset store is told image/gif through the lease's mime type and
+		// keeps the file animated; `videogif` is for an MP4 standing in for a
+		// GIF and wants a poster URL crier has no reason to produce. Verified
+		// against Reddit's media asset documentation, 2026-09-01.
 		return "image"
 	}
 }

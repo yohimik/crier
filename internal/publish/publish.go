@@ -523,3 +523,10 @@ var imageOnly = []render.Kind{render.KindImage}
 
 // imageAndVideo is the Kinds of a platform that can take either.
 var imageAndVideo = []render.Kind{render.KindImage, render.KindVideo}
+
+// imageVideoAndGIF is the Kinds of a platform that also takes an animation.
+//
+// It is a separate list because a GIF is not "a small video" to these APIs:
+// Telegram wants a different method for it, X a different media category, and
+// Instagram, Facebook, TikTok and LinkedIn will not take one at all.
+var imageVideoAndGIF = []render.Kind{render.KindImage, render.KindVideo, render.KindGIF}

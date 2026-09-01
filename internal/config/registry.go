@@ -138,7 +138,8 @@ var registry = []Descriptor{
 	{Key: "render.fonts-dir", Kind: KindStrings, Path: true, Usage: "extra directories scanned for fonts"},
 	{Key: "render.hermetic-fonts", Kind: KindBool, Usage: "ignore system fonts and use only the embedded Go fonts (deterministic output)"},
 
-	{Key: "render.video.enabled", Kind: KindBool, Usage: "render an animated template into an MP4 instead of a still image"},
+	{Key: "render.video.enabled", Kind: KindBool, Usage: "render an animated template into a clip instead of a still image"},
+	{Key: "render.video.format", Kind: KindString, Default: "mp4", Usage: "clip format: mp4 or gif"},
 	{Key: "render.video.fps", Kind: KindInt, Default: "30", Usage: "video frame rate"},
 	{Key: "render.video.duration", Kind: KindDuration, Default: "3s", Usage: "video length; ignored when render.video.frames is set"},
 	{Key: "render.video.frames", Kind: KindInt, Usage: "exact number of frames to render; 0 derives it from the duration and the frame rate"},

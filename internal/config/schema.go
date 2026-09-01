@@ -59,7 +59,10 @@ type Render struct {
 // injected as .Video, and the frames are streamed straight into ffmpeg's stdin
 // so memory stays at one frame however long the clip is.
 type Video struct {
-	Enabled     bool
+	Enabled bool
+	// Format is mp4 or gif. A GIF is a different artifact kind rather than a
+	// video with another extension, because the platforms treat it as one.
+	Format      string
 	FPS         int
 	Duration    string
 	Frames      int

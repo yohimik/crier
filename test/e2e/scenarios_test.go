@@ -1006,6 +1006,105 @@ func TestVideoIsRenderedAndPublished(t *testing.T) {
 	}
 }
 
+// TestGIFGoesOutAsAnAnimation is the E4 GIF path end to end: the same frame
+// pipeline, ffmpeg's palette filter, and two platforms that take an animation
+// — with Telegram's different method as the thing that would silently go wrong.
+func TestGIFGoesOutAsAnAnimation(t *testing.T) {
+	f := newFakes(t)
+	dir := newProject(t, "")
+	writeFile(t, dir, "crier.yaml", strings.Join([]string{
+		"log:",
+		"  level: debug",
+		"render:",
+		"  template: template.html",
+		"  width: 80",
+		"  height: 40",
+		"  hermetic-fonts: true",
+		"  video:",
+		"    enabled: true",
+		"    format: gif",
+		"    frames: 3",
+		"    fps: 10",
+		"    ffmpeg-bin: " + selfPath(t),
+		"publish:",
+		"  telegram:",
+		"    enabled: true",
+		"    api-base-url: " + f.URL,
+		"    token: t",
+		"    chat-id: c",
+		"  discord:",
+		"    enabled: true",
+		"    webhook-url: " + f.URL + "/discord/webhook",
+	}, "\n"))
+	writeFile(t, dir, "template.html",
+		`<html><body style="margin:0;background:#fff">`+
+			`<div style="width:80px;height:40px;background:#00{{ printf "%02x" .Video.Frame }}00"></div>`+
+			`</body></html>`)
+
+	res := crier(t, dir, []string{helperEnv + "=ffmpeg"}, "publish", "--json")
+	if res.Code != exitOK {
+		t.Fatalf("code=%d stderr=%s", res.Code, res.Stderr)
+	}
+
+	// Telegram takes an animation through a method of its own; sendVideo would
+	// be accepted and then shown as a still.
+	tg, ok := f.find("/sendAnimation")
+	if !ok {
+		t.Fatalf("telegram was not sent an animation; it got %d requests", len(f.all()))
+	}
+	if _, ok := f.find("/sendVideo"); ok {
+		t.Error("a GIF went out through sendVideo")
+	}
+	if !strings.Contains(tg.Body, "GIF89a") {
+		t.Errorf("what reached telegram is not a GIF: %.80q", tg.Body)
+	}
+	if !strings.Contains(tg.Body, `name="animation"`) {
+		t.Errorf("the part is not an animation: %.200q", tg.Body)
+	}
+
+	dc, ok := f.find("/discord/webhook")
+	if !ok {
+		t.Fatal("discord was not called")
+	}
+	if !strings.Contains(dc.Body, "GIF89a") {
+		t.Errorf("what reached discord is not a GIF: %.80q", dc.Body)
+	}
+}
+
+// TestGIFToAPlatformThatCannotTakeOne fails before anything is rendered, which
+// is the point of declaring what each platform accepts.
+func TestGIFToAPlatformThatCannotTakeOne(t *testing.T) {
+	f := newFakes(t)
+	dir := newProject(t, "")
+	writeFile(t, dir, "crier.yaml", strings.Join([]string{
+		"render:",
+		"  template: template.html",
+		"  hermetic-fonts: true",
+		"  video:",
+		"    enabled: true",
+		"    format: gif",
+		"    frames: 2",
+		"    ffmpeg-bin: " + selfPath(t),
+		"publish:",
+		"  linkedin:",
+		"    enabled: true",
+		"    api-base-url: " + f.URL + "/linkedin",
+		"    token: li",
+		"    author-urn: \"urn:li:person:e2e\"",
+	}, "\n"))
+
+	res := crier(t, dir, []string{helperEnv + "=ffmpeg"}, "publish")
+	if res.Code != exitConfig {
+		t.Fatalf("code=%d stderr=%s", res.Code, res.Stderr)
+	}
+	if !strings.Contains(res.Stderr, "linkedin") || !strings.Contains(res.Stderr, "GIF") {
+		t.Errorf("the refusal should name the platform and the format: %s", res.Stderr)
+	}
+	if len(f.all()) != 0 {
+		t.Errorf("it made %d requests before refusing", len(f.all()))
+	}
+}
+
 func TestVideoWithoutFFmpegIsARenderError(t *testing.T) {
 	f := newFakes(t)
 	dir := newProject(t, enableTwo(f))

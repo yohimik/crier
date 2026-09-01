@@ -103,6 +103,13 @@ else.
 | [LinkedIn](./linkedin.md) | yes | no | yes | two mandatory headers |
 | [Reddit](./reddit.md) | yes | link mode | yes | descriptive User-Agent required |
 
+## Animated GIFs
+
+Five of the nine take one: Telegram, Discord, Mastodon, X and Reddit.
+Instagram, Facebook, TikTok and LinkedIn do not, and a `gif` aimed at one of
+them is refused before anything is rendered. The table, and how each of the
+five wants it, is in [video](../rendering/video.md#which-platforms-take-which).
+
 ## A platform crier does not have
 
 Any shell command can be one. `publish.custom.<name>` defines a script-backed

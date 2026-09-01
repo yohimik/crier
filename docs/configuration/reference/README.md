@@ -9,7 +9,7 @@ where a relative path resolves against, is in
 | Group | Keys | What it covers |
 | ----- | ---- | -------------- |
 | [Logging](./log.md) | `log` | 2 |
-| [Video rendering](./render-video.md) | `render.video` | 8 |
+| [Video rendering](./render-video.md) | `render.video` | 9 |
 | [Rendering](./render.md) | `render` | 18 |
 | [HTTP](./http.md) | `http` | 4 |
 | [Staging: S3](./stage-s3.md) | `stage.s3` | 12 |

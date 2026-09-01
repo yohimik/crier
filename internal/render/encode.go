@@ -23,10 +23,20 @@ const (
 	KindImage Kind = "image"
 	// KindVideo is an MP4 clip.
 	KindVideo Kind = "video"
+	// KindGIF is an animated GIF.
+	//
+	// It is a kind of its own rather than a video with a different extension,
+	// because the platforms treat it as one: Telegram wants sendAnimation
+	// rather than sendVideo, X wants a different media category, and four
+	// platforms will not take one at all.
+	KindGIF Kind = "gif"
 )
 
-// VideoContentType is the MIME type of every video crier produces.
+// VideoContentType is the MIME type of the MP4s crier produces.
 const VideoContentType = "video/mp4"
+
+// GIFContentType is the MIME type of the animations it produces.
+const GIFContentType = "image/gif"
 
 // Artifact is one encoded file on disk, ready to be uploaded.
 type Artifact struct {
