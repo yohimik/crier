@@ -171,10 +171,16 @@ func (o Options) compose() string {
 	return b.String()
 }
 
+// chan8 narrows one channel of a color.Color, whose components are 16 bit
+// values scaled to [0,0xffff], into the 8 bit one an RGBA image holds.
+func chan8(v uint32) uint8 {
+	return uint8((v >> 8) & 0xff) //nolint:gosec // masked to eight bits
+}
+
 // fill paints a solid colour over the whole image.
 func fill(img *image.RGBA, c color.Color) {
 	r, g, b, a := c.RGBA()
-	px := [4]uint8{uint8(r >> 8), uint8(g >> 8), uint8(b >> 8), uint8(a >> 8)}
+	px := [4]uint8{chan8(r), chan8(g), chan8(b), chan8(a)}
 	pix := img.Pix
 	for i := 0; i+4 <= len(pix); i += 4 {
 		copy(pix[i:i+4], px[:])

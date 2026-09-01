@@ -1,3 +1,10 @@
+// Package httpx is the HTTP client every publisher and stager shares.
+//
+// It is net/http with three things added, each of which exists because a
+// social platform API taught it: retries that know a 429 from a 500, request
+// bodies that can be replayed so a retry has something to send, and a NoRetry
+// twin for the calls that must not be repeated because repeating them would
+// publish the same post twice.
 package httpx
 
 import (

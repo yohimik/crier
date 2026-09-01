@@ -29,7 +29,7 @@ Reading from standard input is what makes crier scriptable — the program that
 knows the numbers pipes them into the template that draws them:
 
 ```sh
-./release-notes --json | crier publish --render-data -
+./release-notes --json | crier --render-data -
 ```
 
 The document is read **once** per run, which matters for video: a clip of

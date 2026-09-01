@@ -278,7 +278,7 @@ func TestComposeOrder(t *testing.T) {
 	if iFont < 0 || iCSS < 0 || iPage < 0 {
 		t.Fatalf("compose = %q", got)
 	}
-	if !(iFont < iCSS && iCSS < iPage) {
+	if iFont >= iCSS || iCSS >= iPage {
 		t.Errorf("wrong order: font=%d css=%d page=%d", iFont, iCSS, iPage)
 	}
 	if strings.Contains(got, "<style>   </style>") {

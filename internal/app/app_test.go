@@ -105,13 +105,69 @@ func TestErrorWrapping(t *testing.T) {
 
 // --- usage -----------------------------------------------------------------
 
-func TestNoCommandIsAUsageError(t *testing.T) {
-	code, _, stderr := run(t, t.TempDir(), []string{})
-	if code != ExitUsage {
-		t.Errorf("code = %d", code)
+// TestBareCrierPublishes is the flagship flow: cd into a project, run crier,
+// and the thing is posted. publish is the default command.
+func TestBareCrierPublishes(t *testing.T) {
+	dir := project(t, strings.Join([]string{
+		"publish:",
+		"  dry-run: true",
+		"  telegram:",
+		"    enabled: true",
+		"    token: t",
+		"    chat-id: c",
+	}, "\n"))
+
+	code, stdout, stderr := run(t, dir, []string{}, "--json")
+	if code != ExitOK {
+		t.Fatalf("code=%d stderr=%s", code, stderr)
 	}
-	if !strings.Contains(stderr, "Usage:") {
+	var rep PublishReport
+	if err := json.Unmarshal([]byte(stdout), &rep); err != nil {
+		t.Fatalf("bare crier should have published: %v (%q)", err, stdout)
+	}
+	if len(rep.Plan) != 1 || rep.Plan[0].Platform != "telegram" {
+		t.Errorf("plan = %+v", rep.Plan)
+	}
+}
+
+func TestBareCrierWithNoArgumentsAtAllPublishes(t *testing.T) {
+	// No configuration, so publish fails for want of a platform — which is
+	// still publish's error rather than a usage message.
+	code, _, stderr := run(t, t.TempDir(), []string{})
+	if code != ExitConfig {
+		t.Fatalf("code = %d, stderr = %q", code, stderr)
+	}
+	// Whatever it complains about, it is publish complaining rather than a
+	// usage message: bare crier is a command, not a mistake.
+	if strings.Contains(stderr, "Usage:") {
+		t.Errorf("bare crier printed usage instead of running: %q", stderr)
+	}
+	if !strings.Contains(stderr, "is required") {
 		t.Errorf("stderr = %q", stderr)
+	}
+}
+
+func TestDispatch(t *testing.T) {
+	var a App
+	for _, tt := range []struct {
+		args     []string
+		wantName string
+		wantRest []string
+	}{
+		{nil, "publish", nil},
+		{[]string{"--dry-run"}, "publish", []string{"--dry-run"}},
+		{[]string{"-h"}, "help", []string{}},
+		{[]string{"--help"}, "help", []string{}},
+		{[]string{"render", "--json"}, "render", []string{"--json"}},
+		{[]string{"nonsense"}, "nonsense", []string{}},
+	} {
+		name, rest := a.dispatch(tt.args)
+		if name != tt.wantName {
+			t.Errorf("dispatch(%v) name = %q, want %q", tt.args, name, tt.wantName)
+		}
+		if len(rest) != len(tt.wantRest) {
+			t.Errorf("dispatch(%v) rest = %v, want %v", tt.args, rest, tt.wantRest)
+		}
 	}
 }
 
@@ -127,6 +183,9 @@ func TestHelpIsOK(t *testing.T) {
 		code, _, stderr := run(t, t.TempDir(), []string{}, arg)
 		if code != ExitOK || !strings.Contains(stderr, "Commands:") {
 			t.Errorf("%s: code=%d", arg, code)
+		}
+		if !strings.Contains(stderr, "With no command, crier publishes") {
+			t.Errorf("%s: the usage should say what the default is: %q", arg, stderr)
 		}
 	}
 }

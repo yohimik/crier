@@ -3,37 +3,73 @@
 # The set is deliberately small and all of it is about correctness rather than
 # style: gofmt is a gate of its own, and a linter that argues about naming is a
 # linter people learn to ignore.
+#
+# Every exclusion below names why it is there. An exclusion without a reason is
+# how a linter stops meaning anything.
 version: "2"
 
 linters:
   default: none
   enable:
-    - errcheck      # an unchecked error is the bug that costs the most
+    - errcheck # an unchecked error is the bug that costs the most
     - govet
     - ineffassign
     - staticcheck
     - unused
-    - bodyclose     # an unclosed response body leaks a connection per request
-    - noctx         # a request without a context cannot be cancelled
+    - bodyclose # an unclosed response body leaks a connection per request
+    - noctx # a request without a context cannot be cancelled
     - gosec
 
   settings:
+    errcheck:
+      exclude-functions:
+        # Writing to standard output or standard error: there is nowhere to
+        # report the failure to, and a CLI that checks every Fprintf is a CLI
+        # nobody can read.
+        - fmt.Fprint
+        - fmt.Fprintf
+        - fmt.Fprintln
+
     gosec:
       excludes:
-        # G304: crier's whole job is reading files the operator named.
+        # G301/G306: a directory a person will `cd` into and a file they will
+        # read want 0755 and 0644. crier writes images and documentation, not
+        # secrets — the one thing it does write privately, a config file in a
+        # test, is written 0600 explicitly.
+        - G301
+        - G306
+        # G304: reading a file the operator named is crier's whole job.
         - G304
-        # G204: the tunnel and ffmpeg are subprocesses the operator configured.
+        # G204: the tunnel and ffmpeg are subprocesses the operator configured,
+        # by name, in their own configuration.
         - G204
+        # G404: the randomness here is retry jitter and template variation.
+        # Neither is a secret, and both are seeded deliberately so a run can be
+        # reproduced — which is the opposite of what crypto/rand offers.
+        - G404
+
+    staticcheck:
+      checks:
+        - all
+        # QF1001/QF1002: suggestions about how a condition or a switch might be
+        # spelled. Style, and the code says what it means as it is.
+        - -QF1001
+        - -QF1002
 
   exclusions:
     rules:
       # A test may ignore an error the code under test is not about.
       - path: _test\.go
         linters: [errcheck, gosec, bodyclose, noctx]
-      # The raster backend reads pixel buffers with computed indices, which is
-      # what a rasterizer is.
+      # The raster backend indexes pixel buffers with computed offsets and
+      # narrows float coverage into bytes, which is what a rasterizer is.
       - path: internal/raster/
         linters: [gosec]
+      # httpx.Send hands the response to its caller to close, and JSON, Bytes
+      # and Discard close it through drainClose — which bodyclose cannot see,
+      # because it only recognises a literal resp.Body.Close().
+      - path: internal/httpx/client\.go
+        linters: [bodyclose]
 
 issues:
   max-issues-per-linter: 0

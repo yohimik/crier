@@ -429,9 +429,14 @@ func ParseColor(s string) (color.RGBA, error) {
 		return color.RGBA{}, errors.New("want a hex colour such as #ffffff")
 	}
 	if len(hex) == 6 {
-		return color.RGBA{R: uint8(n >> 16), G: uint8(n >> 8), B: uint8(n), A: 255}, nil
+		return color.RGBA{R: byteOf(n >> 16), G: byteOf(n >> 8), B: byteOf(n), A: 255}, nil
 	}
-	return color.RGBA{R: uint8(n >> 24), G: uint8(n >> 16), B: uint8(n >> 8), A: uint8(n)}, nil
+	return color.RGBA{R: byteOf(n >> 24), G: byteOf(n >> 16), B: byteOf(n >> 8), A: byteOf(n)}, nil
+}
+
+// byteOf takes the low eight bits, which is what each colour channel is.
+func byteOf(v uint64) uint8 {
+	return uint8(v & 0xff) //nolint:gosec // masked to eight bits on the line above
 }
 
 // Duration parses a duration this package has already validated. It returns

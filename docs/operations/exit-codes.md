@@ -16,7 +16,7 @@ failure.
 ## Branching on them
 
 ```sh
-crier publish
+crier
 case $? in
   0) echo "posted everywhere" ;;
   4) echo "posted somewhere; see the report" ;;   # often worth retrying the rest by hand

@@ -32,7 +32,7 @@ Because they are ordinary configuration keys, they take an environment variable
 and a flag as well:
 
 ```sh
-CRIER_PUBLISH_DISCORD_CAPTION='shipped {{ .version }}' crier publish
+CRIER_PUBLISH_DISCORD_CAPTION='shipped {{ .version }}' crier
 ```
 
 ## Rules
@@ -55,7 +55,7 @@ CRIER_PUBLISH_DISCORD_CAPTION='shipped {{ .version }}' crier publish
 ## Seeing them before they are sent
 
 ```sh
-crier publish --dry-run
+crier --dry-run
 ```
 
 prints the resolved caption for each platform and makes no network calls.

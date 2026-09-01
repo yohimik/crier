@@ -61,7 +61,7 @@ variant — which is the behaviour of a project that never heard of this page.
 crier render --render-variant instagram
 ```
 
-`crier publish --json` reports the variants it rendered and which platforms
+`crier --json` reports the variants it rendered and which platforms
 each one served.
 
 ## Worked example

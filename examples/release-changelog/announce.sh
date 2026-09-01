@@ -21,7 +21,7 @@ here=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)
 
 # crier reads its data document from standard input when render.data is "-",
 # so the release becomes a card without a temporary file.
-cat <<YAML | crier publish --config "$here/crier.yaml" --render-data -
+cat <<YAML | crier --config "$here/crier.yaml" --render-data -
 package: ${DISPAT_PACKAGE:-crier}
 version: ${DISPAT_NEW_VERSION:-dev}
 features: |

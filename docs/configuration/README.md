@@ -39,8 +39,9 @@ That is what lets one machine hold several projects:
 ~/work/product-b/crier.yaml     # b's
 ```
 
-`cd product-a && crier publish` uses a's configuration, from anywhere inside
-`product-a`. `--config path/to/file` or `CRIER_CONFIG` skips the search.
+`cd product-a && crier` uses a's configuration, from anywhere inside
+`product-a` — the discovery and the default command are what make that one
+line the whole flow. `--config path/to/file` or `CRIER_CONFIG` skips the search.
 
 A file that is found and cannot be parsed is an error rather than something to
 step over: running with somebody else's settings is worse than not running.

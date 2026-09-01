@@ -5,7 +5,7 @@ what lets a script read one without filtering the other:
 
 ```sh
 image=$(crier render)          # the path, and nothing else
-crier publish --json > report.json 2> run.log
+crier --json > report.json 2> run.log
 ```
 
 ## Levels

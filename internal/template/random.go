@@ -4,6 +4,7 @@ import (
 	crand "crypto/rand"
 	"encoding/binary"
 	"fmt"
+	"math"
 	"math/rand/v2"
 	"sync"
 )
@@ -31,7 +32,10 @@ func NewRand(seed int64) *Rand {
 	if seed == 0 {
 		seed = randomSeed()
 	}
-	return &Rand{seed: seed, r: rand.New(rand.NewPCG(uint64(seed), goldenGamma))}
+	// The cast is a reinterpretation rather than a narrowing: PCG wants two
+	// arbitrary 64 bit stream words, and a negative seed is as good a word as
+	// a positive one.
+	return &Rand{seed: seed, r: rand.New(rand.NewPCG(uint64(seed), goldenGamma))} //nolint:gosec // reinterpreted, not narrowed
 }
 
 // randomSeed draws a seed that is worth logging: unpredictable, and small
@@ -41,7 +45,10 @@ func randomSeed() int64 {
 	if _, err := crand.Read(b[:]); err != nil {
 		return 1
 	}
-	seed := int64(binary.LittleEndian.Uint64(b[:]) >> 1)
+	// Masked rather than shifted so the conversion cannot overflow: what is
+	// wanted is a positive seed small enough to type back in.
+	//nolint:gosec // masked to MaxInt64 on this line, so it cannot overflow
+	seed := int64(binary.LittleEndian.Uint64(b[:]) & uint64(math.MaxInt64))
 	if seed == 0 {
 		seed = 1
 	}

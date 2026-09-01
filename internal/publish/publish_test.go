@@ -1512,8 +1512,9 @@ func TestHumanSize(t *testing.T) {
 
 func TestIdempotencyKeyIsStable(t *testing.T) {
 	in := Input{Artifact: render.Artifact{Path: "/a.png", Size: 10}, Caption: "hi"}
-	if idempotencyKey(in) != idempotencyKey(in) {
-		t.Error("the same post should give the same key")
+	first, second := idempotencyKey(in), idempotencyKey(in)
+	if first != second {
+		t.Errorf("the same post gave %q then %q", first, second)
 	}
 	other := in
 	other.Caption = "different"
@@ -1577,7 +1578,7 @@ func TestTikTokChunks(t *testing.T) {
 
 	// A remainder rides along with the last chunk rather than becoming a short
 	// one TikTok would refuse.
-	size, chunks = TikTokChunks(2*min + 1000)
+	_, chunks = TikTokChunks(2*min + 1000)
 	if len(chunks) != 2 {
 		t.Fatalf("chunks = %d", len(chunks))
 	}

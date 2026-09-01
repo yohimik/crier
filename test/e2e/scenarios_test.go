@@ -163,6 +163,58 @@ func TestRenderFailsOnABrokenOverlay(t *testing.T) {
 
 // --- configuration ---------------------------------------------------------
 
+// TestBareCrierInAProjectDirectory is the flagship flow, end to end: cd into a
+// project, run crier with no arguments at all, and the post goes out. It is
+// the per-directory configuration and the default command together.
+func TestBareCrierInAProjectDirectory(t *testing.T) {
+	f := newFakes(t)
+	dir := newProject(t, enableTwo(f))
+
+	// From the project itself, and from a directory inside it.
+	sub := filepath.Join(dir, "assets", "cards")
+	if err := os.MkdirAll(sub, 0o755); err != nil {
+		t.Fatal(err)
+	}
+
+	for _, from := range []string{dir, sub} {
+		res := crier(t, from, nil)
+		if res.Code != exitOK {
+			t.Fatalf("from %s: code=%d stderr=%s", from, res.Code, res.Stderr)
+		}
+		if !strings.Contains(res.Stdout, "telegram") || !strings.Contains(res.Stdout, "discord") {
+			t.Errorf("from %s: stdout = %s", from, res.Stdout)
+		}
+	}
+	if _, ok := f.find("/sendPhoto"); !ok {
+		t.Error("bare crier did not publish")
+	}
+}
+
+// TestBareCrierTakesFlags checks a leading flag belongs to publish rather than
+// being read as a command.
+func TestBareCrierTakesFlags(t *testing.T) {
+	f := newFakes(t)
+	dir := newProject(t, enableTwo(f))
+	res := crier(t, dir, nil, "--publish-dry-run", "--json")
+	if res.Code != exitOK {
+		t.Fatalf("code=%d stderr=%s", res.Code, res.Stderr)
+	}
+	if !strings.Contains(res.Stdout, `"dryRun": true`) {
+		t.Errorf("stdout = %s", res.Stdout)
+	}
+	if len(f.all()) != 0 {
+		t.Errorf("a dry run made %d requests", len(f.all()))
+	}
+}
+
+func TestUnknownBareWordIsAUsageError(t *testing.T) {
+	dir := newProject(t, "")
+	res := crier(t, dir, nil, "publsih")
+	if res.Code != exitUsage || !strings.Contains(res.Stderr, "unknown command") {
+		t.Errorf("code=%d stderr=%s", res.Code, res.Stderr)
+	}
+}
+
 func TestConfigDiscoveryPicksTheProjectYouAreIn(t *testing.T) {
 	f := newFakes(t)
 	root := t.TempDir()

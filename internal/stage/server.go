@@ -128,7 +128,10 @@ func (s *Server) startLocked(ctx context.Context) error {
 	if listen == "" {
 		listen = "127.0.0.1:0"
 	}
-	ln, err := net.Listen("tcp", listen)
+	// Through a ListenConfig so the caller's context can abort a listen that
+	// blocks — and so the socket is not opened by a bare package-level call
+	// that nothing can cancel.
+	ln, err := (&net.ListenConfig{}).Listen(ctx, "tcp", listen)
 	if err != nil {
 		return fmt.Errorf("listening on %s: %w", listen, err)
 	}

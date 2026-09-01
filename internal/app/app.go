@@ -50,25 +50,11 @@ func (a App) Run(ctx context.Context) int {
 		a.Stdin = os.Stdin
 	}
 
-	name, args := "", a.Args
-	if len(args) > 0 {
-		switch args[0] {
-		case "-h", "--help", "-help":
-			// A help flag in the command's place is a request for help, not a
-			// flag for a command that was never named.
-			args[0] = "help"
-		}
-		if !strings.HasPrefix(args[0], "-") {
-			name, args = args[0], args[1:]
-		}
-	}
+	name, args := a.dispatch(a.Args)
 
 	switch name {
-	case "", "help":
+	case "help":
 		a.usage()
-		if name == "" {
-			return ExitUsage
-		}
 		return ExitOK
 	case "version":
 		return a.report(a.runVersion(args))
@@ -85,6 +71,30 @@ func (a App) Run(ctx context.Context) int {
 		a.usage()
 		return ExitUsage
 	}
+}
+
+// dispatch decides which command was asked for, and what is left for it.
+//
+// publish is the default, so `crier` inside a project directory renders and
+// posts — which is the whole point of the per-directory configuration. A
+// leading flag belongs to publish too: `crier --dry-run` has to mean what it
+// looks like it means.
+//
+// A help flag is the one exception to that rule. A command line tool whose
+// --help does not help is a bug, so it reaches the top-level usage rather than
+// publish's flag list.
+func (a App) dispatch(args []string) (name string, rest []string) {
+	if len(args) == 0 {
+		return "publish", nil
+	}
+	switch args[0] {
+	case "-h", "--help", "-help":
+		return "help", args[1:]
+	}
+	if strings.HasPrefix(args[0], "-") {
+		return "publish", args
+	}
+	return args[0], args[1:]
 }
 
 // report prints an error and turns it into an exit code.
@@ -104,11 +114,15 @@ func (a App) usage() {
 	fmt.Fprint(a.Stderr, `crier renders an HTML template to an image or a video and publishes it.
 
 Usage:
-  crier <command> [flags]
+  crier [command] [flags]
+
+With no command, crier publishes: it renders the template the configuration in
+this directory names and posts it to every enabled platform. That is the whole
+of the everyday flow — cd into a project, run crier.
 
 Commands:
+  publish     render and post to every enabled platform (the default)
   render      render the template and write the image or video to a file
-  publish     render and post to every enabled platform
   platforms   list the platforms and whether they are configured
   config      print the resolved configuration, with secrets redacted
   version     print the version

@@ -1,10 +1,14 @@
 # Publishing
 
 ```sh
-crier publish
+crier
 ```
 
 renders, encodes, stages if it has to, and posts to every enabled platform.
+
+Publishing is what crier does with no command, so `crier` and `crier publish`
+are the same thing. Flags work either way: `crier --dry-run` is
+`crier publish --dry-run`.
 
 ## What happens, in order
 
@@ -51,7 +55,7 @@ See [exit codes](../operations/exit-codes.md) for the rest.
 ## Dry runs
 
 ```sh
-crier publish --dry-run
+crier --dry-run
 ```
 
 renders everything, resolves every caption, and makes **no network calls**. It

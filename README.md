@@ -4,11 +4,15 @@ Render an HTML template to an image or a video, and publish it to nine social
 platforms with one command.
 
 ```sh
-crier publish
+cd my-project && crier
 ```
 
 One layout, one data file, one config — and Instagram gets a story, Discord
 gets a card, and everyone gets the caption written for them.
+
+crier finds the configuration by walking up from where you are, the way git
+finds a repository, and publishing is what it does with no arguments. So the
+everyday flow is: change directory, run `crier`.
 
 - **Nine platforms.** Instagram, Facebook, TikTok, Telegram, X, Mastodon,
   Discord, LinkedIn, Reddit. Images and video.
@@ -92,9 +96,9 @@ publish:
 ```
 
 ```sh
-crier render                                   # card.png
-CRIER_PUBLISH_TELEGRAM_TOKEN=… crier publish   # and it is posted
-crier publish --dry-run                        # what would be sent, no network
+crier render                             # card.png
+CRIER_PUBLISH_TELEGRAM_TOKEN=… crier     # rendered and posted
+crier --dry-run                          # what would be sent, no network
 ```
 
 Every option with its default is in
@@ -122,11 +126,14 @@ The fonts the examples bundle are OFL-licensed and live in
 
 | | |
 | --- | --- |
+| `crier` | render and post to every enabled platform — publishing is the default |
 | `crier render` | render the template and write the file |
-| `crier publish` | render and post to every enabled platform |
 | `crier platforms` | which platforms are enabled, and which are configured |
 | `crier config` | the resolved configuration, secrets redacted |
 | `crier version` | the version |
+
+`crier publish` spells the default out; `crier --dry-run` and every other flag
+work without it.
 
 Results go to standard output, logs to standard error, and the
 [exit code](./docs/operations/exit-codes.md) says what happened.
