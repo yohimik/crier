@@ -72,7 +72,16 @@ func (i *Instagram) Publish(ctx context.Context, in Input) (Result, error) {
 	}
 
 	form := url.Values{"access_token": {i.cfg.Token}}
-	if in.Caption != "" {
+	switch {
+	case in.Caption == "":
+	case i.cfg.Story:
+		// The Stories API has no caption: Meta ignores the parameter, so a
+		// story goes out as bare media whatever the text said. Not sending it
+		// changes nothing on the wire that matters — the warning is the point,
+		// because the only way to put text on a story is to draw it into the
+		// image, and a silently dropped caption reads as a crier bug.
+		i.log.Warn().Msg("instagram stories carry no caption; the text was not sent — put it in the image itself, or in a story overlay")
+	default:
 		form.Set("caption", in.Caption)
 	}
 	switch {

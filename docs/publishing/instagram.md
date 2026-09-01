@@ -66,6 +66,12 @@ in 24 hours by itself.
 
 Reels are 3 seconds to 15 minutes; stories up to 60.
 
+**Stories carry no caption.** The API has no field for one — Meta ignores the
+parameter — so crier does not send it and warns when a caption was configured.
+Text that must appear on a story belongs in the image itself: bake it into the
+template, or give the story pass an [overlay](../templates/overlays.md) of its
+own.
+
 ## When the fetch fails
 
 `status_code: ERROR` almost always means Meta could not reach the URL. In
