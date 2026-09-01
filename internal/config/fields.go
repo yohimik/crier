@@ -81,6 +81,7 @@ func Bindings(cfg *Config) map[string]Binding {
 		"render.video.audio":        bindString(&vid.Audio),
 
 		"http.timeout":          bindString(&h.Timeout),
+		"http.upload-timeout":   bindString(&h.UploadTimeout),
 		"http.retry-max":        bindInt(&h.RetryMax),
 		"http.retry-base-delay": bindString(&h.RetryBaseDelay),
 		"http.retry-max-delay":  bindString(&h.RetryMaxDelay),

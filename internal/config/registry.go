@@ -149,7 +149,8 @@ var registry = []Descriptor{
 	{Key: "render.video.codec-preset", Kind: KindString, Default: "h264", Usage: "output codec preset: h264, h265, vp9 or none to rely on ffmpeg-args alone"},
 	{Key: "render.video.audio", Kind: KindString, Path: true, Usage: "audio file mixed into the video"},
 
-	{Key: "http.timeout", Kind: KindDuration, Default: "60s", Usage: "per-request HTTP timeout"},
+	{Key: "http.timeout", Kind: KindDuration, Default: "60s", Usage: "per-request HTTP timeout for calls that carry no media"},
+	{Key: "http.upload-timeout", Kind: KindDuration, Default: "10m", Usage: "per-request HTTP timeout for a request carrying media; covers the whole upload"},
 	{Key: "http.retry-max", Kind: KindInt, Default: "3", Usage: "maximum number of retries for retryable requests"},
 	{Key: "http.retry-base-delay", Kind: KindDuration, Default: "500ms", Usage: "initial backoff delay between retries"},
 	{Key: "http.retry-max-delay", Kind: KindDuration, Default: "10s", Usage: "maximum backoff delay between retries"},

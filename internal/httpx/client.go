@@ -110,7 +110,7 @@ func (c *Client) Send(ctx context.Context, b *Builder) (*http.Response, error) {
 		defer drainClose(resp.Body)
 		body, _ := io.ReadAll(io.LimitReader(resp.Body, MaxErrorBody))
 		return nil, &APIError{
-			Method: req.Method, URL: req.URL.Redacted(),
+			Method: req.Method, URL: RedactURL(req.URL),
 			Status: resp.StatusCode, Header: resp.Header, Body: body,
 		}
 	}
@@ -171,7 +171,7 @@ func (c *Client) StatusOf(ctx context.Context, b *Builder, accept func(int) bool
 	if !accept(resp.StatusCode) {
 		body, _ := io.ReadAll(io.LimitReader(resp.Body, MaxErrorBody))
 		return resp.StatusCode, &APIError{
-			Method: req.Method, URL: req.URL.Redacted(),
+			Method: req.Method, URL: RedactURL(req.URL),
 			Status: resp.StatusCode, Header: resp.Header, Body: body,
 		}
 	}
@@ -208,7 +208,7 @@ func (t *loggingTransport) RoundTrip(req *http.Request) (*http.Response, error) 
 	resp, err := t.base.RoundTrip(req)
 	ev := t.log.Debug().
 		Str("method", req.Method).
-		Str("url", req.URL.Redacted()).
+		Str("url", RedactURL(req.URL)).
 		Dur("elapsed", time.Since(start))
 	if err != nil {
 		ev.Err(err).Msg("http request failed")

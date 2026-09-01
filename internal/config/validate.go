@@ -178,6 +178,7 @@ func validateVideo(v *Video) error {
 func validateHTTP(h *HTTP) error {
 	var errs []error
 	errs = append(errs, checkDuration("http.timeout", h.Timeout, true))
+	errs = append(errs, checkDuration("http.upload-timeout", h.UploadTimeout, true))
 	errs = append(errs, checkDuration("http.retry-base-delay", h.RetryBaseDelay, true))
 	errs = append(errs, checkDuration("http.retry-max-delay", h.RetryMaxDelay, true))
 	if h.RetryMax < 0 {

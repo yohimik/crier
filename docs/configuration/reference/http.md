@@ -4,11 +4,20 @@
 
 The shared client every publisher and stager uses: timeouts and retries.
 
+There are two timeouts because there are two kinds of wait. `http.timeout` bounds an
+ordinary API call, where a minute is generous. `http.upload-timeout` bounds a request
+carrying media, where the same minute would not be enough to push a 50MB video up a
+domestic uplink — and since a timeout bounds the body write as well as the response,
+one setting for both means every large upload fails at a deterministic size. A request
+whose body is over 1MB, or whose length is not known in advance because crier is
+streaming it, gets the upload timeout.
+
 | Key | Type | Default | Description |
 | --- | ---- | ------- | ----------- |
 | `http.retry-base-delay`<br>`CRIER_HTTP_RETRY_BASE_DELAY`<br>`--http-retry-base-delay` | duration | `500ms` | initial backoff delay between retries |
 | `http.retry-max`<br>`CRIER_HTTP_RETRY_MAX`<br>`--http-retry-max` | int | `3` | maximum number of retries for retryable requests |
 | `http.retry-max-delay`<br>`CRIER_HTTP_RETRY_MAX_DELAY`<br>`--http-retry-max-delay` | duration | `10s` | maximum backoff delay between retries |
-| `http.timeout`<br>`CRIER_HTTP_TIMEOUT`<br>`--http-timeout` | duration | `60s` | per-request HTTP timeout |
+| `http.timeout`<br>`CRIER_HTTP_TIMEOUT`<br>`--http-timeout` | duration | `60s` | per-request HTTP timeout for calls that carry no media |
+| `http.upload-timeout`<br>`CRIER_HTTP_UPLOAD_TIMEOUT`<br>`--http-upload-timeout` | duration | `10m` | per-request HTTP timeout for a request carrying media; covers the whole upload |
 
 [All groups](./README.md)

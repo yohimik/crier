@@ -286,10 +286,11 @@ func (a App) load(name string, args []string, extra func(*flag.FlagSet)) (*setup
 	h := res.Config.HTTP
 	client := httpx.New(httpx.Options{
 		Retry: httpx.RetryPolicy{
-			Max:       h.RetryMax,
-			BaseDelay: config.Duration(h.RetryBaseDelay),
-			MaxDelay:  config.Duration(h.RetryMaxDelay),
-			Timeout:   config.Duration(h.Timeout),
+			Max:           h.RetryMax,
+			BaseDelay:     config.Duration(h.RetryBaseDelay),
+			MaxDelay:      config.Duration(h.RetryMaxDelay),
+			Timeout:       config.Duration(h.Timeout),
+			UploadTimeout: config.Duration(h.UploadTimeout),
 		},
 		Logger:    log,
 		UserAgent: userAgent(),

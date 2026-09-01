@@ -106,7 +106,14 @@ func prefixes() []group {
 		{prefix: "render.", title: "Rendering",
 			intro: "What is drawn, how large, in which format, and with which fonts."},
 		{prefix: "http.", title: "HTTP",
-			intro: "The shared client every publisher and stager uses: timeouts and retries."},
+			intro: "The shared client every publisher and stager uses: timeouts and retries.\n\n" +
+				"There are two timeouts because there are two kinds of wait. `http.timeout` bounds an\n" +
+				"ordinary API call, where a minute is generous. `http.upload-timeout` bounds a request\n" +
+				"carrying media, where the same minute would not be enough to push a 50MB video up a\n" +
+				"domestic uplink — and since a timeout bounds the body write as well as the response,\n" +
+				"one setting for both means every large upload fails at a deterministic size. A request\n" +
+				"whose body is over 1MB, or whose length is not known in advance because crier is\n" +
+				"streaming it, gets the upload timeout."},
 		{prefix: "stage.s3.", title: "Staging: S3",
 			intro: "Used when `stage.mode` is `s3`."},
 		{prefix: "stage.server.tunnel.", title: "Staging: tunnel",

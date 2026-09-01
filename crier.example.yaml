@@ -15,8 +15,10 @@ http:
   retry-max: 3
   # maximum backoff delay between retries
   retry-max-delay: "10s"
-  # per-request HTTP timeout
+  # per-request HTTP timeout for calls that carry no media
   timeout: "60s"
+  # per-request HTTP timeout for a request carrying media; covers the whole upload
+  upload-timeout: "10m"
 log:
   # log format: console or json
   format: "console"

@@ -86,6 +86,7 @@ type Layout struct {
 // HTTP configures the shared HTTP client used by every publisher and stager.
 type HTTP struct {
 	Timeout        string
+	UploadTimeout  string
 	RetryMax       int
 	RetryBaseDelay string
 	RetryMaxDelay  string

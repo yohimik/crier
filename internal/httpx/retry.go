@@ -23,10 +23,45 @@ type RetryPolicy struct {
 	MaxDelay time.Duration
 	// Timeout bounds one attempt. Zero means no per-attempt bound.
 	Timeout time.Duration
+	// UploadTimeout bounds one attempt that carries a large body. Zero falls
+	// back to Timeout.
+	//
+	// It exists because the per-attempt timeout bounds the body write as well
+	// as the response wait, and those are not the same kind of wait. A minute
+	// is generous for an API call and nowhere near enough to push a 50MB video
+	// up a domestic uplink — so the one setting that makes an API feel
+	// responsive is the one that makes every large upload fail, at a
+	// deterministic size, with an opaque deadline error.
+	UploadTimeout time.Duration
 }
 
+// UploadThreshold is the body size past which UploadTimeout applies.
+//
+// A megabyte: comfortably above any JSON call crier makes and comfortably
+// below any media it uploads, so the two kinds of request are told apart by
+// what they are rather than by who called.
+const UploadThreshold = 1 << 20
+
 // DefaultRetryPolicy is used when a zero policy reaches the transport.
-var DefaultRetryPolicy = RetryPolicy{Max: 3, BaseDelay: 500 * time.Millisecond, MaxDelay: 10 * time.Second, Timeout: time.Minute}
+var DefaultRetryPolicy = RetryPolicy{
+	Max: 3, BaseDelay: 500 * time.Millisecond, MaxDelay: 10 * time.Second,
+	Timeout: time.Minute, UploadTimeout: 10 * time.Minute,
+}
+
+// attemptTimeout is how long one attempt at this request may take.
+//
+// A body of unknown length is treated as an upload: crier streams a multipart
+// body when the file is too large to buffer, which is exactly the case that
+// needs the longer bound.
+func attemptTimeout(policy RetryPolicy, req *http.Request) time.Duration {
+	if policy.UploadTimeout <= 0 {
+		return policy.Timeout
+	}
+	if req.ContentLength < 0 || req.ContentLength > UploadThreshold {
+		return policy.UploadTimeout
+	}
+	return policy.Timeout
+}
 
 // retryTransport retries a request the way a social platform API wants to be
 // retried, and no more than that.
@@ -69,8 +104,8 @@ func (t *retryTransport) RoundTrip(req *http.Request) (*http.Response, error) {
 
 		ctx := req.Context()
 		cancel := context.CancelFunc(func() {})
-		if policy.Timeout > 0 {
-			ctx, cancel = context.WithTimeout(ctx, policy.Timeout)
+		if timeout := attemptTimeout(policy, req); timeout > 0 {
+			ctx, cancel = context.WithTimeout(ctx, timeout)
 		}
 		attemptReq := req.Clone(ctx)
 		attemptReq.Body = body
@@ -113,7 +148,7 @@ func (t *retryTransport) RoundTrip(req *http.Request) (*http.Response, error) {
 
 		t.log.Warn().
 			Str("method", req.Method).
-			Str("url", req.URL.Redacted()).
+			Str("url", RedactURL(req.URL)).
 			Int("attempt", attempt+1).
 			Dur("wait", wait).
 			Err(lastErr).
@@ -253,7 +288,7 @@ func retryAfter(h http.Header) (time.Duration, bool) {
 
 // statusError renders a response as an error, for logging a retried attempt.
 func statusError(req *http.Request, resp *http.Response) error {
-	return &APIError{Method: req.Method, URL: req.URL.Redacted(), Status: resp.StatusCode, Header: resp.Header}
+	return &APIError{Method: req.Method, URL: RedactURL(req.URL), Status: resp.StatusCode, Header: resp.Header}
 }
 
 // cancelOnClose ties a per-attempt context to the lifetime of the body.

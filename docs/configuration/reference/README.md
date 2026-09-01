@@ -11,7 +11,7 @@ where a relative path resolves against, is in
 | [Logging](./log.md) | `log` | 2 |
 | [Video rendering](./render-video.md) | `render.video` | 10 |
 | [Rendering](./render.md) | `render` | 18 |
-| [HTTP](./http.md) | `http` | 4 |
+| [HTTP](./http.md) | `http` | 5 |
 | [Staging: S3](./stage-s3.md) | `stage.s3` | 12 |
 | [Staging: tunnel](./stage-server-tunnel.md) | `stage.server.tunnel` | 6 |
 | [Staging: local server](./stage-server.md) | `stage.server` | 3 |
