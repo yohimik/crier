@@ -11,6 +11,7 @@ import (
 	"net"
 	"os"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"testing"
 )
@@ -1234,6 +1235,212 @@ func TestPingWithNoPlatformIsAConfigError(t *testing.T) {
 	res := crier(t, dir, nil, "ping")
 	if res.Code != exitConfig || !strings.Contains(res.Stderr, "no platform is enabled") {
 		t.Errorf("code=%d stderr=%s", res.Code, res.Stderr)
+	}
+}
+
+// --- custom platforms --------------------------------------------------------
+
+// TestCustomPlatformIsAPeer is E10's whole claim: a shell script is a platform
+// like any other. It fans out beside a built-in, gets the staged URL, the
+// rendered caption and the artifact, and reports back what it published.
+func TestCustomPlatformIsAPeer(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("the script is sh")
+	}
+	f := newFakes(t)
+	dir := t.TempDir()
+	dump := filepath.Join(dir, "env.txt")
+
+	writeFile(t, dir, "template.html", baseTemplate)
+	writeFile(t, dir, "data.yaml", "title: custom\nversion: 4.5.6\n")
+	writeFile(t, dir, "crier.yaml", strings.Join([]string{
+		"log:",
+		"  level: debug",
+		"render:",
+		"  template: template.html",
+		"  data: data.yaml",
+		"  width: 240",
+		"  height: 120",
+		"  hermetic-fonts: true",
+		"stage:",
+		"  mode: url",
+		"  url: " + f.URL + "/staged/image.png",
+		"publish:",
+		"  caption: \"{{ .title }} {{ .version }} via {{ .Platform }}\"",
+		"  telegram:",
+		"    enabled: true",
+		"    api-base-url: " + f.URL,
+		"    token: tg-token",
+		"    chat-id: \"@crier\"",
+		"  custom:",
+		"    webhook:",
+		"      enabled: true",
+		"      needs-url: true",
+		"      command: >",
+		"        env | grep '^CRIER_' | sort > " + dump + ";",
+		"        cp \"$CRIER_ARTIFACT\" " + filepath.Join(dir, "received.png") + ";",
+		"        echo id=hook-1 >> \"$CRIER_OUTPUT\";",
+		"        echo link=https://example.test/hook-1 >> \"$CRIER_OUTPUT\"",
+		"      env:",
+		"        MY_TOKEN: from-config",
+	}, "\n"))
+
+	res := crier(t, dir, nil, "--json")
+	if res.Code != exitOK {
+		t.Fatalf("code=%d stderr=%s", res.Code, res.Stderr)
+	}
+	var rep struct {
+		Results []struct {
+			Platform string `json:"platform"`
+			OK       bool   `json:"ok"`
+			ID       string `json:"id"`
+			URL      string `json:"url"`
+			Error    string `json:"error"`
+		} `json:"results"`
+	}
+	if err := json.Unmarshal([]byte(res.Stdout), &rep); err != nil {
+		t.Fatalf("%v\n%s", err, res.Stdout)
+	}
+	if len(rep.Results) != 2 {
+		t.Fatalf("results = %+v, want the built-in and the custom", rep.Results)
+	}
+	var hook *struct {
+		Platform string `json:"platform"`
+		OK       bool   `json:"ok"`
+		ID       string `json:"id"`
+		URL      string `json:"url"`
+		Error    string `json:"error"`
+	}
+	for i := range rep.Results {
+		if rep.Results[i].Platform == "webhook" {
+			hook = &rep.Results[i]
+		}
+	}
+	if hook == nil {
+		t.Fatalf("the custom platform is missing: %+v", rep.Results)
+	}
+	if !hook.OK || hook.ID != "hook-1" || hook.URL != "https://example.test/hook-1" {
+		t.Errorf("custom result = %+v", hook)
+	}
+
+	env := map[string]string{}
+	body, err := os.ReadFile(dump)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, line := range strings.Split(string(body), "\n") {
+		if k, v, ok := strings.Cut(line, "="); ok {
+			env[k] = v
+		}
+	}
+	// The script copied what it was given, which proves the path pointed at a
+	// readable rendering rather than only at a plausible name. The artifact
+	// itself is gone by now: crier cleans up after the run.
+	cfg, format := decodeImage(t, filepath.Join(dir, "received.png"))
+	if format != "png" || cfg.Width != 240 || cfg.Height != 120 {
+		t.Errorf("the script received %s %dx%d", format, cfg.Width, cfg.Height)
+	}
+	if !strings.HasSuffix(env["CRIER_ARTIFACT"], ".png") {
+		t.Errorf("CRIER_ARTIFACT = %q", env["CRIER_ARTIFACT"])
+	}
+	if env["CRIER_ARTIFACT_KIND"] != "image" || env["CRIER_ARTIFACT_FORMAT"] != "png" {
+		t.Errorf("kind=%q format=%q", env["CRIER_ARTIFACT_KIND"], env["CRIER_ARTIFACT_FORMAT"])
+	}
+	if env["CRIER_CAPTION"] != "custom 4.5.6 via webhook" {
+		t.Errorf("CRIER_CAPTION = %q", env["CRIER_CAPTION"])
+	}
+	if env["CRIER_URL"] != f.URL+"/staged/image.png" {
+		t.Errorf("CRIER_URL = %q", env["CRIER_URL"])
+	}
+	if env["CRIER_PLATFORM"] != "webhook" {
+		t.Errorf("CRIER_PLATFORM = %q", env["CRIER_PLATFORM"])
+	}
+
+	// The built-in beside it still posted, which is the "peer" half.
+	if _, ok := f.find("/sendPhoto"); !ok {
+		t.Error("the built-in platform did not publish")
+	}
+}
+
+// TestCustomPlatformFailureIsPartial: a script that exits non-zero fails its
+// platform and no other, exactly like an API refusing a post.
+func TestCustomPlatformFailureIsPartial(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("the script is sh")
+	}
+	f := newFakes(t)
+	dir := newProject(t, strings.Join([]string{
+		"  telegram:",
+		"    enabled: true",
+		"    api-base-url: " + f.URL,
+		"    token: tg-token",
+		"    chat-id: \"@crier\"",
+		"  custom:",
+		"    webhook:",
+		"      enabled: true",
+		"      command: \"echo 'the hook said no' >&2; exit 7\"",
+	}, "\n"))
+
+	res := crier(t, dir, nil, "publish")
+	if res.Code != exitPartial {
+		t.Fatalf("code=%d stderr=%s stdout=%s", res.Code, res.Stderr, res.Stdout)
+	}
+	if !strings.Contains(res.Stdout, "webhook") || !strings.Contains(res.Stdout, "failed") {
+		t.Errorf("the failing platform should be named:\n%s", res.Stdout)
+	}
+	if !strings.Contains(res.Stderr, "the hook said no") {
+		t.Errorf("the script's own output should reach the error: %s", res.Stderr)
+	}
+	if _, ok := f.find("/sendPhoto"); !ok {
+		t.Error("one platform's failure took the other down with it")
+	}
+}
+
+// TestCustomPlatformPingAndSet covers the two things a custom platform needs
+// that a built-in does not: a ping command of its own, and a way to set a key
+// whose name crier could not know in advance.
+func TestCustomPlatformPingAndSet(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("the script is sh")
+	}
+	dir := newProject(t, strings.Join([]string{
+		"  custom:",
+		"    webhook:",
+		"      enabled: true",
+		"      command: \"true\"",
+		"      ping-command: \"echo id=acct-9 >> \\\"$CRIER_OUTPUT\\\"\"",
+	}, "\n"))
+
+	res := crier(t, dir, nil, "ping", "--json")
+	if res.Code != exitOK {
+		t.Fatalf("ping: code=%d stderr=%s", res.Code, res.Stderr)
+	}
+	if !strings.Contains(res.Stdout, "acct-9") {
+		t.Errorf("the ping-command's answer is missing:\n%s", res.Stdout)
+	}
+
+	// --set reaching a key whose middle segment is a name crier invented
+	// nothing about.
+	res = crier(t, dir, nil, "ping", "--json",
+		"--set", `publish.custom.webhook.ping-command=echo id=from-a-flag >> "$CRIER_OUTPUT"`)
+	if res.Code != exitOK {
+		t.Fatalf("--set: code=%d stderr=%s", res.Code, res.Stderr)
+	}
+	if !strings.Contains(res.Stdout, "from-a-flag") {
+		t.Errorf("--set did not reach the custom key:\n%s", res.Stdout)
+	}
+
+	// And the environment introduces one all by itself.
+	res = crier(t, t.TempDir(), []string{
+		"CRIER_PUBLISH_CUSTOM_FROM_ENV_ENABLED=true",
+		"CRIER_PUBLISH_CUSTOM_FROM_ENV_COMMAND=true",
+		`CRIER_PUBLISH_CUSTOM_FROM_ENV_PING_COMMAND=echo id=env-acct >> "$CRIER_OUTPUT"`,
+	}, "ping", "--json")
+	if res.Code != exitOK {
+		t.Fatalf("from the environment: code=%d stderr=%s", res.Code, res.Stderr)
+	}
+	if !strings.Contains(res.Stdout, "env-acct") || !strings.Contains(res.Stdout, "from-env") {
+		t.Errorf("a platform named only in the environment did not appear:\n%s", res.Stdout)
 	}
 }
 

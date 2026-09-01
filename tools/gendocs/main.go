@@ -44,6 +44,13 @@ func run(root string) error {
 	}
 
 	groups := groups()
+	// The custom platforms have no registry entries — their names belong to
+	// the operator — so their page is generated from the leaf list instead.
+	// It is a real page rather than a hole in the reference: those keys are as
+	// settable as any other.
+	if err := os.WriteFile(filepath.Join(dir, "publish-custom.md"), renderCustom(), 0o644); err != nil {
+		return err
+	}
 	for _, g := range groups {
 		if len(g.keys) == 0 {
 			continue
@@ -116,6 +123,10 @@ func prefixes() []group {
 			intro:  "See [the " + platformTitle(p) + " guide](../../publishing/" + p + ".md) for how to get these values.",
 		})
 	}
+	out = append(out, group{
+		prefix: "publish.custom.", file: "publish-custom.md", title: "Publishing: custom platforms",
+		intro: "Any shell command as a platform.",
+	})
 	return append(out, group{prefix: "publish.", title: "Publishing",
 		intro: "The fan-out itself: which platforms, how many at a time, and the shared caption."})
 }
@@ -172,6 +183,33 @@ func groups() []group {
 	return out
 }
 
+// renderCustom writes the reference page for a custom platform's keys.
+func renderCustom() []byte {
+	var b bytes.Buffer
+	fmt.Fprintf(&b, "<!-- %s -->\n\n", generatedNote)
+	b.WriteString(`# Publishing: custom platforms
+
+Any shell command can be a platform. The name is yours to choose, so these keys
+are written with ` + "`<name>`" + ` standing in for it — see
+[the custom platform guide](../../publishing/custom.md).
+
+`)
+	fmt.Fprintln(&b, "| Key | Type | Default | Description |")
+	fmt.Fprintln(&b, "| --- | ---- | ------- | ----------- |")
+	for _, d := range config.CustomLeaves {
+		full, _ := config.CustomDescriptor("<name>", d.Key)
+		fmt.Fprintf(&b, "| `%s`<br>`%s`<br>`--set %s` | %s | %s | %s |\n",
+			full.Key, config.EnvName(full.Key), full.Key, typeOf(d), defaultOf(d), describe(d))
+	}
+	fmt.Fprintf(&b, "| `%s.<name>.%s.<VAR>` | string | — | extra environment variables for the command |\n",
+		config.CustomPrefix, config.CustomEnvLeaf)
+	b.WriteString("\nA name is lower-case letters, digits and dashes, and may not be one of the\n" +
+		"nine built-in platforms: it has to survive the round trip through an\n" +
+		"environment variable.\n")
+	fmt.Fprintln(&b, "\n[All groups](./README.md)")
+	return b.Bytes()
+}
+
 func renderIndex(gs []group) []byte {
 	var b bytes.Buffer
 	fmt.Fprintf(&b, "<!-- %s -->\n\n", generatedNote)
@@ -185,8 +223,12 @@ where a relative path resolves against, is in
 	fmt.Fprintln(&b, "| Group | Keys | What it covers |")
 	fmt.Fprintln(&b, "| ----- | ---- | -------------- |")
 	for _, g := range gs {
-		if len(g.keys) == 0 {
+		if len(g.keys) == 0 && g.file != "publish-custom.md" {
 			continue
+		}
+		count := len(g.keys)
+		if g.file == "publish-custom.md" {
+			count = len(config.CustomLeaves) + 1
 		}
 		prefix := g.prefix
 		if prefix == "" {
@@ -194,7 +236,7 @@ where a relative path resolves against, is in
 		} else {
 			prefix = "`" + strings.TrimSuffix(prefix, ".") + "`"
 		}
-		fmt.Fprintf(&b, "| [%s](./%s) | %s | %d |\n", g.title, g.file, prefix, len(g.keys))
+		fmt.Fprintf(&b, "| [%s](./%s) | %s | %d |\n", g.title, g.file, prefix, count)
 	}
 	b.WriteString("\nA sample carrying every key with its default is at\n" +
 		"[`crier.example.yaml`](../../../crier.example.yaml).\n")

@@ -50,6 +50,10 @@ func textFields(cfg *config.Config, platform string) []textField {
 			{"publish.reddit.title", &p.Reddit.Title},
 		}
 	default:
+		// A custom platform has one text, and it is a caption like any other.
+		if c := config.CustomOf(p, platform); c != nil {
+			return []textField{{config.CustomPrefix + "." + platform + ".caption", &c.Caption}}
+		}
 		return nil
 	}
 }

@@ -1,0 +1,44 @@
+# A platform crier knows nothing about, defined by a shell script.
+#
+#   crier render --config examples/custom-platform/crier.yaml
+#   WEBHOOK_URL=https://... crier --config examples/custom-platform/crier.yaml
+#
+# See docs/publishing/custom.md.
+render:
+  template: template.html
+  data: data.yaml
+  width: 1080
+  height: 1080
+  format: png
+  output: preview.png
+  # Only the bundled faces, so the card renders the same on any machine, and a
+  # base URL so the @font-face src above resolves against this directory.
+  hermetic-fonts: true
+  base-url: .
+
+publish:
+  caption: "{{ .title }} — {{ .body }}"
+
+  custom:
+    # "webhook" is a name you choose. It becomes the platform's name in the
+    # report, in `crier platforms`, in `crier ping`, and in the environment
+    # variables that configure it: CRIER_PUBLISH_CUSTOM_WEBHOOK_ENABLED.
+    webhook:
+      enabled: true
+
+      # Relative to this file, like every other path a config file writes.
+      command: sh ./publish.sh
+      ping-command: sh ./ping.sh
+
+      # The script gets these on top of crier's own variables. A real token
+      # belongs in the environment rather than here:
+      #
+      #     export CRIER_PUBLISH_CUSTOM_WEBHOOK_ENV_WEBHOOK_URL="https://..."
+      env:
+        WEBHOOK_URL: ""
+
+      # The script posts bytes, so it needs no staged URL.
+      needs-url: false
+      kinds: [image]
+      format: png
+      timeout: 60s

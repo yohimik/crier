@@ -301,7 +301,9 @@ func validatePublish(p *Publish) []error {
 		errs = append(errs, invalid("publish.reddit.kind", p.Reddit.Kind, "want auto, image, video or link"))
 	}
 
-	for _, name := range Platforms {
+	errs = append(errs, validateCustom(p)...)
+
+	for _, name := range append(append([]string(nil), Platforms...), CustomNames(p)...) {
 		l := LayoutOf(p, name)
 		if l == nil {
 			continue
@@ -341,6 +343,9 @@ func LayoutOf(p *Publish, name string) *Layout {
 	case "reddit":
 		return &p.Reddit.Layout
 	default:
+		if c := CustomOf(p, name); c != nil {
+			return &c.Layout
+		}
 		return nil
 	}
 }
@@ -458,4 +463,39 @@ func Float(s string, def float64) float64 {
 		return def
 	}
 	return f
+}
+
+// validateCustom checks the script-backed platforms.
+//
+// Only the enabled ones are checked for a command: a half-written entry sitting
+// disabled in a config file is somebody's work in progress, and refusing to
+// start over it would be officious.
+func validateCustom(p *Publish) []error {
+	var errs []error
+	for _, name := range CustomNames(p) {
+		c := p.Custom[name]
+		at := CustomPrefix + "." + name
+		if c.Enabled && strings.TrimSpace(c.Command) == "" {
+			errs = append(errs, fmt.Errorf("%s.command is required when the platform is enabled", at))
+		}
+		if err := checkDuration(at+".timeout", c.Timeout, true); err != nil {
+			errs = append(errs, err)
+		}
+		for _, kind := range c.Kinds {
+			switch strings.ToLower(strings.TrimSpace(kind)) {
+			case "image", "video":
+			default:
+				errs = append(errs, invalid(at+".kinds", kind, "want image or video"))
+			}
+		}
+		if len(c.Kinds) == 0 {
+			errs = append(errs, invalid(at+".kinds", "", "want at least one of image, video"))
+		}
+		switch strings.ToLower(strings.TrimSpace(c.Format)) {
+		case "png", "jpeg", "jpg":
+		default:
+			errs = append(errs, invalid(at+".format", c.Format, "want png or jpeg"))
+		}
+	}
+	return errs
 }

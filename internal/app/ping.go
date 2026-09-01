@@ -61,7 +61,7 @@ func (a App) runPing(ctx context.Context, args []string) error {
 	// The same constructors publish uses, so a configuration ping accepts is a
 	// configuration publish would get as far as the network with.
 	publishers, err := publish.Build(cfg, publish.Deps{
-		Client: s.Client, Logger: s.Log, UserAgent: userAgent(),
+		Client: s.Client, Logger: s.Log, UserAgent: userAgent(), Dir: s.Result.Dir,
 	})
 	if err != nil {
 		return fail(ExitConfig, err)

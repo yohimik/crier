@@ -134,6 +134,10 @@ type Deps struct {
 	Logger zerolog.Logger
 	// UserAgent identifies crier to the platforms that insist on one.
 	UserAgent string
+	// Dir is the project root — the directory the configuration file sits in.
+	// A custom platform's command runs there, so `sh ./publish.sh` in a config
+	// means the script beside it, the way every path in a config file does.
+	Dir string
 }
 
 // constructor builds one publisher from the configuration.
@@ -164,10 +168,18 @@ func Names() []string {
 }
 
 // Enabled reports which platforms the configuration turns on.
+//
+// The script-backed ones come after the built-ins and are sorted among
+// themselves, so the order a run reports is the same twice.
 func Enabled(cfg *config.Config) []string {
 	var out []string
 	for _, name := range config.Platforms {
 		if enabledIn(cfg, name) {
+			out = append(out, name)
+		}
+	}
+	for _, name := range config.CustomNames(&cfg.Publish) {
+		if cfg.Publish.Custom[name].Enabled {
 			out = append(out, name)
 		}
 	}
@@ -196,6 +208,9 @@ func enabledIn(cfg *config.Config, name string) bool {
 	case "reddit":
 		return p.Reddit.Enabled
 	default:
+		if c := config.CustomOf(p, name); c != nil {
+			return c.Enabled
+		}
 		return false
 	}
 }
@@ -214,12 +229,21 @@ func Build(cfg *config.Config, d Deps) ([]Publisher, error) {
 		errs []error
 	)
 	for _, name := range Enabled(cfg) {
-		make, ok := registry[name]
-		if !ok {
-			errs = append(errs, fmt.Errorf("unknown platform %q", name))
-			continue
+		var (
+			p   Publisher
+			err error
+		)
+		switch make, ok := registry[name]; {
+		case ok:
+			p, err = make(cfg, d)
+		default:
+			c := config.CustomOf(&cfg.Publish, name)
+			if c == nil {
+				errs = append(errs, fmt.Errorf("unknown platform %q", name))
+				continue
+			}
+			p, err = newCustom(name, c, d)
 		}
-		p, err := make(cfg, d)
 		if err != nil {
 			errs = append(errs, fmt.Errorf("publish.%s: %w", name, err))
 			continue

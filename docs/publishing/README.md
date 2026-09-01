@@ -103,6 +103,13 @@ else.
 | [LinkedIn](./linkedin.md) | yes | no | yes | two mandatory headers |
 | [Reddit](./reddit.md) | yes | link mode | yes | descriptive User-Agent required |
 
+## A platform crier does not have
+
+Any shell command can be one. `publish.custom.<name>` defines a script-backed
+platform that is a peer of the nine above — same fan-out, same overlays, same
+caption templating, same `crier ping`. See
+[custom platforms](./custom.md).
+
 ## Check a setup before you post
 
 ```sh

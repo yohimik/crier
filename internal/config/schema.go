@@ -143,6 +143,46 @@ type Publish struct {
 	Discord   Discord
 	LinkedIn  LinkedIn
 	Reddit    Reddit
+
+	// Custom are script-backed platforms, keyed by the name the configuration
+	// gave them. They are peers of the nine above: they take part in the
+	// fan-out, in the render variants, in caption templating, in `crier ping`
+	// and in a dry run.
+	//
+	// This is the one place in the configuration where the keys are not known
+	// in advance, which is why it is a map and why the loader has to discover
+	// the names before it can bind the environment to them.
+	Custom map[string]*Custom
+}
+
+// Custom is a platform crier knows nothing about, defined by a shell command.
+//
+// The command receives the rendered file and the caption through the
+// environment and reports what it published by writing to a file. That is the
+// whole contract: anything with a shell and an HTTP client can be a platform.
+type Custom struct {
+	Layout
+
+	Enabled bool
+	// Command is the shell command that publishes. It is run with `sh -c`, so
+	// it can be a script path or a pipeline written inline.
+	Command string
+	// PingCommand is what `crier ping` runs instead. Empty means the platform
+	// reports that it has nothing to check rather than running Command, which
+	// would publish.
+	PingCommand string
+	Caption     string
+	// Kinds are the artifact kinds the command accepts: image, video, or both.
+	Kinds []string
+	// Format is the image format it prefers.
+	Format string
+	// NeedsURL asks the pipeline to stage the file and pass its URL.
+	NeedsURL bool
+	Timeout  string
+	// Env are extra environment variables the command is run with. The keys
+	// are used as written, so this is the one place a value's spelling is not
+	// crier's to decide.
+	Env map[string]string
 }
 
 // Instagram configures the Instagram Graph API publisher.

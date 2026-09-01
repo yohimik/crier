@@ -1,0 +1,7 @@
+tag: SHIPPED
+title: A shell script is a platform
+body: >-
+  crier rendered this card, handed the file to a script through the
+  environment, and the script posted it with curl. That is the whole of what a
+  custom platform is — no plugin, no rebuild, nine lines of YAML.
+author: publish.sh

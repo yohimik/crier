@@ -194,10 +194,20 @@ func (f *Flags) Overrides() (dispat.Overrides, error) {
 }
 
 // EnvBinding is the closed set of environment variables crier reads.
-func EnvBinding(environ []string) dispat.EnvBinding {
+//
+// Closed is the point: a CRIER_ variable crier has no key for is a typo, and a
+// binding that accepted anything would swallow it. extra carries the keys of
+// the custom platforms, which cannot be in the registry because their names
+// are not crier's to choose.
+func EnvBinding(environ []string, extra ...string) dispat.EnvBinding {
+	keys := Keys()
+	if len(extra) > 0 {
+		keys = append(append([]string(nil), keys...), extra...)
+		sort.Strings(keys)
+	}
 	return dispat.EnvBinding{
 		Prefix:   EnvPrefix,
-		Keys:     Keys(),
+		Keys:     keys,
 		Environ:  environ,
 		KeyDelim: dispat.DefaultKeyDelim,
 	}
@@ -280,12 +290,31 @@ func Load(ctx context.Context, o Options) (*Result, error) {
 		configDir = filepath.Dir(abs)
 	}
 
-	envOverrides, err := EnvBinding(environ).Overrides(ctx)
+	fileSettings := tree.Settings(loader, nil)
+
+	// The custom platforms have to be discovered before the environment is
+	// read, because the environment binding is a closed list of keys and their
+	// names are not in it. A name may be introduced by any of the three
+	// layers: the file is the natural home, the environment is where CI puts
+	// one, and --set is the only way a flag can name a key nobody declared.
+	names := mergeNames(
+		CustomNamesInTree(fileSettings),
+		CustomNamesInEnv(environ),
+		CustomNamesInOverrides(o.FlagOverrides),
+	)
+
+	envOverrides, err := EnvBinding(environ, CustomEnvKeys(names)...).Overrides(ctx)
 	if err != nil {
 		return nil, err
 	}
 
-	fileSettings := tree.Settings(loader, nil)
+	// An entry per discovered name exists before the decode, so a platform
+	// named only in the environment or by --set is a platform rather than a
+	// set of values with nowhere to go.
+	for _, name := range names {
+		cfg.Publish.ensureCustom(name)
+	}
+
 	settings := tree.Settings(loader, dispat.MergeOverrides(envOverrides, o.FlagOverrides))
 	if err := dispat.DecodeObject(settings, "", Fields(&cfg)); err != nil {
 		return nil, err
@@ -301,6 +330,23 @@ func Load(ctx context.Context, o Options) (*Result, error) {
 		res.Dir = configDir
 	}
 	return res, nil
+}
+
+// mergeNames unions the custom platform names the three layers mention.
+func mergeNames(lists ...[]string) []string {
+	seen := map[string]bool{}
+	var out []string
+	for _, list := range lists {
+		for _, name := range list {
+			if seen[name] || CheckCustomName(name) != nil {
+				continue
+			}
+			seen[name] = true
+			out = append(out, name)
+		}
+	}
+	sort.Strings(out)
+	return out
 }
 
 // explicitPath is the configuration file the operator named, empty when they
@@ -324,7 +370,17 @@ func explicitPath(o Options, environ []string) string {
 // because it was typed where the shell is and means what it says there.
 func anchorPaths(cfg *Config, dir string, fileSettings map[string]any, env, flags dispat.Overrides) {
 	b := Bindings(cfg)
-	for _, d := range registry {
+	// The custom platforms' path keys are anchored the same way. They are
+	// appended rather than special-cased, because a path written in a config
+	// file means the same thing wherever in the file it was written.
+	descriptors := Registry()
+	for _, name := range CustomNames(&cfg.Publish) {
+		for _, leaf := range CustomLeaves {
+			d, _ := CustomDescriptor(name, leaf.Key)
+			descriptors = append(descriptors, d)
+		}
+	}
+	for _, d := range descriptors {
 		if !d.Path {
 			continue
 		}

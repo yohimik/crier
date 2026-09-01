@@ -329,6 +329,9 @@ func CheckKey(key string) error {
 	if _, ok := Descriptors()[key]; ok {
 		return nil
 	}
+	if err, isCustom := checkCustomKey(key); isCustom {
+		return err
+	}
 	if target, ok := Aliases[FlagName(key)]; ok {
 		return fmt.Errorf("%q is a flag alias; set %s instead", key, target)
 	}

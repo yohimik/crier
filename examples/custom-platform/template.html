@@ -1,0 +1,72 @@
+<!doctype html>
+<html>
+<head>
+<style>
+  /* A status card for a webhook post. Its own look: a geometric sans for the
+     headline against a monospace for the machine-written parts, on cool slate
+     with one warm accent. Fonts come from the shared pool at ../fonts/,
+     loaded with a relative src — see docs/templates/fonts.md. */
+  @font-face {
+    font-family: "Poppins";
+    src: url("../fonts/poppins/Poppins-Bold.ttf");
+    font-weight: 700;
+  }
+  @font-face {
+    font-family: "Space Mono";
+    src: url("../fonts/space-mono/SpaceMono-Regular.ttf");
+    font-weight: 400;
+  }
+  @font-face {
+    font-family: "Space Mono";
+    src: url("../fonts/space-mono/SpaceMono-Bold.ttf");
+    font-weight: 700;
+  }
+
+  html, body { height: 100%; margin: 0 }
+  body { font-family: "Space Mono", monospace }
+
+  .card {
+    width: 100%; height: 100%; box-sizing: border-box;
+    padding: 104px 96px;
+    background:
+      radial-gradient(circle at 82% 12%, #2b3f5c 0%, rgba(43,63,92,0) 55%),
+      linear-gradient(155deg, #0f1720 0%, #16202c 60%, #0c1219 100%);
+    color: #dfe7f1;
+  }
+
+  .tag {
+    display: inline-block;
+    font-size: 30px; font-weight: 700; letter-spacing: .18em;
+    color: #0f1720; background: #ffb454;
+    padding: 10px 22px;
+  }
+
+  h1 {
+    font-family: "Poppins", sans-serif;
+    font-size: 104px; font-weight: 700; line-height: 1.06;
+    margin: 48px 0 0 0;
+    /* Three lines at most, whatever the data says — see
+       docs/templates/text-overflow.md. */
+    overflow: hidden;
+    max-lines: 3;
+    continue: discard;
+    block-ellipsis: auto;
+  }
+
+  p { font-size: 38px; line-height: 1.55; margin: 44px 0 0 0; color: #9fb0c6 }
+
+  .foot {
+    font-size: 28px; margin: 64px 0 0 0; color: #6d8098;
+  }
+  .foot b { color: #ffb454; font-weight: 700 }
+</style>
+</head>
+<body>
+  <div class="card">
+    <span class="tag">{{ .tag }}</span>
+    <h1>{{ .title }}</h1>
+    <p>{{ .body }}</p>
+    <p class="foot">posted by <b>{{ .author }}</b></p>
+  </div>
+</body>
+</html>

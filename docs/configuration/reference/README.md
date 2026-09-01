@@ -25,6 +25,7 @@ where a relative path resolves against, is in
 | [Publishing: Discord](./publish-discord.md) | `publish.discord` | 7 |
 | [Publishing: LinkedIn](./publish-linkedin.md) | `publish.linkedin` | 9 |
 | [Publishing: Reddit](./publish-reddit.md) | `publish.reddit` | 21 |
+| [Publishing: custom platforms](./publish-custom.md) | `publish.custom` | 12 |
 | [Publishing](./publish.md) | `publish` | 3 |
 
 A sample carrying every key with its default is at

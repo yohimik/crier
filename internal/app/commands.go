@@ -210,7 +210,7 @@ func (a App) runPublish(ctx context.Context, args []string) error {
 	}
 
 	publishers, err := publish.Build(cfg, publish.Deps{
-		Client: s.Client, Logger: s.Log, UserAgent: userAgent(),
+		Client: s.Client, Logger: s.Log, UserAgent: userAgent(), Dir: s.Result.Dir,
 	})
 	if err != nil {
 		return fail(ExitConfig, err)
@@ -434,13 +434,16 @@ func (a App) runPlatforms(args []string) error {
 	}
 
 	var rows []PlatformInfo
-	for _, name := range config.Platforms {
+	for _, name := range append(append([]string(nil), config.Platforms...),
+		config.CustomNames(&s.Config.Publish)...) {
 		info := PlatformInfo{Name: name, Enabled: enabledFor(s.Config, name)}
 		// Building one platform on its own says whether it is configured, and
 		// the error says what is missing.
 		one := *s.Config
 		enableOnly(&one, name)
-		built, err := publish.Build(&one, publish.Deps{Client: s.Client, Logger: s.Log})
+		built, err := publish.Build(&one, publish.Deps{
+			Client: s.Client, Logger: s.Log, Dir: s.Result.Dir,
+		})
 		switch {
 		case err != nil:
 			info.Problem = err.Error()
@@ -483,6 +486,19 @@ func enabledFor(cfg *config.Config, name string) bool {
 // isolation.
 func enableOnly(cfg *config.Config, name string) {
 	p := &cfg.Publish
+	// The custom entries are pointers behind a map, so the shallow copy the
+	// caller made shares them. They are copied here rather than mutated, or
+	// asking "is discord configured" would quietly disable every custom
+	// platform in the configuration the run goes on to use.
+	if len(p.Custom) > 0 {
+		clone := make(map[string]*config.Custom, len(p.Custom))
+		for custom, c := range p.Custom {
+			entry := *c
+			entry.Enabled = custom == name
+			clone[custom] = &entry
+		}
+		p.Custom = clone
+	}
 	p.Instagram.Enabled = name == "instagram"
 	p.Facebook.Enabled = name == "facebook"
 	p.TikTok.Enabled = name == "tiktok"

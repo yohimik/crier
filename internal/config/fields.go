@@ -203,18 +203,37 @@ func Bindings(cfg *Config) map[string]Binding {
 		out["publish."+name+".width"] = bindInt(&l.Width)
 		out["publish."+name+".height"] = bindInt(&l.Height)
 	}
+
+	// The custom platforms a configuration happens to declare. There are none
+	// before the file has been read, which is exactly right: the defaults and
+	// the environment binding are built from a Config that has none, and the
+	// read-back and the path anchoring from one that has them all.
+	for _, name := range CustomNames(p) {
+		c := p.Custom[name]
+		for leaf, bind := range customBindings(c) {
+			out[CustomPrefix+"."+name+"."+leaf] = bind
+		}
+	}
 	return out
 }
 
 // Fields builds the nested decode table the loader wants from the flat
 // bindings, so the two can never disagree about a key.
+//
+// publish.custom is the exception, and the only one: its keys are names the
+// configuration invents, so no flat binding can exist for a name that has not
+// been read yet. That subtree gets a setter that creates entries as it decodes
+// them, and it replaces whatever the flat bindings would have produced there.
 func Fields(cfg *Config) dispat.Fields {
 	b := Bindings(cfg)
 	flat := make(map[string]dispat.Setter, len(b))
 	for k, v := range b {
+		if strings.HasPrefix(k, CustomPrefix+".") {
+			continue
+		}
 		flat[k] = v.Set
 	}
-	return nest(flat)
+	return nest(flat, map[string]dispat.Setter{CustomPrefix: customSetter(cfg)})
 }
 
 // Values reads every configuration key back out of cfg, keyed by its dotted
@@ -232,7 +251,7 @@ func Values(cfg *Config) map[string]any {
 //
 // An intermediate level becomes a setter that decodes its own object, which is
 // what makes an unknown key deep in the tree an error naming its full path.
-func nest(flat map[string]dispat.Setter) dispat.Fields {
+func nest(flat map[string]dispat.Setter, override map[string]dispat.Setter) dispat.Fields {
 	type level struct {
 		leaves   map[string]dispat.Setter
 		children map[string]*level
@@ -262,19 +281,43 @@ func nest(flat map[string]dispat.Setter) dispat.Fields {
 		node.leaves[segs[len(segs)-1]] = flat[key]
 	}
 
-	var build func(n *level) dispat.Fields
-	build = func(n *level) dispat.Fields {
+	// An override's own path is opened even when no flat key reaches it, so a
+	// dynamic subtree exists in the table before anything has been read into
+	// it.
+	for path := range override {
+		segs := strings.Split(path, ".")
+		node := root
+		for _, seg := range segs[:len(segs)-1] {
+			child, ok := node.children[seg]
+			if !ok {
+				child = newLevel()
+				node.children[seg] = child
+			}
+			node = child
+		}
+		node.leaves[segs[len(segs)-1]] = override[path]
+	}
+
+	var build func(n *level, path string) dispat.Fields
+	build = func(n *level, path string) dispat.Fields {
 		out := make(dispat.Fields, len(n.leaves)+len(n.children))
 		for k, set := range n.leaves {
 			out[strings.ToLower(k)] = set
 		}
 		for k, child := range n.children {
-			table := build(child)
+			table := build(child, join(path, k))
 			out[strings.ToLower(k)] = func(val any, at string) error {
 				return dispat.DecodeObject(val, at, table)
 			}
 		}
 		return out
 	}
-	return build(root)
+	return build(root, "")
+}
+
+func join(path, seg string) string {
+	if path == "" {
+		return seg
+	}
+	return path + "." + seg
 }
