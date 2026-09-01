@@ -79,6 +79,13 @@ else is identical.
 `@latest` follows Go's prerelease rule and skips release candidates; name one
 explicitly during the rc period.
 
+### Keeping it up to date
+
+```sh
+crier self-update            # verified against GitHub's digest, and reversible
+crier self-update --rollback # within a week of an update
+```
+
 More ways, and what each does: [installing](./docs/operations/install.md).
 
 ## Quickstart
@@ -174,6 +181,7 @@ The fonts the examples bundle are OFL-licensed and live in
 | `crier platforms` | which platforms are enabled, and which are configured |
 | `crier config` | the resolved configuration, secrets redacted |
 | `crier init` | write a configuration file to start from (`--full` for every option) |
+| `crier self-update` | replace this binary with the newest release (`--rollback` undoes it) |
 | `crier --version` | the version, the commit and the build date |
 
 `crier publish` spells the default out; `crier --dry-run` and every other flag

@@ -50,6 +50,10 @@ func (a App) Run(ctx context.Context) int {
 		a.Stdin = os.Stdin
 	}
 
+	// Housekeeping first, so a run that ends in a failure still tidies up
+	// after an earlier update.
+	pruneBackup()
+
 	name, args := a.dispatch(a.Args)
 
 	switch name {
@@ -70,6 +74,8 @@ func (a App) Run(ctx context.Context) int {
 		return a.report(a.runConfig(args))
 	case "init":
 		return a.report(a.runInit(args))
+	case "self-update":
+		return a.report(a.runSelfUpdate(ctx, args))
 	default:
 		fmt.Fprintf(a.Stderr, "crier: unknown command %q\n\n", name)
 		a.usage()
@@ -135,6 +141,7 @@ Commands:
   platforms   list the platforms and whether they are configured
   config      print the resolved configuration, with secrets redacted
   init        write a starter configuration file
+  self-update replace this binary with the newest release
   help        print this message
 
 Flags:

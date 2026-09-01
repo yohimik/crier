@@ -33,6 +33,7 @@ would be handed to `publish` as a flag `publish` has never heard of.
 | `crier ping` | check every enabled platform's credentials, without posting |
 | `crier platforms` | which platforms are enabled, and which are configured |
 | `crier config` | the resolved configuration, secrets redacted |
+| `crier self-update` | replace this binary with the newest release |
 
 Results go to standard output and logs to standard error, so a result can be
 piped while the logs stay readable. The
@@ -162,6 +163,13 @@ work in while a template is taking shape. See
 The default. Renders once per distinct shape, stages the file when a platform
 needs a URL to fetch, and fans out. `--dry-run` does everything except the
 requests that would post. See [publishing](../publishing/README.md).
+
+## `crier self-update`
+
+Replaces this binary with one downloaded from a crier release, verified against
+GitHub's digest and run once before anything is moved. `--rollback` puts back
+what the last update replaced. See
+[installing](./install.md#keeping-it-up-to-date).
 
 ## `crier platforms` and `crier config`
 

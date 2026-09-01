@@ -3,7 +3,7 @@
 Every crier setting can be given in three places, and they compose in this
 order:
 
-1. **a configuration file** — `crier.yaml`, found by walking up from the
+1. **a configuration file** — YAML, JSON or TOML, found by walking up from the
    working directory;
 2. **an environment variable** — `CRIER_` plus the key, with dots and dashes
    turned into underscores;
@@ -38,11 +38,47 @@ over the registry inside the binary, so it cannot fall behind the keys crier
 actually reads. `--format json` and `--format toml` write the other two
 spellings crier accepts. See [the command line](../operations/cli.md).
 
+## The three formats
+
+A configuration file may be YAML, JSON or TOML. The format is chosen by the
+file's extension, and the three are equivalent: the same keys, the same
+nesting, the same resulting configuration. Nothing crier does depends on which
+one you picked.
+
+```yaml
+# crier.yaml
+render:
+  width: 1080
+publish:
+  telegram:
+    chat-id: "@my_channel"
+```
+
+```json
+{ "render": { "width": 1080 },
+  "publish": { "telegram": { "chat-id": "@my_channel" } } }
+```
+
+```toml
+[render]
+width = 1080
+
+[publish.telegram]
+chat-id = "@my_channel"
+```
+
+`crier init --format yaml|json|toml` writes any of the three, and
+`crier config` resolves all three to the same values — there is an end-to-end
+test that asserts exactly that.
+
 ## Finding the file
 
 crier looks for `crier.yaml`, `crier.yml`, `crier.json`, `crier.toml` or
 `.crier.yaml` in the working directory, then in its parent, and so on to the
 filesystem root — the way git finds a repository. The nearest one wins.
+
+Within one directory that list is the order of preference, so a directory
+holding both a `crier.yaml` and a `crier.json` uses the YAML one.
 
 That is what lets one machine hold several projects:
 

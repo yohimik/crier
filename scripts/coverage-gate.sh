@@ -19,10 +19,12 @@ PROFILE="${1:-coverage/profile.txt}"
 FLOORS="
 internal/app	88
 internal/config	95
+internal/configgen	94
 internal/httpx	90
 internal/logging	95
 internal/procutil	88
 internal/publish	88
+internal/selfupdate	82
 internal/stage	90
 internal/template	95
 internal/render	82

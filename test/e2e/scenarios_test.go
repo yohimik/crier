@@ -974,6 +974,122 @@ func TestVideoWithoutFFmpegIsARenderError(t *testing.T) {
 	}
 }
 
+// TestTheThreeConfigFormatsAgree is C7: the same configuration written three
+// ways has to mean the same thing.
+//
+// Formats are the loader's business rather than crier's, which is exactly why
+// this is worth asserting from the outside: nothing in crier chooses a parser,
+// so nothing in crier would notice if one of the three stopped working.
+func TestTheThreeConfigFormatsAgree(t *testing.T) {
+	files := map[string]string{
+		"crier.yaml": `render:
+  template: template.html
+  data: data.yaml
+  width: 640
+  height: 360
+  scale: 2
+  hermetic-fonts: true
+  video:
+    ffmpeg-args: ["-preset", "fast"]
+log:
+  level: debug
+publish:
+  caption: "hello {{ .title }}"
+  concurrency: 3
+  telegram:
+    enabled: true
+    chat-id: "@c"
+    token: tok
+`,
+		"crier.json": `{
+  "render": {
+    "template": "template.html",
+    "data": "data.yaml",
+    "width": 640,
+    "height": 360,
+    "scale": 2,
+    "hermetic-fonts": true,
+    "video": { "ffmpeg-args": ["-preset", "fast"] }
+  },
+  "log": { "level": "debug" },
+  "publish": {
+    "caption": "hello {{ .title }}",
+    "concurrency": 3,
+    "telegram": { "enabled": true, "chat-id": "@c", "token": "tok" }
+  }
+}
+`,
+		"crier.toml": `[render]
+template = "template.html"
+data = "data.yaml"
+width = 640
+height = 360
+scale = 2
+hermetic-fonts = true
+
+[render.video]
+ffmpeg-args = ["-preset", "fast"]
+
+[log]
+level = "debug"
+
+[publish]
+caption = "hello {{ .title }}"
+concurrency = 3
+
+[publish.telegram]
+enabled = true
+chat-id = "@c"
+token = "tok"
+`,
+	}
+
+	var first string
+	for _, name := range []string{"crier.yaml", "crier.json", "crier.toml"} {
+		dir := t.TempDir()
+		writeFile(t, dir, "template.html", baseTemplate)
+		writeFile(t, dir, "data.yaml", "title: formats\n")
+		writeFile(t, dir, name, files[name])
+
+		res := crier(t, dir, nil, "config", "--json", "--all")
+		if res.Code != exitOK {
+			t.Fatalf("%s: code=%d stderr=%s", name, res.Code, res.Stderr)
+		}
+		var rep struct {
+			File   string         `json:"file"`
+			Values map[string]any `json:"values"`
+		}
+		if err := json.Unmarshal([]byte(res.Stdout), &rep); err != nil {
+			t.Fatalf("%s: %v", name, err)
+		}
+		if !strings.HasSuffix(rep.File, name) {
+			t.Errorf("%s: the file it found is %q", name, rep.File)
+		}
+
+		// The values are compared rather than the whole report: the report
+		// carries the file name, which is the one thing that has to differ.
+		//
+		// Paths are anchored against the config file's own directory, which
+		// is a different temporary directory each time round, so the two
+		// path-typed keys are compared by their base name.
+		for _, key := range []string{"render.template", "render.data"} {
+			v, _ := rep.Values[key].(string)
+			rep.Values[key] = filepath.Base(v)
+		}
+		normalised, err := json.Marshal(rep.Values)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if first == "" {
+			first = string(normalised)
+			continue
+		}
+		if string(normalised) != first {
+			t.Errorf("%s resolves differently:\n got: %s\nwant: %s", name, normalised, first)
+		}
+	}
+}
+
 // --- ping ------------------------------------------------------------------
 
 // TestPingChecksEveryEnabledPlatform is the safe setup check: nine identity
