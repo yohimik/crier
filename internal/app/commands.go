@@ -49,8 +49,10 @@ func (a App) runRender(ctx context.Context, args []string) error {
 	if err != nil || s == nil {
 		return err
 	}
-	if err := require(s.Config.Render.Template, "render.template"); err != nil {
-		return err
+	if len(s.Config.Render.Pool) == 0 {
+		if err := require(s.Config.Render.Template, "render.template"); err != nil {
+			return err
+		}
 	}
 
 	p, err := NewPipeline(PipelineOptions{
@@ -195,8 +197,10 @@ func (a App) runPublish(ctx context.Context, args []string) error {
 		return err
 	}
 	cfg := s.Config
-	if err := require(cfg.Render.Template, "render.template"); err != nil {
-		return err
+	if len(cfg.Render.Pool) == 0 {
+		if err := require(cfg.Render.Template, "render.template"); err != nil {
+			return err
+		}
 	}
 
 	enabled := publish.Enabled(cfg)
@@ -228,7 +232,7 @@ func (a App) runPublish(ctx context.Context, args []string) error {
 	if err != nil {
 		return err
 	}
-	if err := ResolveTexts(cfg, data); err != nil {
+	if err := ResolveTexts(p.Engine(), cfg, data); err != nil {
 		return err
 	}
 
@@ -301,7 +305,7 @@ func (a App) runPublish(ctx context.Context, args []string) error {
 			if err != nil {
 				return failf(ExitConfig, "%s: %v", pub.Name(), err)
 			}
-			caption, err := CaptionFor(cfg, pub.Name(), data)
+			caption, err := CaptionFor(p.Engine(), cfg, pub.Name(), data)
 			if err != nil {
 				return err
 			}

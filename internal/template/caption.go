@@ -26,11 +26,18 @@ const DataKey = "Data"
 // costs no parse and cannot fail. Missing keys are errors rather than the
 // "<no value>" that would otherwise be posted publicly.
 func RenderCaption(tmpl string, data any, platform string) (string, error) {
+	return New().RenderCaption(tmpl, data, platform)
+}
+
+// RenderCaption executes a caption with the engine's own function set, which
+// is what puts the run's random source in reach of a caption as well as a
+// layout.
+func (e *Engine) RenderCaption(tmpl string, data any, platform string) (string, error) {
 	if !strings.Contains(tmpl, "{{") {
 		return tmpl, nil
 	}
 	t, err := texttemplate.New("caption").
-		Funcs(texttemplate.FuncMap(Funcs())).
+		Funcs(texttemplate.FuncMap(e.funcs)).
 		Option("missingkey=error").
 		Parse(tmpl)
 	if err != nil {

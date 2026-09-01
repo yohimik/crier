@@ -54,6 +54,8 @@ func Bindings(cfg *Config) map[string]Binding {
 		"render.data":           bindString(&r.Data),
 		"render.css":            bindStrings(&r.CSS),
 		"render.overlays":       bindStrings(&r.Overlays),
+		"render.pool":           bindStrings(&r.Pool),
+		"render.seed":           bindInt(&r.Seed),
 		"render.width":          bindInt(&r.Width),
 		"render.height":         bindInt(&r.Height),
 		"render.scale":          bindString(&r.Scale),

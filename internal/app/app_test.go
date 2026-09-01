@@ -13,6 +13,7 @@ import (
 	"github.com/yohimik/crier/internal/config"
 	"github.com/yohimik/crier/internal/publish"
 	"github.com/yohimik/crier/internal/render"
+	"github.com/yohimik/crier/internal/template"
 )
 
 // run drives the CLI the way a shell would and returns the code and streams.
@@ -607,7 +608,7 @@ func TestResolveTextsRendersEveryField(t *testing.T) {
 	cfg.Publish.Mastodon.AltText = "a card for {{ .Platform }}"
 
 	data := map[string]any{"version": "2.0"}
-	if err := ResolveTexts(&cfg, data); err != nil {
+	if err := ResolveTexts(template.New(), &cfg, data); err != nil {
 		t.Fatal(err)
 	}
 	if cfg.Publish.Reddit.Title != "2.0 on reddit" {
@@ -625,7 +626,7 @@ func TestResolveTextsNamesTheOffendingKey(t *testing.T) {
 	cfg := config.Defaults()
 	cfg.Publish.TikTok.Enabled = true
 	cfg.Publish.TikTok.Title = "{{ .missing }}"
-	err := ResolveTexts(&cfg, map[string]any{})
+	err := ResolveTexts(template.New(), &cfg, map[string]any{})
 	if err == nil {
 		t.Fatal("expected an error")
 	}
@@ -640,7 +641,7 @@ func TestResolveTextsNamesTheOffendingKey(t *testing.T) {
 func TestCaptionForFallsBackToTheSharedOne(t *testing.T) {
 	cfg := config.Defaults()
 	cfg.Publish.Caption = "shared for {{ .Platform }}"
-	got, err := CaptionFor(&cfg, "telegram", nil)
+	got, err := CaptionFor(template.New(), &cfg, "telegram", nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -649,7 +650,7 @@ func TestCaptionForFallsBackToTheSharedOne(t *testing.T) {
 	}
 
 	cfg.Publish.Telegram.Caption = "telegram only"
-	got, err = CaptionFor(&cfg, "telegram", nil)
+	got, err = CaptionFor(template.New(), &cfg, "telegram", nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -661,7 +662,7 @@ func TestCaptionForFallsBackToTheSharedOne(t *testing.T) {
 func TestCaptionForReportsABrokenSharedTemplate(t *testing.T) {
 	cfg := config.Defaults()
 	cfg.Publish.Caption = "{{ .missing }}"
-	_, err := CaptionFor(&cfg, "x", map[string]any{})
+	_, err := CaptionFor(template.New(), &cfg, "x", map[string]any{})
 	if err == nil || !strings.Contains(err.Error(), "publish.caption") {
 		t.Fatalf("err = %v", err)
 	}

@@ -68,6 +68,10 @@ type Pipeline struct {
 	stdin io.Reader
 	dir   string
 
+	// template is the layout this run draws, chosen once from render.pool when
+	// there is one, so every variant and every video frame uses the same one.
+	template string
+
 	cleanups []func(context.Context) error
 }
 
@@ -84,13 +88,24 @@ type PipelineOptions struct {
 
 // NewPipeline builds the pipeline and its font configuration.
 func NewPipeline(o PipelineOptions) (*Pipeline, error) {
+	rnd := template.NewRand(int64(o.Config.Render.Seed))
+	// The seed is always logged: it is the whole of what makes a run people
+	// liked reproducible with --render-seed.
+	o.Logger.Info().Int64("seed", rnd.Seed()).Msg("template randomisation seed")
+
 	p := &Pipeline{
 		cfg:    o.Config,
 		log:    o.Logger,
 		client: o.Client,
-		engine: template.New(),
+		engine: template.NewWithRand(rnd),
 		stdin:  o.Stdin,
 		dir:    o.Dir,
+	}
+	p.template = o.Config.Render.Template
+	if picked, ok := p.engine.Pick(o.Config.Render.Pool); ok {
+		p.template = picked
+		o.Logger.Info().Str("template", picked).Int("pool", len(o.Config.Render.Pool)).
+			Msg("picked a template from the pool")
 	}
 	if p.stdin == nil {
 		p.stdin = os.Stdin
@@ -135,6 +150,14 @@ func (p *Pipeline) Cleanup(parent context.Context) {
 	}
 	p.cleanups = nil
 }
+
+// Engine is the run's template engine, shared so captions draw from the same
+// seeded random source the layout does.
+func (p *Pipeline) Engine() *template.Engine { return p.engine }
+
+// Template is the layout this run renders: render.template, or the one picked
+// out of render.pool.
+func (p *Pipeline) Template() string { return p.template }
 
 // Data loads the template's data document once, so it can be shared by the
 // layout and by every caption.
@@ -293,7 +316,7 @@ func (p *Pipeline) renderFrame(ctx context.Context, v Variant, data any, frameVa
 
 	// The data document is loaded once and passed in, so a template rendered
 	// ninety times for a video reads standard input once.
-	html, err := p.execute(r.Template, v.Overlays, data, extra)
+	html, err := p.execute(p.template, v.Overlays, data, extra)
 	if err != nil {
 		return nil, err
 	}

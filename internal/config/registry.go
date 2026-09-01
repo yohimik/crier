@@ -122,6 +122,8 @@ var registry = []Descriptor{
 	{Key: "render.data", Kind: KindString, Path: true, Usage: `path to a JSON or YAML data file, or "-" to read it from stdin`},
 	{Key: "render.css", Kind: KindStrings, Path: true, Usage: "extra stylesheet files applied after the document's own CSS"},
 	{Key: "render.overlays", Kind: KindStrings, Path: true, Usage: `template files parsed after the base one, redefining its {{block}} sections`},
+	{Key: "render.pool", Kind: KindStrings, Path: true, Usage: "a pool of base templates; one is chosen at random per run"},
+	{Key: "render.seed", Kind: KindInt, Usage: "seed for the template randomisation; 0 draws a new one and logs it"},
 	{Key: "render.width", Kind: KindInt, Default: "1080", Usage: "output width in CSS pixels (0 lets the document's @page rule decide)"},
 	{Key: "render.height", Kind: KindInt, Default: "1920", Usage: "output height in CSS pixels (0 lets the document's @page rule decide)"},
 	{Key: "render.scale", Kind: KindFloat, Default: "1", Usage: "device pixel ratio: output pixels per CSS pixel (max 4)"},

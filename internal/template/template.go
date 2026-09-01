@@ -46,18 +46,36 @@ type Options struct {
 	Extra map[string]any
 }
 
-// Engine renders templates. It holds the function map, which is the only
-// state, so one engine can render many templates.
+// Engine renders templates.
+//
+// It carries the run's random source as well as the function map, so that the
+// layout, the captions and every frame of a video all draw from one seeded
+// stream and vary together rather than independently.
 type Engine struct {
 	funcs template.FuncMap
+	rnd   *Rand
 }
 
-// New builds an engine with the standard crier function set.
-func New() *Engine {
-	return &Engine{funcs: Funcs()}
+// New builds an engine with a fresh random source.
+func New() *Engine { return NewWithRand(NewRand(0)) }
+
+// NewWithRand builds an engine sharing a caller's random source.
+func NewWithRand(r *Rand) *Engine {
+	if r == nil {
+		r = NewRand(0)
+	}
+	funcs := Funcs()
+	for name, fn := range randomFuncs(r) {
+		funcs[name] = fn
+	}
+	return &Engine{funcs: funcs, rnd: r}
 }
 
-// Funcs is the function set every crier template can use.
+// Rand is the engine's random source.
+func (e *Engine) Rand() *Rand { return e.rnd }
+
+// Funcs is the function set every crier template can use, apart from the
+// random helpers, which need a source and are added by NewWithRand.
 func Funcs() template.FuncMap {
 	return template.FuncMap{
 		"upper": strings.ToUpper,
@@ -192,6 +210,26 @@ func merge(data any, extra map[string]any) any {
 		out[k] = v
 	}
 	return out
+}
+
+// Pick chooses one template out of a pool.
+//
+// A pool is how one project keeps several layouts and posts a different one
+// each time without anybody choosing. The choice is made once per run, from
+// the run's seeded source, so every platform variant and every video frame
+// uses the same layout.
+func (e *Engine) Pick(pool []string) (string, bool) {
+	clean := make([]string, 0, len(pool))
+	for _, p := range pool {
+		if strings.TrimSpace(p) != "" {
+			clean = append(clean, p)
+		}
+	}
+	if len(clean) == 0 {
+		return "", false
+	}
+	i, _ := e.rnd.Choose(len(clean))
+	return clean[i], true
 }
 
 // LoadData reads a JSON or YAML document.

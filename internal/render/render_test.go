@@ -4,6 +4,7 @@ import (
 	"context"
 	"image"
 	"image/color"
+	"io"
 	"os"
 	"strings"
 	"testing"
@@ -22,6 +23,13 @@ func TestMain(m *testing.M) {
 	CaptureLogs(zerolog.Nop())
 	os.Exit(m.Run())
 }
+
+// testLogger and nopLogger let a test capture what webrender warns about.
+func testLogger(w io.Writer) zerolog.Logger {
+	return zerolog.New(w).Level(zerolog.WarnLevel)
+}
+
+func nopLogger() zerolog.Logger { return zerolog.Nop() }
 
 func hermeticFonts(t *testing.T) *Fonts {
 	t.Helper()

@@ -69,10 +69,10 @@ func captionOf(cfg *config.Config, platform string) string {
 // `Release {{.Version}} is out` says once what would otherwise be repeated for
 // each platform. The data is the same document the layout was rendered with,
 // plus the platform's own name, so one line can also say where it is going.
-func ResolveTexts(cfg *config.Config, data any) error {
+func ResolveTexts(engine *template.Engine, cfg *config.Config, data any) error {
 	for _, name := range publish.Enabled(cfg) {
 		for _, f := range textFields(cfg, name) {
-			out, err := template.RenderCaption(*f.Ptr, data, name)
+			out, err := engine.RenderCaption(*f.Ptr, data, name)
 			if err != nil {
 				return failf(ExitRender, "%s: %v", f.Key, err)
 			}
@@ -84,11 +84,11 @@ func ResolveTexts(cfg *config.Config, data any) error {
 
 // CaptionFor is the text one platform posts with: its own caption when it has
 // one, and the shared publish.caption otherwise.
-func CaptionFor(cfg *config.Config, platform string, data any) (string, error) {
+func CaptionFor(engine *template.Engine, cfg *config.Config, platform string, data any) (string, error) {
 	if own := captionOf(cfg, platform); own != "" {
 		return own, nil
 	}
-	out, err := template.RenderCaption(cfg.Publish.Caption, data, platform)
+	out, err := engine.RenderCaption(cfg.Publish.Caption, data, platform)
 	if err != nil {
 		return "", failf(ExitRender, "publish.caption: %v", err)
 	}

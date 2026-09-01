@@ -34,6 +34,15 @@ const (
 // UpdateGoldenEnv regenerates the golden files when it is set.
 const UpdateGoldenEnv = "CRIER_UPDATE_GOLDEN"
 
+// overflowText is one very long unbreakable word plus more, which is the
+// shape that defeats a naive layout.
+const overflowText = "Supercalifragilisticexpialidocious antidisestablishmentarianism " +
+	"pneumonoultramicroscopicsilicovolcanoconiosis and then some more words"
+
+// overflowWords is ordinary prose, which is what a line clamp is for.
+const overflowWords = "This is an ordinary sentence made of ordinary words that simply " +
+	"goes on for far too long to fit inside the card it was given."
+
 type goldenCase struct {
 	name          string
 	html          string
@@ -92,6 +101,34 @@ func goldenCases() []goldenCase {
 				`background:linear-gradient(160deg,#12203a,#4a2f6f);color:#fff;` +
 				`display:flex;align-items:center;justify-content:center">` +
 				`<div style="font-size:96px;text-align:center">crier<br>story</div></div>`,
+		},
+		// The overflow cases carry a string that cannot fit, and their goldens
+		// are what proves each CSS recipe in docs/templates.md still works.
+		{
+			name:  "text_overflow_ellipsis",
+			width: 300, height: 100,
+			html: head + `<div style="width:280px;height:80px;margin:10px;font-size:24px;` +
+				`background:#eef;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">` +
+				overflowText + `</div>`,
+		},
+		{
+			name:  "text_overflow_clip",
+			width: 300, height: 100,
+			html: head + `<div style="width:280px;height:80px;margin:10px;font-size:24px;` +
+				`background:#eef;overflow:hidden">` + overflowText + `</div>`,
+		},
+		{
+			name:  "text_overflow_wrap",
+			width: 300, height: 100,
+			html: head + `<div style="width:280px;height:80px;margin:10px;font-size:24px;` +
+				`background:#eef;overflow:hidden;overflow-wrap:break-word">` + overflowText + `</div>`,
+		},
+		{
+			name:  "text_overflow_clamp",
+			width: 300, height: 100,
+			html: head + `<div style="width:280px;height:80px;margin:10px;font-size:24px;` +
+				`background:#eef;overflow:hidden;overflow-wrap:break-word;` +
+				`max-lines:2;continue:discard;block-ellipsis:auto">` + overflowWords + `</div>`,
 		},
 		{
 			name:  "post_1080x1080",

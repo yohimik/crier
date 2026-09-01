@@ -36,6 +36,8 @@ type Render struct {
 	Data          string
 	CSS           []string
 	Overlays      []string
+	Pool          []string
+	Seed          int
 	Width         int
 	Height        int
 	Scale         string
