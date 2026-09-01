@@ -12,11 +12,34 @@
 # thing on a laptop and on a runner. The bare `go test ./...` path still works
 # for local development; see docs/operations/development.md.
 
+# v1.2.3 for a stable release and v1.0.0-rc.0 for a release candidate: the
+# prerelease lives inside {version}, so one format spells both. Both are valid
+# Go module versions, which is what makes `go install …/cmd/crier@v1.0.0-rc.0`
+# work — and `@latest` skip it, because Go's own rule ignores prereleases.
+#
+# There are no alias tags. A moving ref like v1 would have to be scoped to
+# `channels: [stable]` so a release candidate could not drag it forward; crier
+# publishes none, so there is nothing an rc could move.
 tagFormat: v{version}
+
+parser:
+  # The channels this repository releases on. dispat needs no declaration to
+  # use a channel — it reads one out of the baseline tag — so this exists to
+  # refuse the ones nobody meant: a commit marked `%re` or `%RC` is E181 here
+  # rather than the quiet start of a second train nobody notices until two
+  # versions are in flight. `stable` is always accepted.
+  allowedChannels: [rc]
 
 # There is no `initials` block on purpose: the baseline stays 0.0.0, and the
 # first release is cut by a breaking change on the rc channel, which lands
-# 1.0.0-rc.0. See docs/operations/release.md.
+# 1.0.0-rc.0. The directive comes before the `!` — `feat(crier)%rc!:` — because
+# the header grammar puts `!` last; the other order is a parse error and would
+# release on stable. See docs/operations/release.md.
+#
+# `commitErrors` stays at its default `warn`. The seven commits that predate
+# this repository's conventional-commit convention cannot be parsed, and the
+# stricter `error` would refuse every release until the first tag exists —
+# after which they fall outside the window and it becomes worth turning on.
 #
 # Every commit is scoped — feat(crier): …, fix(crier): … — because the scope is
 # what attributes a change under internal/ to the package whose path is
@@ -35,6 +58,10 @@ packages:
 
 changelog:
   enabled: true
+  # Every channel, which is the default and is written down because it is a
+  # decision: a release candidate earns a changelog entry like any other
+  # release. Each entry documents only its own changeset, and the graduation to
+  # stable collects the whole train into the one entry stable readers see.
   authors:
     placement: both
     exclude: ["*[bot]"]
@@ -50,6 +77,10 @@ commit:
 
 github:
   enabled: true
+  # Every channel too. dispat flags a GitHub release as a prerelease whenever
+  # the version is one, so a v1.0.0-rc.0 release is marked as such without
+  # being asked — which is what keeps `dispat install` and the install scripts
+  # from resolving to it unless they are told to.
   footer: |
 
     ## Install

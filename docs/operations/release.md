@@ -38,37 +38,121 @@ The scope matters. Without it dispat attributes a commit by its changed files,
 and only files under `cmd/crier` — the package's path — would count; a change
 under `internal/` would be attributed to nothing and released as nothing.
 
+## The rc train
+
+crier releases on two channels: `rc` and `stable`. dispat needs no declaration
+to *use* a channel — it reads one out of the baseline tag — so `dispat.yaml`
+declares only which names are allowed:
+
+```yaml
+parser:
+  allowedChannels: [rc]
+```
+
+That turns `%re` or `%RC` into a named error (E181) rather than the quiet start
+of a second train nobody notices until two versions are in flight. `stable` is
+always accepted.
+
+| | rc | stable |
+| --- | --- | --- |
+| Tag | `v1.0.0-rc.0` | `v1.0.0` |
+| GitHub release | created, **flagged prerelease** | created |
+| Changelog entry | written | written |
+| Alias tags moved | — | — |
+
+Both channels get a changelog entry and a GitHub release: that is dispat's
+default and it is what crier wants, because a release candidate nobody can read
+the notes for is a release candidate nobody tries. dispat flags the GitHub
+release as a prerelease whenever the version is one, without being asked, which
+is what keeps the install scripts and `dispat install` from resolving to it.
+
+crier publishes **no alias tags**. A moving ref like `v1` would have to say
+`channels: [stable]` so a candidate could not drag it forward; there is none to
+drag.
+
 ## The first release
 
 There is deliberately no `initials` block in `dispat.yaml`, so the baseline is
 `0.0.0`. The first release is cut by a **breaking change on the rc channel**:
 
 ```
-feat(crier)!%rc: the first release
+feat(crier)%rc!: the first release
+
+BREAKING CHANGE: the first published version.
 ```
 
-- `!` raises the bump to major, taking `0.0.0` to `1.0.0`.
 - `%rc` puts the package on the `rc` channel, so the version published is
   `1.0.0-rc.0` rather than `1.0.0`.
+- `!` raises the bump to major, taking `0.0.0` to `1.0.0`.
 
-The footer form is equivalent and unambiguous:
+**The order matters.** The header grammar is
+`<type>[(<scope>)][<directives>][!]: <description>`, so the channel directive
+comes before the `!`. Writing `feat(crier)!%rc:` is a parse error (E120,
+"expected ':' but found '%'"), and a message dispat cannot parse contributes
+nothing — the release would come out on `stable`.
+
+The footer form avoids the question entirely:
 
 ```
 feat(crier): the first release
 
-BREAKING CHANGE: the first release
+BREAKING CHANGE: the first published version.
 Channel: rc
 ```
 
-Subsequent commits stay on the train — `1.0.0-rc.1`, `1.0.0-rc.2` — with no
-directive, because dispat reads the channel from the baseline tag. Graduating
-is a directive of its own:
+**Check before you push.** `dispat status` prints the plan without touching
+anything, and the line to read is the version:
 
 ```
-release(crier)%stable: graduate
+$ dispat status
+● changed  package=crier channel="stable -> rc" version="0.0.0 -> 1.0.0-rc.0"
 ```
 
-which publishes `1.0.0`.
+If that says `0.0.0 -> 1.0.0` with `channel=stable`, the directive did not
+take. Fix the commit and look again.
+
+### Riding the train
+
+Once the package is on `rc`, ordinary commits keep it there. dispat reads the
+channel from the baseline tag, so no directive is needed:
+
+```
+fix(crier): a fix          ->  1.0.0-rc.0 -> 1.0.0-rc.1
+feat(crier): a feature     ->  1.0.0-rc.1 -> 1.0.0-rc.2
+```
+
+Each candidate's changelog entry and GitHub release document only its own
+changes, so `rc.1` does not repeat `rc.0`.
+
+### Promoting to stable
+
+A transition graduates the package:
+
+```
+release(crier)%rc>stable: promote the first release
+```
+
+```
+● changed  package=crier channel="rc -> stable" version="1.0.0-rc.1 -> 1.0.0"
+```
+
+The `<from>><to>` form matches against the *baseline* channel, which makes it
+idempotent: a package that already graduated does not match, so the same
+directive is safe to write again. `release(crier)%stable:` graduates too, but
+without that property.
+
+The graduation collects the whole train into the one changelog entry stable
+readers see, and the version is computed over the train rather than over the
+last candidate alone.
+
+### One caveat about commit errors
+
+`commitErrors` is left at its default, `warn`: a commit dispat cannot parse
+contributes nothing and the run continues. The seven commits that predate
+crier's conventional-commit convention are unparseable, and setting
+`commitErrors: error` would refuse every release until the first tag exists —
+after which they fall outside the window and the stricter setting becomes
+available. Turning it on is worth doing once `v1.0.0-rc.0` is tagged.
 
 ### What a release candidate means downstream
 
@@ -76,16 +160,20 @@ A prerelease, and the tools treat it as one:
 
 - **`install.sh` and `install.ps1` skip it.** They resolve the highest *stable*
   version, and a version with a hyphen in it is not stable. During the rc
-  period, name it: `install.sh --version 1.0.0-rc.0`.
+  period, name it: `CRIER_VERSION=1.0.0-rc.0 sh install.sh`.
 - **`dispat install` needs `--prerelease`**:
 
   ```sh
   dispat install yohimik/crier --asset 'crier-{os}-{arch}' --prerelease
   ```
 
-- **The changelog and the GitHub release are written as usual.** The rc channel
-  changes the version, not whether a release is published.
-- **`go install …@latest` skips it too**, which is Go's own prerelease rule.
+- **`crier self-update` needs it too**, for the same reason:
+
+  ```sh
+  crier self-update --prerelease
+  ```
+
+- **`go install …@latest` skips it**, which is Go's own prerelease rule.
   `go install …@v1.0.0-rc.0` works.
 
 ## The assets
