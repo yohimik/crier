@@ -179,6 +179,9 @@ func (f *fakes) serve(w http.ResponseWriter, r *http.Request) {
 		writeJSON(w, map[string]any{"id": "ig-post-1"})
 	case strings.HasPrefix(path, "/instagram/ig-container-1"):
 		writeJSON(w, map[string]any{"status_code": "FINISHED"})
+	case strings.HasPrefix(path, "/instagram/ig-post-1"):
+		// The permalink lookup: the media id is not the shortcode.
+		writeJSON(w, map[string]any{"permalink": "https://www.instagram.com/p/CxE2E123/"})
 
 	// --- facebook -------------------------------------------------------
 	case strings.HasPrefix(path, "/facebook/") && strings.HasSuffix(path, "/photos"):

@@ -12,7 +12,7 @@ are written with `<name>` standing in for it — see
 | `publish.custom.<name>.command`<br>`CRIER_PUBLISH_CUSTOM_<NAME>_COMMAND`<br>`--set publish.custom.<name>.command` | string | — | shell command that publishes the artifact |
 | `publish.custom.<name>.ping-command`<br>`CRIER_PUBLISH_CUSTOM_<NAME>_PING_COMMAND`<br>`--set publish.custom.<name>.ping-command` | string | — | shell command `crier ping` runs to check the credentials |
 | `publish.custom.<name>.caption`<br>`CRIER_PUBLISH_CUSTOM_<NAME>_CAPTION`<br>`--set publish.custom.<name>.caption` | string | — | caption for this platform, overriding publish.caption |
-| `publish.custom.<name>.kinds`<br>`CRIER_PUBLISH_CUSTOM_<NAME>_KINDS`<br>`--set publish.custom.<name>.kinds` | list | `image` | artifact kinds the command accepts: image, video |
+| `publish.custom.<name>.kinds`<br>`CRIER_PUBLISH_CUSTOM_<NAME>_KINDS`<br>`--set publish.custom.<name>.kinds` | list | `image` | artifact kinds the command accepts: image, video, gif |
 | `publish.custom.<name>.format`<br>`CRIER_PUBLISH_CUSTOM_<NAME>_FORMAT`<br>`--set publish.custom.<name>.format` | string | `png` | preferred image format: png or jpeg |
 | `publish.custom.<name>.needs-url`<br>`CRIER_PUBLISH_CUSTOM_<NAME>_NEEDS_URL`<br>`--set publish.custom.<name>.needs-url` | bool | — | stage the artifact and pass CRIER_URL |
 | `publish.custom.<name>.timeout`<br>`CRIER_PUBLISH_CUSTOM_<NAME>_TIMEOUT`<br>`--set publish.custom.<name>.timeout` | string | `2m` | how long the command may run |

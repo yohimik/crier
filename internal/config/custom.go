@@ -23,7 +23,7 @@ var CustomLeaves = []Descriptor{
 	{Key: "command", Kind: KindString, Usage: "shell command that publishes the artifact"},
 	{Key: "ping-command", Kind: KindString, Usage: "shell command `crier ping` runs to check the credentials"},
 	{Key: "caption", Kind: KindString, Usage: "caption for this platform, overriding publish.caption"},
-	{Key: "kinds", Kind: KindStrings, Default: "image", Usage: "artifact kinds the command accepts: image, video"},
+	{Key: "kinds", Kind: KindStrings, Default: "image", Usage: "artifact kinds the command accepts: image, video, gif"},
 	{Key: "format", Kind: KindString, Default: "png", Usage: "preferred image format: png or jpeg"},
 	{Key: "needs-url", Kind: KindBool, Usage: "stage the artifact and pass CRIER_URL"},
 	{Key: "timeout", Kind: KindString, Default: "2m", Usage: "how long the command may run"},

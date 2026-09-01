@@ -92,4 +92,11 @@ MP4, so `render.video.format: gif` with this platform enabled is a
 configuration error named before anything is rendered. Use
 `render.video.format: mp4` — see [video](../rendering/video.md).
 
+## What you get back
+
+The media id, and the post's link — fetched with `GET {media-id}?fields=permalink`,
+because the media id is not the shortcode and `instagram.com/p/<media-id>` is a
+404. A permalink lookup that fails is logged and the post is still reported as
+published: the post exists, and no link is better than one that goes nowhere.
+
 Configuration keys: [`publish.instagram.*`](../configuration/reference/publish-instagram.md).

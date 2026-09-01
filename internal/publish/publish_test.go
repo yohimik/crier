@@ -632,6 +632,10 @@ func TestInstagramContainerThenPublish(t *testing.T) {
 			_, _ = w.Write([]byte(`{"status_code":"FINISHED"}`))
 		case "/123/media_publish":
 			_, _ = w.Write([]byte(`{"id":"p1"}`))
+		case "/p1":
+			// Instagram is the only one that knows the shortcode; the media id
+			// is not it.
+			_, _ = w.Write([]byte(`{"permalink":"https://www.instagram.com/p/CxYz123/"}`))
 		default:
 			w.WriteHeader(http.StatusNotFound)
 		}
@@ -652,6 +656,15 @@ func TestInstagramContainerThenPublish(t *testing.T) {
 	}
 	if res.ID != "p1" || res.Extra["containerId"] != "c1" {
 		t.Errorf("result = %+v", res)
+	}
+	// The reported link is the permalink Instagram gave, not the media id
+	// glued onto /p/ — that URL is a 404, and it was reported on every
+	// successful post.
+	if res.URL != "https://www.instagram.com/p/CxYz123/" {
+		t.Errorf("url = %q, want the permalink instagram reported", res.URL)
+	}
+	if strings.Contains(res.URL, "/p/p1") {
+		t.Error("the media id was used as a shortcode; that link 404s")
 	}
 	first := rec.all()[0]
 	if !strings.Contains(first.Body, "image_url=https") || !strings.Contains(first.Body, "caption=post") {

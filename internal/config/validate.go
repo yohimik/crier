@@ -489,13 +489,13 @@ func validateCustom(p *Publish) []error {
 		}
 		for _, kind := range c.Kinds {
 			switch strings.ToLower(strings.TrimSpace(kind)) {
-			case "image", "video":
+			case "image", "video", "gif":
 			default:
-				errs = append(errs, invalid(at+".kinds", kind, "want image or video"))
+				errs = append(errs, invalid(at+".kinds", kind, "want image, video or gif"))
 			}
 		}
 		if len(c.Kinds) == 0 {
-			errs = append(errs, invalid(at+".kinds", "", "want at least one of image, video"))
+			errs = append(errs, invalid(at+".kinds", "", "want at least one of image, video, gif"))
 		}
 		switch strings.ToLower(strings.TrimSpace(c.Format)) {
 		case "png", "jpeg", "jpg":

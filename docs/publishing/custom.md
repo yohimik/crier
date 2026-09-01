@@ -83,7 +83,7 @@ streams are logged live at debug level.
 | `command` | — | the shell command; required when enabled |
 | `ping-command` | — | what `crier ping` runs instead |
 | `caption` | — | this platform's caption, overriding `publish.caption` |
-| `kinds` | `image` | what the command accepts: `image`, `video`, or both |
+| `kinds` | `image` | what the command accepts: `image`, `video`, `gif`, or any combination |
 | `format` | `png` | preferred image format |
 | `needs-url` | `false` | stage the file and pass `CRIER_URL` |
 | `timeout` | `2m` | how long the command may run before it is killed |

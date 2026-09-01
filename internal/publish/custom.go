@@ -95,7 +95,13 @@ func (c *Custom) Needs() Needs {
 			n.Kinds = append(n.Kinds, render.KindImage)
 		case "video":
 			n.Kinds = append(n.Kinds, render.KindVideo)
+		case "gif":
+			n.Kinds = append(n.Kinds, render.KindGIF)
 		}
+		// An unrecognised word is not dropped here: config validation rejects
+		// it, so reaching this point with one is impossible. Dropping it
+		// silently is what made every enabled custom platform block a
+		// render.video.format=gif run with no way to opt in.
 	}
 	if len(n.Kinds) == 0 {
 		n.Kinds = imageOnly

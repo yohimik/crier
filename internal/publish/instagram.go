@@ -122,9 +122,32 @@ func (i *Instagram) Publish(ctx context.Context, in Input) (Result, error) {
 
 	return Result{
 		ID:    published.ID,
-		URL:   "https://www.instagram.com/p/" + published.ID,
+		URL:   i.permalink(ctx, published.ID),
 		Extra: map[string]string{"containerId": container.ID},
 	}, nil
+}
+
+// permalink asks Instagram where the post ended up.
+//
+// The media id is not the shortcode, so instagram.com/p/<media-id> is a 404 —
+// a link crier reported on every successful post and that never worked. Only
+// Instagram knows the shortcode, so it has to be asked.
+//
+// A failure here is not a failure of the post: the post exists, and reporting
+// no link is better than reporting one that goes nowhere.
+func (i *Instagram) permalink(ctx context.Context, mediaID string) string {
+	var out struct {
+		Permalink string `json:"permalink"`
+	}
+	req := httpx.NewRequest(http.MethodGet, i.cfg.APIBaseURL, mediaID).
+		Query("fields", "permalink").
+		Query("access_token", i.cfg.Token)
+	if err := i.client.JSON(ctx, req, &out); err != nil {
+		i.log.Warn().Str("media", mediaID).Err(err).
+			Msg("instagram published the post but would not say where it is")
+		return ""
+	}
+	return out.Permalink
 }
 
 // await polls the container until Meta has fetched the media.

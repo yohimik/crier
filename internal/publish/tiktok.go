@@ -13,6 +13,17 @@ import (
 	"github.com/yohimik/crier/internal/render"
 )
 
+// TikTokVideoLimit is the largest video the Content Posting API accepts.
+//
+// Verified against TikTok's media transfer guide, 2026-09-01: 4GB total, at
+// most 1000 chunks, each 5MB to 64MB except the last, which may run to 128MB
+// to absorb the trailing bytes.
+const TikTokVideoLimit = 4 << 30
+
+// TikTokFinalChunkLimit is how large the last chunk may be. It is the one
+// chunk allowed past the 64MB ceiling, and it is not allowed past this.
+const TikTokFinalChunkLimit = 128 << 20
+
 // TikTok posts through the Content Posting API.
 //
 // Photos are pulled from a URL; video is pushed in chunks, because
@@ -93,6 +104,9 @@ func (t *TikTok) Publish(ctx context.Context, in Input) (Result, error) {
 		err       error
 	)
 	if in.Artifact.Kind == render.KindVideo {
+		if err := checkSize(in.Artifact, TikTokVideoLimit, "tiktok"); err != nil {
+			return Result{}, err
+		}
 		publishID, err = t.publishVideo(ctx, in)
 	} else {
 		publishID, err = t.publishPhoto(ctx, in)
