@@ -150,6 +150,113 @@ func TestRenderReadsDataFromStdin(t *testing.T) {
 	}
 }
 
+// TestDataFromTheEnvironment is the third data source through the real binary:
+// no data file at all, the values carried in by the shell.
+func TestDataFromTheEnvironment(t *testing.T) {
+	f := newFakes(t)
+	dir := t.TempDir()
+	writeFile(t, dir, "template.html", baseTemplate)
+	writeFile(t, dir, "crier.yaml", strings.Join([]string{
+		"log:",
+		"  level: debug",
+		"render:",
+		"  template: template.html",
+		"  data: env:CARD_",
+		"  width: 240",
+		"  height: 120",
+		"  hermetic-fonts: true",
+		"publish:",
+		"  caption: \"{{ .title }} — {{ .subtitle }}\"",
+		"  telegram:",
+		"    enabled: true",
+		"    api-base-url: " + f.URL,
+		"    token: tg-token",
+		"    chat-id: \"@crier\"",
+	}, "\n"))
+
+	env := []string{
+		"CARD_TITLE=crier ships v1",
+		"CARD_SUBTITLE=One template, ten platforms.",
+		// Not the prefix, so it must not reach the template.
+		"CARDBOARD=no",
+		"OTHER_TITLE=no",
+	}
+
+	// It renders, with no data file anywhere.
+	out := filepath.Join(dir, "out.png")
+	res := crier(t, dir, env, "render", "--render-output", out)
+	if res.Code != exitOK {
+		t.Fatalf("render: code=%d stderr=%s", res.Code, res.Stderr)
+	}
+	cfg, format := decodeImage(t, out)
+	if format != "png" || cfg.Width != 240 || cfg.Height != 120 {
+		t.Errorf("image = %s %dx%d", format, cfg.Width, cfg.Height)
+	}
+	if !strings.Contains(res.Stderr, "read the template data from the environment") {
+		t.Errorf("the source should be logged: %s", res.Stderr)
+	}
+
+	// And the caption sees the same values, which is what makes one source
+	// enough for the whole run.
+	res = crier(t, dir, env, "publish")
+	if res.Code != exitOK {
+		t.Fatalf("publish: code=%d stderr=%s", res.Code, res.Stderr)
+	}
+	tg, ok := f.find("/sendPhoto")
+	if !ok {
+		t.Fatal("telegram was not called")
+	}
+	if !strings.Contains(tg.Body, "crier ships v1 — One template, ten platforms.") {
+		t.Errorf("the caption did not come from the environment: %q", tg.Body)
+	}
+	if strings.Contains(tg.Body, "CARDBOARD") {
+		t.Error("a variable outside the prefix reached the template")
+	}
+}
+
+// TestDataFromTheEnvironmentWithNothingSet: a prefix that matched nothing
+// renders a card full of blanks, so it warns rather than failing silently.
+func TestDataFromTheEnvironmentWithNothingSet(t *testing.T) {
+	dir := t.TempDir()
+	writeFile(t, dir, "template.html", baseTemplate)
+	writeFile(t, dir, "crier.yaml", strings.Join([]string{
+		"render:",
+		"  template: template.html",
+		"  data: env:NOTHING_",
+		"  width: 120",
+		"  height: 60",
+		"  hermetic-fonts: true",
+	}, "\n"))
+
+	out := filepath.Join(dir, "out.png")
+	res := crier(t, dir, []string{}, "render", "--render-output", out)
+	if res.Code != exitOK {
+		t.Fatalf("code=%d stderr=%s", res.Code, res.Stderr)
+	}
+	if !strings.Contains(res.Stderr, "no environment variables carry this prefix") {
+		t.Errorf("stderr should warn: %s", res.Stderr)
+	}
+	if !strings.Contains(res.Stderr, "NOTHING_") {
+		t.Errorf("the warning should name the prefix: %s", res.Stderr)
+	}
+}
+
+// TestDataFromTheEnvironmentNeedsAPrefix: `env:` alone would hand the template
+// the whole environment.
+func TestDataFromTheEnvironmentNeedsAPrefix(t *testing.T) {
+	dir := t.TempDir()
+	writeFile(t, dir, "template.html", baseTemplate)
+	writeFile(t, dir, "crier.yaml", "render:\n  template: template.html\n  data: \"env:\"\n")
+
+	res := crier(t, dir, []string{}, "render")
+	if res.Code != exitConfig {
+		t.Fatalf("code=%d stderr=%s", res.Code, res.Stderr)
+	}
+	if !strings.Contains(res.Stderr, "render.data") {
+		t.Errorf("the error should name the key: %s", res.Stderr)
+	}
+}
+
 func TestRenderFailsOnABrokenTemplate(t *testing.T) {
 	dir := newProject(t, "")
 	writeFile(t, dir, "template.html", "{{ .unclosed ")
@@ -968,6 +1075,18 @@ func imageInBody(body string) (image.Config, error) {
 	return image.Config{}, errors.New("no image found in the request body")
 }
 
+// decodedImageInBody is imageInBody when the pixels matter rather than only
+// the dimensions.
+func decodedImageInBody(body string) (image.Image, error) {
+	for _, magic := range []string{"\x89PNG\r\n\x1a\n", "\xff\xd8\xff"} {
+		if i := strings.Index(body, magic); i >= 0 {
+			img, _, err := image.Decode(strings.NewReader(body[i:]))
+			return img, err
+		}
+	}
+	return nil, errors.New("no image found in the request body")
+}
+
 // --- video -----------------------------------------------------------------
 
 func TestVideoIsRenderedAndPublished(t *testing.T) {
@@ -1342,6 +1461,252 @@ func TestPingWithNoPlatformIsAConfigError(t *testing.T) {
 	res := crier(t, dir, nil, "ping")
 	if res.Code != exitConfig || !strings.Contains(res.Stderr, "no platform is enabled") {
 		t.Errorf("code=%d stderr=%s", res.Code, res.Stderr)
+	}
+}
+
+// --- object-fit ---------------------------------------------------------------
+
+// TestFitPerPlatform is the motivating configuration: Instagram gets a story
+// cover-cropped to 1080×1920, Telegram gets the square card as it is, and both
+// come out of one run and one template.
+//
+// The fakes measure what they were actually given, which is the only assertion
+// that catches the failure this feature exists to prevent — a platform
+// receiving the master and cropping it on its own servers, wherever it likes.
+func TestFitPerPlatform(t *testing.T) {
+	f := newFakes(t)
+	ln, err := net.Listen("tcp", "127.0.0.1:0")
+	if err != nil {
+		t.Fatal(err)
+	}
+	addr := ln.Addr().String()
+	_ = ln.Close()
+
+	dir := t.TempDir()
+	writeFile(t, dir, "template.html", baseTemplate)
+	writeFile(t, dir, "data.yaml", "title: fitted\nversion: 1.0\n")
+	writeFile(t, dir, "crier.yaml", strings.Join([]string{
+		"log:",
+		"  level: debug",
+		"render:",
+		"  template: template.html",
+		"  data: data.yaml",
+		"  width: 1080",
+		"  height: 1080",
+		"  hermetic-fonts: true",
+		"stage:",
+		"  mode: server",
+		"  server:",
+		"    listen: " + addr,
+		"    public-url: http://" + addr,
+		"publish:",
+		"  instagram:",
+		"    enabled: true",
+		"    api-base-url: " + f.URL + "/instagram",
+		"    token: t",
+		"    user-id: ig-user",
+		"    width: 1080",
+		"    height: 1920",
+		"    fit: cover",
+		"    poll-interval: 1ms",
+		"    poll-timeout: 5s",
+		"  telegram:",
+		"    enabled: true",
+		"    api-base-url: " + f.URL,
+		"    token: tg-token",
+		"    chat-id: \"@crier\"",
+	}, "\n"))
+
+	res := crier(t, dir, nil, "publish", "--json")
+	if res.Code != exitOK {
+		t.Fatalf("code=%d stderr=%s", res.Code, res.Stderr)
+	}
+
+	// Telegram takes the bytes, so what it received can be measured directly.
+	tg, ok := f.find("/sendPhoto")
+	if !ok {
+		t.Fatal("telegram was not called")
+	}
+	got, err := imageInBody(tg.Body)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got.Width != 1080 || got.Height != 1080 {
+		t.Errorf("telegram received %dx%d, want the master untouched", got.Width, got.Height)
+	}
+
+	// Instagram fetches a URL, so the story is measured by fetching the same
+	// one its servers would.
+	container, ok := f.find("/instagram/ig-user/media")
+	if !ok {
+		t.Fatal("no container was created")
+	}
+	values, err := url.ParseQuery(container.Body)
+	if err != nil {
+		t.Fatal(err)
+	}
+	staged := values.Get("image_url")
+	if staged == "" {
+		t.Fatalf("no image_url: %q", container.Body)
+	}
+	// The stage server is gone by now, so the file is read from the run's own
+	// report instead — the variant records what it produced.
+	var rep struct {
+		Variants []struct {
+			Name      string   `json:"name"`
+			Platforms []string `json:"platforms"`
+			Width     int      `json:"width"`
+			Height    int      `json:"height"`
+		} `json:"variants"`
+	}
+	if err := json.Unmarshal([]byte(res.Stdout), &rep); err != nil {
+		t.Fatalf("%v\n%s", err, res.Stdout)
+	}
+	if len(rep.Variants) != 2 {
+		t.Fatalf("variants = %+v, want one per fit", rep.Variants)
+	}
+	sizes := map[string][2]int{}
+	for _, v := range rep.Variants {
+		sizes[v.Platforms[0]] = [2]int{v.Width, v.Height}
+	}
+	if sizes["instagram"] != [2]int{1080, 1920} {
+		t.Errorf("instagram's file is %v, want the story frame", sizes["instagram"])
+	}
+	if sizes["telegram"] != [2]int{1080, 1080} {
+		t.Errorf("telegram's file is %v, want the master", sizes["telegram"])
+	}
+
+	if !strings.Contains(res.Stderr, "fitted the render to the platform's frame") {
+		t.Errorf("the fit should be logged: %s", res.Stderr)
+	}
+}
+
+// TestFitAClip checks the video path takes the same route: one filter chain,
+// with the fit in it, and the poster fitted to match.
+func TestFitAClip(t *testing.T) {
+	f := newFakes(t)
+	dir := newProject(t, "")
+	writeFile(t, dir, "crier.yaml", strings.Join([]string{
+		"log:",
+		"  level: debug",
+		"render:",
+		"  template: template.html",
+		"  width: 200",
+		"  height: 200",
+		"  hermetic-fonts: true",
+		"  video:",
+		"    enabled: true",
+		"    frames: 2",
+		"    ffmpeg-bin: " + selfPath(t),
+		"publish:",
+		"  telegram:",
+		"    enabled: true",
+		"    api-base-url: " + f.URL,
+		"    token: t",
+		"    chat-id: c",
+		"    width: 200",
+		"    height: 400",
+		"    fit: cover",
+	}, "\n"))
+
+	res := crier(t, dir, []string{helperEnv + "=ffmpeg"}, "publish")
+	if res.Code != exitOK {
+		t.Fatalf("code=%d stderr=%s", res.Code, res.Stderr)
+	}
+	if !strings.Contains(res.Stderr, "fitting the clip to the platform's frame") {
+		t.Errorf("the fit should be logged: %s", res.Stderr)
+	}
+	// The filter reached ffmpeg, as one -vf carrying the cover idiom.
+	if !strings.Contains(res.Stderr, "force_original_aspect_ratio=increase") ||
+		!strings.Contains(res.Stderr, "crop=200:400") {
+		t.Errorf("the filter did not reach ffmpeg: %s", res.Stderr)
+	}
+	if strings.Count(res.Stderr, `"-vf"`) > 1 {
+		t.Errorf("more than one -vf reached ffmpeg; only the last would apply: %s", res.Stderr)
+	}
+	if _, ok := f.find("/sendVideo"); !ok {
+		t.Error("telegram was not sent a video")
+	}
+}
+
+// TestFitWithoutDimensionsIsAConfigError: a fit with nothing to fit into would
+// quietly send the master, which is the surprise the setting removes.
+func TestFitWithoutDimensionsIsAConfigError(t *testing.T) {
+	f := newFakes(t)
+	dir := newProject(t, strings.Join([]string{
+		"  telegram:",
+		"    enabled: true",
+		"    api-base-url: " + f.URL,
+		"    token: t",
+		"    chat-id: c",
+		"    fit: cover",
+	}, "\n"))
+
+	res := crier(t, dir, nil, "publish")
+	if res.Code != exitConfig {
+		t.Fatalf("code=%d stderr=%s", res.Code, res.Stderr)
+	}
+	if !strings.Contains(res.Stderr, "publish.telegram.fit") ||
+		!strings.Contains(res.Stderr, "publish.telegram.width") {
+		t.Errorf("the error should name the keys: %s", res.Stderr)
+	}
+	if len(f.all()) != 0 {
+		t.Errorf("it made %d requests before refusing", len(f.all()))
+	}
+}
+
+// TestFitContainLetterboxesToTheConfiguredColour checks the pixels a platform
+// receives, not just their count.
+func TestFitContainLetterboxesToTheConfiguredColour(t *testing.T) {
+	f := newFakes(t)
+	dir := t.TempDir()
+	writeFile(t, dir, "template.html",
+		`<html><body style="margin:0;background:#ffffff">`+
+			`<div style="width:200px;height:80px;background:#ff0000"></div></body></html>`)
+	writeFile(t, dir, "crier.yaml", strings.Join([]string{
+		"render:",
+		"  template: template.html",
+		"  width: 200",
+		"  height: 80",
+		"  format: png",
+		"  hermetic-fonts: true",
+		"publish:",
+		"  telegram:",
+		"    enabled: true",
+		"    api-base-url: " + f.URL,
+		"    token: t",
+		"    chat-id: c",
+		"    width: 200",
+		"    height: 200",
+		"    fit: contain",
+		"    fit-background: \"#112233\"",
+	}, "\n"))
+
+	res := crier(t, dir, nil, "publish")
+	if res.Code != exitOK {
+		t.Fatalf("code=%d stderr=%s", res.Code, res.Stderr)
+	}
+	tg, ok := f.find("/sendPhoto")
+	if !ok {
+		t.Fatal("telegram was not called")
+	}
+	img, err := decodedImageInBody(tg.Body)
+	if err != nil {
+		t.Fatal(err)
+	}
+	b := img.Bounds()
+	if b.Dx() != 200 || b.Dy() != 200 {
+		t.Fatalf("received %dx%d, want the frame", b.Dx(), b.Dy())
+	}
+	// The card is 200×80 in a 200×200 frame, so it occupies y=60..139 and the
+	// rest is the configured colour.
+	r, g, bl, _ := img.At(100, 10).RGBA()
+	if r>>8 != 0x11 || g>>8 != 0x22 || bl>>8 != 0x33 {
+		t.Errorf("the letterbox is %02x%02x%02x, want 112233", r>>8, g>>8, bl>>8)
+	}
+	r, _, _, _ = img.At(100, 100).RGBA()
+	if r>>8 < 200 {
+		t.Errorf("the middle is %02x, want the red card", r>>8)
 	}
 }
 

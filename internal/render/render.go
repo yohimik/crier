@@ -82,7 +82,22 @@ func Render(ctx context.Context, o Options) ([]*image.RGBA, error) {
 		return nil, fmt.Errorf("parsing document: %w", err)
 	}
 
-	doc := document.Render(html, nil, false, o.Fonts.Config)
+	// The layout engine panics rather than erroring on inputs it cannot
+	// handle — a malformed language tag reached one such index once — and a
+	// panic here would take the whole program down over one document. Turned
+	// into an error, it fails the render and names itself.
+	var doc document.Document
+	if err := func() (err error) {
+		defer func() {
+			if r := recover(); r != nil {
+				err = fmt.Errorf("the layout engine crashed on this document: %v", r)
+			}
+		}()
+		doc = document.Render(html, nil, false, o.Fonts.Config)
+		return nil
+	}(); err != nil {
+		return nil, err
+	}
 	if len(doc.Pages) == 0 {
 		return nil, fmt.Errorf("the document laid out into no pages")
 	}

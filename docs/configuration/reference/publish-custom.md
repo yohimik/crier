@@ -19,6 +19,8 @@ are written with `<name>` standing in for it — see
 | `publish.custom.<name>.overlay`<br>`CRIER_PUBLISH_CUSTOM_<NAME>_OVERLAY`<br>`--set publish.custom.<name>.overlay` | list, path | — | extra template overlays for this platform |
 | `publish.custom.<name>.width`<br>`CRIER_PUBLISH_CUSTOM_<NAME>_WIDTH`<br>`--set publish.custom.<name>.width` | int | — | render width for this platform |
 | `publish.custom.<name>.height`<br>`CRIER_PUBLISH_CUSTOM_<NAME>_HEIGHT`<br>`--set publish.custom.<name>.height` | int | — | render height for this platform |
+| `publish.custom.<name>.fit`<br>`CRIER_PUBLISH_CUSTOM_<NAME>_FIT`<br>`--set publish.custom.<name>.fit` | string | `none` | how the render is made to match this platform's frame: none, cover, contain or stretch |
+| `publish.custom.<name>.fit-background`<br>`CRIER_PUBLISH_CUSTOM_<NAME>_FIT_BACKGROUND`<br>`--set publish.custom.<name>.fit-background` | string | `#ffffff` | hex colour behind a contain letterbox, and what transparency is flattened onto |
 | `publish.custom.<name>.env.<VAR>` | string | — | extra environment variables for the command |
 
 A name is lower-case letters, digits and dashes, and may not be one of the

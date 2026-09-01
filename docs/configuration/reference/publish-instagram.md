@@ -9,6 +9,8 @@ See [the Instagram guide](../../publishing/instagram.md) for how to get these va
 | `publish.instagram.api-base-url`<br>`CRIER_PUBLISH_INSTAGRAM_API_BASE_URL`<br>`--publish-instagram-api-base-url` | string | `https://graph.facebook.com/v25.0` | Instagram Graph API base URL |
 | `publish.instagram.caption`<br>`CRIER_PUBLISH_INSTAGRAM_CAPTION`<br>`--publish-instagram-caption` | string | — | Instagram specific caption |
 | `publish.instagram.enabled`<br>`CRIER_PUBLISH_INSTAGRAM_ENABLED`<br>`--publish-instagram-enabled` | bool | — | publish to Instagram |
+| `publish.instagram.fit`<br>`CRIER_PUBLISH_INSTAGRAM_FIT`<br>`--publish-instagram-fit` | string | `none` | how the render is made to match instagram's frame: none, cover, contain or stretch; anything but none needs width and height |
+| `publish.instagram.fit-background`<br>`CRIER_PUBLISH_INSTAGRAM_FIT_BACKGROUND`<br>`--publish-instagram-fit-background` | string | `#ffffff` | hex colour behind a contain letterbox for instagram, and what transparency is flattened onto |
 | `publish.instagram.height`<br>`CRIER_PUBLISH_INSTAGRAM_HEIGHT`<br>`--publish-instagram-height` | int | — | render height for instagram; 0 inherits render.height |
 | `publish.instagram.overlay`<br>`CRIER_PUBLISH_INSTAGRAM_OVERLAY`<br>`--publish-instagram-overlay` | list, path | — | template overlays applied for instagram only, after the global ones |
 | `publish.instagram.poll-interval`<br>`CRIER_PUBLISH_INSTAGRAM_POLL_INTERVAL`<br>`--publish-instagram-poll-interval` | duration | `2s` | how often the media container status is polled |

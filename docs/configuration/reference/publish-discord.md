@@ -8,6 +8,8 @@ See [the Discord guide](../../publishing/discord.md) for how to get these values
 | --- | ---- | ------- | ----------- |
 | `publish.discord.caption`<br>`CRIER_PUBLISH_DISCORD_CAPTION`<br>`--publish-discord-caption` | string | — | Discord specific message content |
 | `publish.discord.enabled`<br>`CRIER_PUBLISH_DISCORD_ENABLED`<br>`--publish-discord-enabled` | bool | — | publish to a Discord webhook |
+| `publish.discord.fit`<br>`CRIER_PUBLISH_DISCORD_FIT`<br>`--publish-discord-fit` | string | `none` | how the render is made to match discord's frame: none, cover, contain or stretch; anything but none needs width and height |
+| `publish.discord.fit-background`<br>`CRIER_PUBLISH_DISCORD_FIT_BACKGROUND`<br>`--publish-discord-fit-background` | string | `#ffffff` | hex colour behind a contain letterbox for discord, and what transparency is flattened onto |
 | `publish.discord.height`<br>`CRIER_PUBLISH_DISCORD_HEIGHT`<br>`--publish-discord-height` | int | — | render height for discord; 0 inherits render.height |
 | `publish.discord.overlay`<br>`CRIER_PUBLISH_DISCORD_OVERLAY`<br>`--publish-discord-overlay` | list, path | — | template overlays applied for discord only, after the global ones |
 | `publish.discord.username`<br>`CRIER_PUBLISH_DISCORD_USERNAME`<br>`--publish-discord-username` | string | — | override the webhook's display name |

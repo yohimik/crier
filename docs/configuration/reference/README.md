@@ -16,17 +16,17 @@ where a relative path resolves against, is in
 | [Staging: tunnel](./stage-server-tunnel.md) | `stage.server.tunnel` | 6 |
 | [Staging: local server](./stage-server.md) | `stage.server` | 3 |
 | [Staging](./stage.md) | `stage` | 2 |
-| [Publishing: Instagram](./publish-instagram.md) | `publish.instagram` | 11 |
-| [Publishing: Facebook](./publish-facebook.md) | `publish.facebook` | 10 |
-| [Publishing: TikTok](./publish-tiktok.md) | `publish.tiktok` | 11 |
-| [Publishing: Telegram](./publish-telegram.md) | `publish.telegram` | 8 |
-| [Publishing: X](./publish-x.md) | `publish.x` | 7 |
-| [Publishing: Slack](./publish-slack.md) | `publish.slack` | 8 |
-| [Publishing: Mastodon](./publish-mastodon.md) | `publish.mastodon` | 11 |
-| [Publishing: Discord](./publish-discord.md) | `publish.discord` | 7 |
-| [Publishing: LinkedIn](./publish-linkedin.md) | `publish.linkedin` | 9 |
-| [Publishing: Reddit](./publish-reddit.md) | `publish.reddit` | 21 |
-| [Publishing: custom platforms](./publish-custom.md) | `publish.custom` | 12 |
+| [Publishing: Instagram](./publish-instagram.md) | `publish.instagram` | 13 |
+| [Publishing: Facebook](./publish-facebook.md) | `publish.facebook` | 12 |
+| [Publishing: TikTok](./publish-tiktok.md) | `publish.tiktok` | 13 |
+| [Publishing: Telegram](./publish-telegram.md) | `publish.telegram` | 10 |
+| [Publishing: X](./publish-x.md) | `publish.x` | 9 |
+| [Publishing: Slack](./publish-slack.md) | `publish.slack` | 10 |
+| [Publishing: Mastodon](./publish-mastodon.md) | `publish.mastodon` | 13 |
+| [Publishing: Discord](./publish-discord.md) | `publish.discord` | 9 |
+| [Publishing: LinkedIn](./publish-linkedin.md) | `publish.linkedin` | 11 |
+| [Publishing: Reddit](./publish-reddit.md) | `publish.reddit` | 23 |
+| [Publishing: custom platforms](./publish-custom.md) | `publish.custom` | 14 |
 | [Publishing](./publish.md) | `publish` | 4 |
 
 A sample carrying every key with its default is at

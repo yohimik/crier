@@ -23,6 +23,14 @@ import (
 // StdinName is the data path that means "read the document from stdin".
 const StdinName = "-"
 
+// EnvScheme introduces a data source built from environment variables:
+// `env:CARD_` reads every CARD_* variable.
+//
+// It is a scheme rather than another key because render.data answers one
+// question — where the values come from — and answering it in two places is
+// how a configuration ends up with a file and an environment both half set.
+const EnvScheme = "env:"
+
 // MaxDataSize bounds a data document, so a mistyped path to a huge file fails
 // with a clear message instead of eating memory.
 const MaxDataSize = 32 << 20
@@ -36,11 +44,16 @@ type Options struct {
 	// which is how one layout produces a story for Instagram and a card for
 	// Discord.
 	Overlays []string
-	// DataPath is a JSON or YAML file, or StdinName. Empty means no data, and
-	// the template is rendered against nil.
+	// DataPath is a JSON or YAML file, StdinName, or an EnvScheme prefix.
+	// Empty means no data, and the template is rendered against nil.
 	DataPath string
 	// Stdin is where StdinName reads from. Zero value: os.Stdin.
 	Stdin io.Reader
+	// Environ is where EnvScheme reads from, as KEY=value pairs. A nil slice
+	// means os.Environ(); a non-nil empty slice means an empty environment,
+	// which is what lets a test say "nothing is set" rather than "whatever
+	// this machine happens to have".
+	Environ []string
 	// Extra values are merged over the loaded document when it is an object;
 	// they are how the pipeline injects things the template did not come with.
 	Extra map[string]any
@@ -154,7 +167,7 @@ func isEmpty(v any) bool {
 
 // Render executes the template against the data document and returns HTML.
 func (e *Engine) Render(o Options) (string, error) {
-	data, err := LoadData(o.DataPath, o.Stdin)
+	data, err := LoadData(o.DataPath, o.Stdin, o.Environ)
 	if err != nil {
 		return "", err
 	}
@@ -247,14 +260,19 @@ func (e *Engine) Pick(pool []string) (string, bool) {
 	return clean[i], true
 }
 
-// LoadData reads a JSON or YAML document.
+// LoadData reads the data document a template renders against.
 //
-// The format follows the extension for a file; a document on stdin is decoded
-// as YAML, which also accepts JSON, so a script does not have to say which one
-// it is producing.
-func LoadData(path string, stdin io.Reader) (any, error) {
+// Three sources, chosen by the value's shape: a path to a JSON or YAML file,
+// "-" for standard input, or "env:PREFIX" for the environment. The format
+// follows the extension for a file; a document on stdin is decoded as YAML,
+// which also accepts JSON, so a script does not have to say which one it is
+// producing.
+func LoadData(path string, stdin io.Reader, environ []string) (any, error) {
 	if path == "" {
 		return nil, nil
+	}
+	if prefix, ok := EnvPrefixOf(path); ok {
+		return DataFromEnv(prefix, environ), nil
 	}
 	var (
 		raw []byte

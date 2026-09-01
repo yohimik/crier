@@ -1,0 +1,63 @@
+# The card crier posts about its own releases.
+#
+# announce.sh drives this from dispat's announce stage; it is not a project
+# anybody runs by hand, though `crier render --config announce/crier.yaml`
+# with some DISPAT_* variables set is how the preview was made.
+#
+# Two passes per release share this file. This is the feed post as it stands;
+# the story pass adds its own frame on the command line, so that what is
+# written here is one thing rather than a set of values half of which every run
+# has to undo.
+render:
+  template: template.html
+  # The data comes from announce.sh on standard input, built out of the
+  # release-notes variables. It has arrays in it, which an env: prefix cannot
+  # carry — this is the case stdin exists for.
+  data: "-"
+  width: 1080
+  height: 1080
+  format: jpeg
+  # Instagram will not fetch a PNG, and the card is flat colour, so quality
+  # costs little.
+  jpeg-quality: 92
+  # Only the fonts beside this file: a release must not render differently
+  # because a runner has different fonts installed than a laptop.
+  hermetic-fonts: true
+  base-url: .
+
+publish:
+  # Instagram fetches the media from a public URL rather than taking bytes, so
+  # a release running on a runner needs a tunnel. announce.sh sets stage.mode
+  # and the tunnel; CRIER_STAGE_* overrides point it somewhere else.
+  caption: >-
+    crier v{{ .version }} is out.
+
+    Render an HTML template to an image or a video and publish it to ten social
+    platforms with one command.
+
+    {{ range .install }}{{ if eq .label "curl" }}{{ .command }}{{ end }}{{ end }}
+
+    #golang #opensource #devtools #staticsite #automation
+
+  instagram:
+    enabled: true
+    # The token the release carries is generated through "API setup with
+    # Instagram business login", and a token of that flavour only parses on
+    # this host — graph.facebook.com answers it with OAuthException 190
+    # "Cannot parse access token" (which is exactly how the first announce
+    # died). The Facebook-login flavour, a Page token, would use the
+    # registry's graph.facebook.com default instead.
+    api-base-url: https://graph.instagram.com/v25.0
+    # No width, height or fit here: the feed post is the card as it was drawn.
+    #
+    # The story pass adds them —
+    #
+    #   --publish-instagram-story
+    #   --publish-instagram-width 1080 --publish-instagram-height 1920
+    #   --publish-instagram-fit contain
+    #   --publish-instagram-fit-background "#04140c"
+    #
+    # contain rather than cover because the card is mostly text: cropping a
+    # 1080 square to 9:16 would push 44% off each side and take the ends off
+    # every line. The background is the card's own, so the letterbox reads as
+    # part of the design instead of as bars.

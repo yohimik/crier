@@ -3,7 +3,7 @@
 package: crier
 version: v0.1.0
 features: >-
-  Nine platform publishers, template overlays per platform, seeded template
+  Ten platform publishers, template overlays per platform, seeded template
   randomisation, and video rendering through ffmpeg.
 fixes: >-
   Glyph outlines are no longer transformed in place, so repeated letters render.

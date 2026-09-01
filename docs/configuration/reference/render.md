@@ -9,7 +9,7 @@ What is drawn, how large, in which format, and with which fonts.
 | `render.background`<br>`CRIER_RENDER_BACKGROUND`<br>`--render-background` | string | `#ffffff` | background colour transparent pixels are flattened onto for JPEG |
 | `render.base-url`<br>`CRIER_RENDER_BASE_URL`<br>`--render-base-url` | string, path | — | base URL, or a directory, that relative resources in the template resolve against |
 | `render.css`<br>`CRIER_RENDER_CSS`<br>`--render-css` | list, path | — | extra stylesheet files applied after the document's own CSS |
-| `render.data`<br>`CRIER_RENDER_DATA`<br>`--render-data` | string, path | — | path to a JSON or YAML data file, or "-" to read it from stdin |
+| `render.data`<br>`CRIER_RENDER_DATA`<br>`--render-data` | string, path | — | where the template's data comes from: a JSON or YAML file, "-" for stdin, or "env:PREFIX" to build it from the environment |
 | `render.fonts-dir`<br>`CRIER_RENDER_FONTS_DIR`<br>`--render-fonts-dir` | list, path | — | extra directories scanned for fonts |
 | `render.format`<br>`CRIER_RENDER_FORMAT`<br>`--render-format` | string | `png` | output image format: png or jpeg |
 | `render.height`<br>`CRIER_RENDER_HEIGHT`<br>`--render-height` | int | `1920` | output height in CSS pixels (0 lets the document's @page rule decide) |

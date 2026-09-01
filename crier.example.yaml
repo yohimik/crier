@@ -34,6 +34,10 @@ publish:
     caption: ""
     # publish to a Discord webhook
     enabled: false
+    # how the render is made to match discord's frame: none, cover, contain or stretch; anything but none needs width and height
+    fit: "none"
+    # hex colour behind a contain letterbox for discord, and what transparency is flattened onto
+    fit-background: "#ffffff"
     # render height for discord; 0 inherits render.height
     height: 0
     # template overlays applied for discord only, after the global ones
@@ -53,6 +57,10 @@ publish:
     caption: ""
     # publish to a Facebook Page
     enabled: false
+    # how the render is made to match facebook's frame: none, cover, contain or stretch; anything but none needs width and height
+    fit: "none"
+    # hex colour behind a contain letterbox for facebook, and what transparency is flattened onto
+    fit-background: "#ffffff"
     # render height for facebook; 0 inherits render.height
     height: 0
     # template overlays applied for facebook only, after the global ones
@@ -76,6 +84,10 @@ publish:
     caption: ""
     # publish to Instagram
     enabled: false
+    # how the render is made to match instagram's frame: none, cover, contain or stretch; anything but none needs width and height
+    fit: "none"
+    # hex colour behind a contain letterbox for instagram, and what transparency is flattened onto
+    fit-background: "#ffffff"
     # render height for instagram; 0 inherits render.height
     height: 0
     # template overlays applied for instagram only, after the global ones
@@ -101,6 +113,10 @@ publish:
     caption: ""
     # publish to LinkedIn
     enabled: false
+    # how the render is made to match linkedin's frame: none, cover, contain or stretch; anything but none needs width and height
+    fit: "none"
+    # hex colour behind a contain letterbox for linkedin, and what transparency is flattened onto
+    fit-background: "#ffffff"
     # render height for linkedin; 0 inherits render.height
     height: 0
     # template overlays applied for linkedin only, after the global ones
@@ -120,6 +136,10 @@ publish:
     caption: ""
     # publish to Mastodon
     enabled: false
+    # how the render is made to match mastodon's frame: none, cover, contain or stretch; anything but none needs width and height
+    fit: "none"
+    # hex colour behind a contain letterbox for mastodon, and what transparency is flattened onto
+    fit-background: "#ffffff"
     # render height for mastodon; 0 inherits render.height
     height: 0
     # template overlays applied for mastodon only, after the global ones
@@ -147,6 +167,10 @@ publish:
     client-secret: "<your-client-secret>"
     # publish to Reddit
     enabled: false
+    # how the render is made to match reddit's frame: none, cover, contain or stretch; anything but none needs width and height
+    fit: "none"
+    # hex colour behind a contain letterbox for reddit, and what transparency is flattened onto
+    fit-background: "#ffffff"
     # flair template id applied to the post
     flair-id: ""
     # render height for reddit; 0 inherits render.height
@@ -186,6 +210,10 @@ publish:
     channel: ""
     # publish to Slack
     enabled: false
+    # how the render is made to match slack's frame: none, cover, contain or stretch; anything but none needs width and height
+    fit: "none"
+    # hex colour behind a contain letterbox for slack, and what transparency is flattened onto
+    fit-background: "#ffffff"
     # render height for slack; 0 inherits render.height
     height: 0
     # template overlays applied for slack only, after the global ones
@@ -203,6 +231,10 @@ publish:
     chat-id: ""
     # publish to Telegram
     enabled: false
+    # how the render is made to match telegram's frame: none, cover, contain or stretch; anything but none needs width and height
+    fit: "none"
+    # hex colour behind a contain letterbox for telegram, and what transparency is flattened onto
+    fit-background: "#ffffff"
     # render height for telegram; 0 inherits render.height
     height: 0
     # template overlays applied for telegram only, after the global ones
@@ -218,6 +250,10 @@ publish:
     caption: ""
     # publish to TikTok
     enabled: false
+    # how the render is made to match tiktok's frame: none, cover, contain or stretch; anything but none needs width and height
+    fit: "none"
+    # hex colour behind a contain letterbox for tiktok, and what transparency is flattened onto
+    fit-background: "#ffffff"
     # render height for tiktok; 0 inherits render.height
     height: 0
     # template overlays applied for tiktok only, after the global ones
@@ -241,6 +277,10 @@ publish:
     caption: ""
     # publish to X
     enabled: false
+    # how the render is made to match x's frame: none, cover, contain or stretch; anything but none needs width and height
+    fit: "none"
+    # hex colour behind a contain letterbox for x, and what transparency is flattened onto
+    fit-background: "#ffffff"
     # render height for x; 0 inherits render.height
     height: 0
     # template overlays applied for x only, after the global ones
@@ -256,7 +296,7 @@ render:
   base-url: ""
   # extra stylesheet files applied after the document's own CSS
   css: []
-  # path to a JSON or YAML data file, or "-" to read it from stdin
+  # where the template's data comes from: a JSON or YAML file, "-" for stdin, or "env:PREFIX" to build it from the environment
   data: ""
   # extra directories scanned for fonts
   fonts-dir: []

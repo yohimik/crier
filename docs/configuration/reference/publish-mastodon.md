@@ -10,6 +10,8 @@ See [the Mastodon guide](../../publishing/mastodon.md) for how to get these valu
 | `publish.mastodon.api-base-url`<br>`CRIER_PUBLISH_MASTODON_API_BASE_URL`<br>`--publish-mastodon-api-base-url` | string | — | Mastodon instance base URL, e.g. https://mastodon.social |
 | `publish.mastodon.caption`<br>`CRIER_PUBLISH_MASTODON_CAPTION`<br>`--publish-mastodon-caption` | string | — | Mastodon specific status text |
 | `publish.mastodon.enabled`<br>`CRIER_PUBLISH_MASTODON_ENABLED`<br>`--publish-mastodon-enabled` | bool | — | publish to Mastodon |
+| `publish.mastodon.fit`<br>`CRIER_PUBLISH_MASTODON_FIT`<br>`--publish-mastodon-fit` | string | `none` | how the render is made to match mastodon's frame: none, cover, contain or stretch; anything but none needs width and height |
+| `publish.mastodon.fit-background`<br>`CRIER_PUBLISH_MASTODON_FIT_BACKGROUND`<br>`--publish-mastodon-fit-background` | string | `#ffffff` | hex colour behind a contain letterbox for mastodon, and what transparency is flattened onto |
 | `publish.mastodon.height`<br>`CRIER_PUBLISH_MASTODON_HEIGHT`<br>`--publish-mastodon-height` | int | — | render height for mastodon; 0 inherits render.height |
 | `publish.mastodon.overlay`<br>`CRIER_PUBLISH_MASTODON_OVERLAY`<br>`--publish-mastodon-overlay` | list, path | — | template overlays applied for mastodon only, after the global ones |
 | `publish.mastodon.poll-interval`<br>`CRIER_PUBLISH_MASTODON_POLL_INTERVAL`<br>`--publish-mastodon-poll-interval` | duration | `2s` | how often a still-processing attachment is polled |

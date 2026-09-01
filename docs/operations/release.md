@@ -229,6 +229,93 @@ darwin and windows cannot run in the build at all. Proving those falls to the
 release's post-release install matrix, which installs the published asset on
 each runner and runs `crier --version`.
 
+## The release announces itself
+
+Every release posts to Instagram — a feed card and a story — rendered by crier,
+from the binary that release just built. It runs in dispat's `announce` stage,
+which only ever warns, and `announce/announce.sh` exits 0 for every reason not
+to post. **A missing secret can never turn a good release red.**
+
+The card is [`announce/`](../../announce/): a template, a config, a script that
+turns the release-notes variables into its data, and a committed
+[preview](../../announce/preview.png). It carries the version, the first three
+entries of each notes section with a `+N more` when there are more, and all
+three install routes pinned to the version.
+
+### Secrets
+
+| Secret | What it is | Without it |
+| ------ | ---------- | ---------- |
+| `CRIER_PUBLISH_INSTAGRAM_TOKEN` | a long-lived Instagram Graph token — see [Instagram](../publishing/instagram.md) | nothing is posted |
+| `CRIER_PUBLISH_INSTAGRAM_USER_ID` | the Instagram business account id | nothing is posted |
+| `NGROK_AUTHTOKEN` | an ngrok authtoken, for the tunnel | nothing is posted |
+
+The first two are set. **`NGROK_AUTHTOKEN` still has to be added** — until it
+is, every release logs what is missing and skips the announcement.
+
+### Why a tunnel
+
+Instagram does not accept bytes. It takes a public URL and fetches the media
+from its own servers, and a GitHub runner has no public address — so crier
+serves the file itself and ngrok gives that server a URL for the length of the
+run. The workflow installs ngrok only when the secret exists, so a repository
+without one does not spend a minute on apt for nothing.
+
+> **If the containers come back `ERROR`, suspect the tunnel first.** ngrok's
+> free tier serves an interstitial page to first-time visitors, and Meta's
+> fetcher receives that page instead of the image. It is the first thing to
+> check, and it is explained with the alternatives in
+> [tunnels](../staging/tunnels.md).
+
+### Staging somewhere else
+
+`announce.sh` honours the `CRIER_STAGE_*` environment, so a bucket replaces the
+tunnel without editing anything:
+
+```sh
+CRIER_STAGE_MODE=s3
+CRIER_STAGE_S3_ENDPOINT=…
+CRIER_STAGE_S3_BUCKET=…
+CRIER_STAGE_S3_ACCESS_KEY=…
+CRIER_STAGE_S3_SECRET_KEY=…
+```
+
+With `CRIER_STAGE_MODE` set to anything but `server`, `NGROK_AUTHTOKEN` is not
+wanted and its absence is not a reason to skip.
+
+### Turning it off
+
+Remove the Instagram secrets, or drop `announce.sh` from the `announce` script
+in `dispat.yaml` — the two lines above it write the workflow's outputs and are
+what the later jobs need.
+
+### Running it again for a released version
+
+The script reads the release out of its environment, so it can be replayed for
+any version from a checkout with the binaries built:
+
+```sh
+sh cmd/crier/build.sh                     # or download the release's assets
+DISPAT_NEW_VERSION=1.2.3 \
+DISPAT_FEATURES="add streaming
+add retries" \
+DISPAT_FIXES="close a leak" \
+CRIER_PUBLISH_INSTAGRAM_TOKEN=… \
+CRIER_PUBLISH_INSTAGRAM_USER_ID=… \
+NGROK_AUTHTOKEN=… \
+  sh announce/announce.sh
+```
+
+To see the card without posting anything:
+
+```sh
+DISPAT_NEW_VERSION=1.2.3 sh announce/notes.sh |
+  crier render --config announce/crier.yaml --render-data - --render-output card.jpg
+```
+
+The config renders JPEG, because that is what Instagram fetches. Add
+`--render-format png` for a lossless copy.
+
 ## Versioned documentation
 
 On release, copy the tree for the tag:

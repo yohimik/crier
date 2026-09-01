@@ -81,6 +81,14 @@ type Layout struct {
 	Overlay []string
 	Width   int
 	Height  int
+	// Fit is how the render is made to match this platform's frame: none,
+	// cover, contain or stretch. Anything but none turns Width and Height from
+	// "render at this size" into "fit into this size", so the layout is drawn
+	// at the master size and resampled rather than reflowed.
+	Fit string
+	// FitBackground is the colour behind a contain letterbox, and what an
+	// image with transparency is flattened onto.
+	FitBackground string
 }
 
 // HTTP configures the shared HTTP client used by every publisher and stager.

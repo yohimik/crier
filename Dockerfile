@@ -59,6 +59,29 @@ RUN --mount=type=cache,target=/root/.cache/go-build \
     --mount=type=cache,target=/go/pkg/mod \
     golangci-lint run ./...
 
+# --- workflows ----------------------------------------------------------------
+#
+# The workflows are as much a part of the release as the code: the install
+# matrix is what proves a release actually installs, and a typo in an
+# expression there fails at 3am on a tag rather than here. actionlint also
+# knows shellcheck, so the `run:` blocks are checked as shell too.
+FROM source AS actionlint
+ARG ACTIONLINT_VERSION=v1.7.7
+RUN --mount=type=cache,target=/root/.cache/go-build \
+    --mount=type=cache,target=/go/pkg/mod \
+    go install github.com/rhysd/actionlint/cmd/actionlint@${ACTIONLINT_VERSION}
+RUN apk add --no-cache shellcheck >/dev/null && actionlint -color && echo "actionlint: clean"
+
+# --- shell --------------------------------------------------------------------
+#
+# The scripts are the install story and the release announcement, which is to
+# say they are the parts most likely to be run by somebody who cannot debug
+# them.
+FROM source AS shellcheck
+RUN apk add --no-cache shellcheck >/dev/null && \
+    shellcheck install.sh announce/announce.sh announce/notes.sh cmd/crier/build.sh && \
+    echo "shellcheck: clean"
+
 # --- documentation ------------------------------------------------------------
 #
 # docs/configuration/reference/ and crier.example.yaml are generated from the

@@ -121,7 +121,7 @@ var registry = []Descriptor{
 	{Key: "log.format", Kind: KindString, Default: "console", Usage: "log format: console or json"},
 
 	{Key: "render.template", Kind: KindString, Path: true, Usage: "path to the Go html/template file to render"},
-	{Key: "render.data", Kind: KindString, Path: true, Usage: `path to a JSON or YAML data file, or "-" to read it from stdin`},
+	{Key: "render.data", Kind: KindString, Path: true, Usage: `where the template's data comes from: a JSON or YAML file, "-" for stdin, or "env:PREFIX" to build it from the environment`},
 	{Key: "render.css", Kind: KindStrings, Path: true, Usage: "extra stylesheet files applied after the document's own CSS"},
 	{Key: "render.overlays", Kind: KindStrings, Path: true, Usage: `template files parsed after the base one, redefining its {{block}} sections`},
 	{Key: "render.pool", Kind: KindStrings, Path: true, Usage: "a pool of base templates; one is chosen at random per run"},
@@ -288,6 +288,15 @@ func layoutDescriptors(platform string) []Descriptor {
 		{
 			Key: "publish." + platform + ".height", Kind: KindInt,
 			Usage: "render height for " + platform + "; 0 inherits render.height",
+		},
+		{
+			Key: "publish." + platform + ".fit", Kind: KindString, Default: "none",
+			Usage: "how the render is made to match " + platform + "'s frame: " +
+				"none, cover, contain or stretch; anything but none needs width and height",
+		},
+		{
+			Key: "publish." + platform + ".fit-background", Kind: KindString, Default: "#ffffff",
+			Usage: "hex colour behind a contain letterbox for " + platform + ", and what transparency is flattened onto",
 		},
 	}
 }

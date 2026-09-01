@@ -6,6 +6,7 @@ import (
 	"encoding/hex"
 	"fmt"
 	"image"
+	"image/color"
 	"io"
 	"net/url"
 	"os"
@@ -35,18 +36,58 @@ const CleanupTimeout = 10 * time.Second
 // would do.
 type Variant struct {
 	Overlays []string
-	Width    int
-	Height   int
+	// Width and Height are what the layout is drawn at.
+	Width  int
+	Height int
+	// Fit is how the drawn image is then made to match the platform's frame.
+	// FitNone leaves it alone, which is what every platform did before this
+	// existed.
+	Fit config.Fit
+	// FitWidth and FitHeight are that frame. They are the platform's own
+	// width and height, which is why a fitted variant draws at the master size
+	// instead: a story is the square card resampled, not the card reflowed
+	// into a tall box.
+	FitWidth  int
+	FitHeight int
+	// FitBackground is the colour behind a contain letterbox.
+	FitBackground string
 	// Platforms are the publishers this variant is rendered for. It is empty
 	// for the base variant of `crier render`.
 	Platforms []string
 }
 
-// Key identifies a variant. Two platforms with the same overlays and size have
-// the same key and are rendered once.
+// Key identifies a variant. Two platforms that would produce the same file
+// share a key and are rendered and encoded once.
+//
+// The fit is part of the key because it is part of the file: two platforms
+// agreeing about the layout and disagreeing about the frame are two pictures,
+// however much of the work they share.
 func (v Variant) Key() string {
-	sum := sha256.Sum256([]byte(fmt.Sprintf("%v|%d|%d", v.Overlays, v.Width, v.Height)))
+	sum := sha256.Sum256([]byte(fmt.Sprintf("%v|%d|%d|%s|%d|%d|%s",
+		v.Overlays, v.Width, v.Height, v.Fit, v.FitWidth, v.FitHeight, v.FitBackground)))
 	return hex.EncodeToString(sum[:8])
+}
+
+// Fits reports whether this variant reshapes what it drew.
+func (v Variant) Fits() bool {
+	return v.Fit != "" && v.Fit != config.FitNone && v.FitWidth > 0 && v.FitHeight > 0
+}
+
+// OutWidth and OutHeight are the size of what a platform receives, which is
+// the frame when there is one and the render otherwise.
+func (v Variant) OutWidth() int {
+	if v.Fits() {
+		return v.FitWidth
+	}
+	return v.Width
+}
+
+// OutHeight is OutWidth's other half.
+func (v Variant) OutHeight() int {
+	if v.Fits() {
+		return v.FitHeight
+	}
+	return v.Height
 }
 
 // Name is a short label for logs and file names.
@@ -66,8 +107,9 @@ type Pipeline struct {
 	engine *template.Engine
 	fonts  *render.Fonts
 
-	stdin io.Reader
-	dir   string
+	stdin   io.Reader
+	environ []string
+	dir     string
 
 	// template is the layout this run draws, chosen once from render.pool when
 	// there is one, so every variant and every video frame uses the same one.
@@ -82,6 +124,9 @@ type PipelineOptions struct {
 	Logger zerolog.Logger
 	Client *httpx.Client
 	Stdin  io.Reader
+	// Environ is where an `env:` data source reads from. Nil means the process
+	// environment.
+	Environ []string
 	// Dir is where artifacts are written. Empty makes a temporary one that is
 	// removed on Cleanup.
 	Dir string
@@ -95,12 +140,13 @@ func NewPipeline(o PipelineOptions) (*Pipeline, error) {
 	o.Logger.Info().Int64("seed", rnd.Seed()).Msg("template randomisation seed")
 
 	p := &Pipeline{
-		cfg:    o.Config,
-		log:    o.Logger,
-		client: o.Client,
-		engine: template.NewWithRand(rnd),
-		stdin:  o.Stdin,
-		dir:    o.Dir,
+		cfg:     o.Config,
+		log:     o.Logger,
+		client:  o.Client,
+		engine:  template.NewWithRand(rnd),
+		stdin:   o.Stdin,
+		environ: o.Environ,
+		dir:     o.Dir,
 	}
 	p.template = o.Config.Render.Template
 	if picked, ok := p.engine.Pick(o.Config.Render.Pool); ok {
@@ -163,9 +209,24 @@ func (p *Pipeline) Template() string { return p.template }
 // Data loads the template's data document once, so it can be shared by the
 // layout and by every caption.
 func (p *Pipeline) Data() (any, error) {
-	data, err := template.LoadData(p.cfg.Render.Data, p.stdin)
+	spec := p.cfg.Render.Data
+	data, err := template.LoadData(spec, p.stdin, p.environ)
 	if err != nil {
 		return nil, fail(ExitRender, err)
+	}
+
+	// A prefix that matched nothing is almost always a typo or a variable that
+	// did not survive the shell, and the render that follows would be a card
+	// full of blanks with nothing anywhere saying why.
+	if prefix, ok := template.EnvPrefixOf(spec); ok {
+		names := template.EnvNames(prefix, p.environ)
+		if len(names) == 0 {
+			p.log.Warn().Str("prefix", prefix).
+				Msg("no environment variables carry this prefix; the template will render with no data")
+		} else {
+			p.log.Debug().Str("prefix", prefix).Strs("variables", names).
+				Msg("read the template data from the environment")
+		}
 	}
 	return data, nil
 }
@@ -215,10 +276,20 @@ func Variants(cfg *config.Config, platforms []string) []Variant {
 
 	for _, name := range platforms {
 		l := config.LayoutOf(&cfg.Publish, name)
+		fit, _ := config.ParseFit(fitOf(l))
 		v := Variant{
 			Overlays: append(append([]string(nil), cfg.Render.Overlays...), overlayOf(l)...),
 			Width:    dimensionOr(widthOf(l), cfg.Render.Width),
 			Height:   dimensionOr(heightOf(l), cfg.Render.Height),
+		}
+		if fit != config.FitNone && widthOf(l) > 0 && heightOf(l) > 0 {
+			// The platform's dimensions become the frame, and the layout is
+			// drawn at the master size instead. Reflowing a square card into a
+			// story is a different picture; resampling it is the one asked for.
+			v.Fit = fit
+			v.FitWidth, v.FitHeight = widthOf(l), heightOf(l)
+			v.FitBackground = fitBackgroundOf(l)
+			v.Width, v.Height = cfg.Render.Width, cfg.Render.Height
 		}
 		key := v.Key()
 		if existing, ok := byKey[key]; ok {
@@ -242,6 +313,20 @@ func overlayOf(l *config.Layout) []string {
 		return nil
 	}
 	return l.Overlay
+}
+
+func fitOf(l *config.Layout) string {
+	if l == nil {
+		return ""
+	}
+	return l.Fit
+}
+
+func fitBackgroundOf(l *config.Layout) string {
+	if l == nil {
+		return ""
+	}
+	return l.FitBackground
 }
 
 func widthOf(l *config.Layout) int {
@@ -307,6 +392,7 @@ func (p *Pipeline) Render(ctx context.Context, v Variant, data any, formats []co
 	if err != nil {
 		return out, err
 	}
+	img = p.applyFit(v, img)
 	enc := p.encoder()
 	for _, format := range formats {
 		art, err := enc.Encode(img, format, v.Key())
@@ -438,6 +524,35 @@ func (p *Pipeline) fromFrames(ctx context.Context, v Variant) (Artifacts, error)
 	return out, nil
 }
 
+// applyFit reshapes a rendered image to the platform's frame.
+//
+// It runs after the layout and before the encoder, so every format a variant
+// produces is the same picture — and so the file a platform receives is
+// already the size it wanted, rather than something it will crop on its own
+// servers without saying where.
+func (p *Pipeline) applyFit(v Variant, img *image.RGBA) *image.RGBA {
+	if !v.Fits() || img == nil {
+		return img
+	}
+	bg, err := config.ParseColor(v.FitBackground)
+	if err != nil {
+		// Validation refused a colour this could not read, so reaching here
+		// means the value came from somewhere validation does not see. White
+		// is the documented default and a wrong background beats no picture.
+		p.log.Warn().Str("colour", v.FitBackground).Err(err).
+			Msg("could not read the fit background; using white")
+		bg = color.RGBA{R: 255, G: 255, B: 255, A: 255}
+	}
+	b := img.Bounds()
+	out := render.FitImage(img, v.FitWidth, v.FitHeight, v.Fit, bg)
+	p.log.Debug().
+		Str("variant", v.Name()).Str("fit", string(v.Fit)).
+		Int("from_width", b.Dx()).Int("from_height", b.Dy()).
+		Int("to_width", v.FitWidth).Int("to_height", v.FitHeight).
+		Msg("fitted the render to the platform's frame")
+	return out
+}
+
 func (p *Pipeline) encoder() render.Encoder {
 	bg, _ := config.ParseColor(p.cfg.Render.Background)
 	return render.Encoder{Dir: p.dir, JPEGQuality: p.cfg.Render.JPEGQuality, Background: bg}
@@ -517,13 +632,27 @@ func (p *Pipeline) renderVideo(ctx context.Context, v Variant, data any) (*rende
 	}
 	bounds := first.Bounds()
 
-	poster, err := p.encoder().Encode(first, config.JPEG, v.Key()+"-poster")
+	// The poster is fitted like the clip, so the still a platform shows before
+	// the video plays is the same shape as the video.
+	poster, err := p.encoder().Encode(p.applyFit(v, first), config.JPEG, v.Key()+"-poster")
 	if err != nil {
 		return nil, nil, fail(ExitRender, err)
 	}
 
 	bg, _ := config.ParseColor(p.cfg.Render.Background)
 	output := filepath.Join(p.dir, v.Key()+render.VideoExt(vid.Format))
+
+	// The frames go to ffmpeg at the size they were drawn, and ffmpeg does the
+	// fitting. Resampling every frame here and then handing ffmpeg the result
+	// would be the same picture and a great deal slower — a filter graph is
+	// what ffmpeg is for.
+	fitFilter := ""
+	if v.Fits() {
+		fitFilter = render.FitFilter(v.FitWidth, v.FitHeight, v.Fit, v.FitBackground)
+		p.log.Debug().Str("variant", v.Name()).Str("fit", string(v.Fit)).
+			Str("filter", fitFilter).Msg("fitting the clip to the platform's frame")
+	}
+
 	art, err := render.EncodeVideo(ctx, render.VideoOptions{
 		Output:     output,
 		Frames:     frames,
@@ -533,6 +662,7 @@ func (p *Pipeline) renderVideo(ctx context.Context, v Variant, data any) (*rende
 		Bin:        vid.FFmpegBin,
 		Preset:     vid.CodecPreset,
 		Format:     vid.Format,
+		FitFilter:  fitFilter,
 		ExtraArgs:  vid.FFmpegArgs,
 		Audio:      vid.Audio,
 		Background: bg,
@@ -545,6 +675,11 @@ func (p *Pipeline) renderVideo(ctx context.Context, v Variant, data any) (*rende
 	})
 	if err != nil {
 		return nil, nil, fail(ExitRender, err)
+	}
+	// The artifact reports the frame's size, not the drawn size: it is what
+	// the file actually is, and what the report tells the operator.
+	if v.Fits() {
+		art.Width, art.Height = v.FitWidth, v.FitHeight
 	}
 	return &art, &poster, nil
 }

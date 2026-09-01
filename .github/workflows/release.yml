@@ -48,10 +48,6 @@ jobs:
       - uses: actions/checkout@v4
         with:
           fetch-depth: 0
-      - uses: actions/setup-go@v5
-        with:
-          go-version: '1.25'
-          check-latest: true
       - name: Set up dispat
         uses: yohimik/dispat@v1
       - run: dispat run vet --since all
@@ -64,24 +60,54 @@ jobs:
     name: Release
     needs: tests
     runs-on: ubuntu-latest
+    outputs:
+      released: ${{ steps.dispat.outputs.released }}
+      version: ${{ steps.dispat.outputs.version }}
     permissions:
       # Writing the changelog commit, the tag, and the release itself — and the
       # remote lock tag dispat takes while it does.
       contents: write
+    # The announcement's secrets live on the job rather than on the step that
+    # uses them, because a step's `if` is evaluated before its own `env` — and
+    # the ngrok install has to be able to ask whether there is a token before
+    # spending a minute on apt.
+    #
+    # Every one is optional. announce.sh says what is missing and exits 0: a
+    # release must not go red for want of a social media token.
+    env:
+      CRIER_PUBLISH_INSTAGRAM_TOKEN: ${{ secrets.CRIER_PUBLISH_INSTAGRAM_TOKEN }}
+      CRIER_PUBLISH_INSTAGRAM_USER_ID: ${{ secrets.CRIER_PUBLISH_INSTAGRAM_USER_ID }}
+      NGROK_AUTHTOKEN: ${{ secrets.NGROK_AUTHTOKEN }}
     steps:
       - uses: actions/checkout@v4
         with:
           fetch-depth: 0
-      - uses: actions/setup-go@v5
-        with:
-          go-version: '1.25'
-          check-latest: true
       - name: Set up dispat
         uses: yohimik/dispat@v1
       # The whole release is one command: version, changelog, commit, tag,
       # build, GitHub release. JSON logging because a released run is one a
-      # machine may want to read back.
+      # machine may want to read back. The outputs come from the package's
+      # announce script.
+      # crier announces its own releases on Instagram, from dispat's announce
+      # stage. Instagram fetches the media from a public URL of its own accord
+      # and a runner has none, so the stage server needs a tunnel — installed
+      # only when there is a token to run it with, since the whole announcement
+      # is skipped without one.
+      - name: Install ngrok
+        if: env.NGROK_AUTHTOKEN != ''
+        run: |
+          set -eu
+          sudo install -m 0755 -d /etc/apt/keyrings
+          curl -fsSL https://ngrok-agent.s3.amazonaws.com/ngrok.asc |
+            sudo gpg --dearmor -o /etc/apt/keyrings/ngrok.gpg
+          echo "deb [signed-by=/etc/apt/keyrings/ngrok.gpg] https://ngrok-agent.s3.amazonaws.com buster main" |
+            sudo tee /etc/apt/sources.list.d/ngrok.list >/dev/null
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq ngrok
+          ngrok version
+
       - name: Release
+        id: dispat
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: dispat --log-format json
@@ -89,6 +115,7 @@ jobs:
   install:
     name: Install the released binary
     needs: release
+    if: needs.release.outputs.released == 'true'
     strategy:
       fail-fast: false
       matrix:
@@ -97,13 +124,81 @@ jobs:
     steps:
       # The release is only finished when the assets it published actually
       # install and run, which is a thing only a fresh machine can answer.
+      # The version is pinned to what this run released: the default
+      # resolution takes the highest stable, which an rc is not.
+      - uses: actions/checkout@v4
       - name: Set up dispat
         uses: yohimik/dispat@v1
       # A crier release carries six binaries, so the asset has to be named: a
       # bare `dispat install` only resolves when a release has exactly one.
-      - name: Install crier
+      # `--as crier-via-dispat` keeps this install apart from the script
+      # installs below, so each route is proven on its own.
+      - name: Install crier with dispat
+        shell: bash
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: dispat install yohimik/crier --asset 'crier-{os}-{arch}'
-      - name: It runs
-        run: crier --version
+        run: dispat install yohimik/crier --asset 'crier-{os}-{arch}' --release "${{ needs.release.outputs.version }}" --as crier-via-dispat --bin-dir ./dispat-bin
+      - name: The dispat install runs
+        shell: bash
+        run: |
+          exe=./dispat-bin/crier-via-dispat
+          [ "$RUNNER_OS" = "Windows" ] && exe="$exe.exe"
+          "$exe" --version
+      # And the platform's own install script — the other half of this
+      # repository's install story.
+      - name: Install crier with install.ps1
+        if: runner.os == 'Windows'
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        shell: pwsh
+        run: |
+          $v = ./install.ps1 -Version '${{ needs.release.outputs.version }}' -BinDir "$env:USERPROFILE\.crier\bin"
+          "version=$v" | Out-File -FilePath $env:GITHUB_OUTPUT -Append
+          "$env:USERPROFILE\.crier\bin" | Out-File -FilePath $env:GITHUB_PATH -Append
+      # And the Unix half of the script story, beside the dispat route.
+      - name: Install crier with install.sh
+        if: runner.os != 'Windows'
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          CRIER_VERSION: ${{ needs.release.outputs.version }}
+          CRIER_BIN_DIR: /tmp/crier-script-install
+        run: |
+          sh ./install.sh
+          /tmp/crier-script-install/crier --version
+      # And the fourth route: the composite action, from the tag this run
+      # published rather than from the workspace. A caller writing
+      # `uses: yohimik/crier@v1.2.3` gets the action.yml and the installer that
+      # shipped in that tag, so that is what this proves — a checkout of the
+      # release itself, used as an action.
+      - name: Check out the released tag
+        uses: actions/checkout@v4
+        with:
+          ref: v${{ needs.release.outputs.version }}
+          path: released
+      - name: Install crier with the composite action
+        id: action
+        uses: ./released
+        with:
+          # Pinned for the same reason as the routes above: the default
+          # resolution takes the highest stable, which a release candidate is
+          # not.
+          version: ${{ needs.release.outputs.version }}
+          bin-dir: ${{ runner.temp }}/crier-action-install
+      # From the action's own path output rather than from PATH: the output is
+      # half its contract, and a workflow that reads it has to get a path that
+      # runs.
+      - name: The action's install runs
+        if: runner.os != 'Windows'
+        shell: bash
+        run: |
+          "${{ steps.action.outputs.path }}" --version
+          [ "${{ steps.action.outputs.version }}" = "${{ needs.release.outputs.version }}" ] ||
+            { echo "the action reported ${{ steps.action.outputs.version }}" >&2; exit 1; }
+      - name: The action's install runs
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          & '${{ steps.action.outputs.path }}' --version
+          if ('${{ steps.action.outputs.version }}' -ne '${{ needs.release.outputs.version }}') {
+            throw "the action reported ${{ steps.action.outputs.version }}"
+          }

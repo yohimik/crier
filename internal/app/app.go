@@ -53,6 +53,9 @@ func (a App) Run(ctx context.Context) int {
 	// Housekeeping first, so a run that ends in a failure still tidies up
 	// after an earlier update.
 	pruneBackup()
+	// Before anything renders: a stock macOS terminal exports LC_CTYPE=UTF-8,
+	// which the text stack would read as the language "utf-8" and crash on.
+	render.NormalizeLocaleEnv()
 
 	name, args := a.dispatch(a.Args)
 

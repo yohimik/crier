@@ -1,0 +1,96 @@
+<!doctype html>
+<html>
+<head>
+<style>
+  /* The release card crier posts about itself. Terminal green on near-black,
+     in the spirit of examples/release-changelog — a release announcement that
+     looks like the thing that cut it. */
+  @font-face { font-family: "Space Mono"; font-weight: 400; src: url("../examples/fonts/space-mono/SpaceMono-Regular.ttf") }
+  @font-face { font-family: "Space Mono"; font-weight: 700; src: url("../examples/fonts/space-mono/SpaceMono-Bold.ttf") }
+
+  html, body { height: 100%; margin: 0 }
+  body { font-family: "Space Mono", monospace }
+
+  .card {
+    width: 100%; height: 100%; box-sizing: border-box;
+    background:
+      repeating-linear-gradient(0deg,
+        rgba(0,255,140,.05) 0px, rgba(0,255,140,.05) 1px,
+        rgba(0,0,0,0) 1px, rgba(0,0,0,0) 4px),
+      #04140c;
+    color: #6cffa8;
+    padding: 64px 60px;
+  }
+
+  .prompt { font-size: 22px; color: #2f7f56 }
+
+  /* The version badge: the one thing a thumbnail has to carry. */
+  .badge {
+    display: inline-block; margin: 14px 0 0 0;
+    background: #6cffa8; color: #04140c;
+    font-size: 62px; font-weight: 700;
+    padding: 6px 22px;
+  }
+
+  .section { margin-top: 34px }
+  .section h2 {
+    font-size: 22px; font-weight: 700; margin: 0 0 10px 0;
+    letter-spacing: 4px; color: #2fd98a;
+  }
+  .section ul { margin: 0; padding: 0; list-style: none }
+  .section li {
+    font-size: 25px; line-height: 1.45; color: #8ff0bd;
+    /* A release subject is as long as somebody wrote it. One line each,
+       ellipsised — see docs/templates/text-overflow.md. */
+    overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  }
+  .section li:before { content: "- "; color: #2f7f56 }
+  .more { color: #2f7f56; font-size: 21px; margin-top: 4px }
+
+  /* Breaking changes are the one section worth a different colour. */
+  .breaking h2 { color: #ff8d6b }
+  .breaking li { color: #ffb9a1 }
+  .breaking li:before { color: #a85138 }
+
+  .install { margin-top: 40px; border-top: 2px solid #14432c; padding-top: 26px }
+  .install h2 {
+    font-size: 22px; font-weight: 700; margin: 0 0 14px 0;
+    letter-spacing: 4px; color: #2fd98a;
+  }
+  .install .cmd {
+    font-size: 19px; line-height: 1.45; color: #b6ffd6; margin-bottom: 10px;
+    /* The pinned curl one-liner is about a hundred characters, which is wider
+       than the card. It wraps rather than ellipsising: an install command with
+       its end cut off is worse than no install command, and this is the line
+       most people will actually try to read. */
+    overflow: hidden; overflow-wrap: break-word;
+    max-lines: 2; continue: discard; block-ellipsis: auto;
+  }
+  .install .cmd + .cmd { margin-top: 2px }
+  .install .cmd span { color: #2f7f56 }
+
+  .footer { margin-top: 34px; font-size: 20px; color: #2f7f56 }
+</style>
+</head>
+<body>
+  <div class="card">
+    <div class="prompt">$ dispat release</div>
+    <div class="badge">v{{ .version }}</div>
+
+    {{ range .sections }}
+    <div class="section{{ if eq .label "BREAKING" }} breaking{{ end }}">
+      <h2>{{ .label }}</h2>
+      <ul>{{ range .items }}<li>{{ . }}</li>{{ end }}</ul>
+      {{ if gt .more 0 }}<div class="more">+{{ .more }} more</div>{{ end }}
+    </div>
+    {{ end }}
+
+    <div class="install">
+      <h2>INSTALL</h2>
+      {{ range .install }}<div class="cmd"><span>$</span> {{ .command }}</div>{{ end }}
+    </div>
+
+    <div class="footer">github.com/yohimik/crier</div>
+  </div>
+</body>
+</html>

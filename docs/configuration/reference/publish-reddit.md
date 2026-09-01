@@ -12,6 +12,8 @@ See [the Reddit guide](../../publishing/reddit.md) for how to get these values.
 | `publish.reddit.client-id`<br>`CRIER_PUBLISH_REDDIT_CLIENT_ID`<br>`--publish-reddit-client-id` | string | — | Reddit script app client id **Secret**: redacted by `crier config`. |
 | `publish.reddit.client-secret`<br>`CRIER_PUBLISH_REDDIT_CLIENT_SECRET`<br>`--publish-reddit-client-secret` | string | — | Reddit script app client secret **Secret**: redacted by `crier config`. |
 | `publish.reddit.enabled`<br>`CRIER_PUBLISH_REDDIT_ENABLED`<br>`--publish-reddit-enabled` | bool | — | publish to Reddit |
+| `publish.reddit.fit`<br>`CRIER_PUBLISH_REDDIT_FIT`<br>`--publish-reddit-fit` | string | `none` | how the render is made to match reddit's frame: none, cover, contain or stretch; anything but none needs width and height |
+| `publish.reddit.fit-background`<br>`CRIER_PUBLISH_REDDIT_FIT_BACKGROUND`<br>`--publish-reddit-fit-background` | string | `#ffffff` | hex colour behind a contain letterbox for reddit, and what transparency is flattened onto |
 | `publish.reddit.flair-id`<br>`CRIER_PUBLISH_REDDIT_FLAIR_ID`<br>`--publish-reddit-flair-id` | string | — | flair template id applied to the post |
 | `publish.reddit.height`<br>`CRIER_PUBLISH_REDDIT_HEIGHT`<br>`--publish-reddit-height` | int | — | render height for reddit; 0 inherits render.height |
 | `publish.reddit.kind`<br>`CRIER_PUBLISH_REDDIT_KIND`<br>`--publish-reddit-kind` | string | `auto` | post kind: auto, image, video or link |

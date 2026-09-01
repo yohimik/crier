@@ -214,6 +214,8 @@ func Bindings(cfg *Config) map[string]Binding {
 		out["publish."+name+".overlay"] = bindStrings(&l.Overlay)
 		out["publish."+name+".width"] = bindInt(&l.Width)
 		out["publish."+name+".height"] = bindInt(&l.Height)
+		out["publish."+name+".fit"] = bindString(&l.Fit)
+		out["publish."+name+".fit-background"] = bindString(&l.FitBackground)
 	}
 
 	// The custom platforms a configuration happens to declare. There are none

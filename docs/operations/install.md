@@ -45,6 +45,74 @@ a bare `dispat install` only resolves when a release has exactly one.
 Before the first stable release, add `--prerelease` — the release candidates
 are prereleases and are skipped by default.
 
+## GitHub Actions
+
+```yaml
+- uses: yohimik/crier@v1
+- run: crier
+```
+
+A composite action that runs the same install script this page describes and
+adds the install directory to `PATH`. It is checked out with the repository it
+lives in, so the installer it runs is the one that shipped in the ref you
+pinned — the action cannot drift from the script it wraps, and nothing is
+downloaded to bootstrap it.
+
+### Inputs
+
+| Input | Default | What it does |
+| ----- | ------- | ------------ |
+| `version` | the latest stable | The version or tag to install: `1.2.3` or `v1.2.3`. |
+| `bin-dir` | `$HOME/.crier/bin` | Where to install. Under `HOME`, so it needs no sudo and behaves the same on all three runner operating systems. |
+| `github-token` | `${{ github.token }}` | Token for the releases API. |
+
+The token only raises the rate limit — crier's releases are public — but a
+shared CI egress address reaches the unauthenticated limit easily, and a
+private fork needs it to read its own releases at all. The default is the
+workflow's own token, so it usually needs no thought.
+
+### Outputs
+
+| Output | What it is |
+| ------ | ---------- |
+| `version` | The version that was installed, resolved. |
+| `path` | The installed binary's full path, `.exe` included on Windows. |
+
+`version` is the script's own stdout, which is why the scripts print the
+version there and everything else to standard error.
+
+```yaml
+- uses: yohimik/crier@v1
+  id: crier
+- run: echo "installed ${{ steps.crier.outputs.version }}"
+- run: ${{ steps.crier.outputs.path }} --version
+```
+
+### `@v1` and the stable line
+
+`@v1` is a moving tag that follows the newest 1.x **stable** release. Scoping
+it that way is deliberate: somebody writing `@v1` asked for the stable line,
+and a release candidate answering that would hand them a prerelease they did
+not ask for.
+
+The consequence is that **`@v1` does not exist until the first stable release**.
+During the release-candidate period, pin the full tag:
+
+```yaml
+- uses: yohimik/crier@v1.0.0-rc.0
+  with:
+    version: 1.0.0-rc.0
+```
+
+Both halves are needed there: the ref chooses which action.yml runs, and
+`version` chooses what it installs — without it the script resolves the latest
+*stable*, which during that period is nothing at all.
+
+### Windows
+
+The same action. It runs `install.ps1` under `pwsh` instead of `install.sh`,
+and `path` comes back with the `.exe`.
+
 ## go install
 
 ```sh

@@ -113,6 +113,14 @@ download() {
 	wget) wget -qO "$2" "$1" ;;
 	esac
 }
+# download_asset fetches an asset API endpoint, which hands over the bytes
+# only for an octet-stream Accept and an authenticated request.
+download_asset() {
+	case "$DOWNLOADER" in
+	curl) curl -fsSL -H "Accept: application/octet-stream" -H "Authorization: Bearer $TOKEN" -o "$2" "$1" ;;
+	wget) wget -qO "$2" --header="Accept: application/octet-stream" --header="Authorization: Bearer $TOKEN" "$1" ;;
+	esac
+}
 
 # json_fields puts one JSON field per line, so the two things this script reads
 # out of the API can be matched with an anchored pattern instead of a parser.
@@ -208,6 +216,17 @@ DIGEST=$(
 	'
 )
 
+# The asset id names the API endpoint that serves the bytes when the request
+# is authenticated — the address a private repository requires, where the
+# public download URL answers with a sign-in page. The id precedes the name in
+# the asset object, so this walk remembers the last id it saw.
+ASSET_ID=$(
+	printf '%s' "$RELEASE" | json_fields | awk -v want="\"name\":\"${ASSET}\"" '
+		/^"id":[0-9]+/ { id = $0; sub(/^"id":/, "", id) }
+		$0 == want { print id; exit }
+	'
+)
+
 # --- download and verify ------------------------------------------------------
 
 if [ -z "$BIN_DIR" ]; then
@@ -232,8 +251,15 @@ TMP="${TARGET}.download.$$"
 trap 'rm -f "$TMP"' EXIT INT TERM
 
 log "downloading ${ASSET} ${VERSION}..."
-download "${DOWNLOAD_URL}/${OWNER}/${REPO}/releases/download/${TAG}/${ASSET}" "$TMP" ||
-	die "download failed: ${ASSET} is not attached to ${TAG}"
+# With a token the bytes come from the asset's API endpoint, which serves
+# private repositories too; without one, from the public download URL.
+if [ -n "$TOKEN" ] && [ -n "$ASSET_ID" ]; then
+	download_asset "${API_URL}/repos/${OWNER}/${REPO}/releases/assets/${ASSET_ID}" "$TMP" ||
+		die "download failed: ${ASSET} (asset ${ASSET_ID}) on ${TAG}"
+else
+	download "${DOWNLOAD_URL}/${OWNER}/${REPO}/releases/download/${TAG}/${ASSET}" "$TMP" ||
+		die "download failed: ${ASSET} is not attached to ${TAG}"
+fi
 
 if [ -z "$DIGEST" ]; then
 	log "warning: the release reports no digest for ${ASSET}; skipping verification"
@@ -257,7 +283,7 @@ log "installed ${TARGET}"
 # A binary built for another platform cannot be run here, and that is the normal
 # case inside a cross-built image rather than something to warn about.
 if [ "$OS" = "$HOST_OS" ] && [ "$ARCH" = "$HOST_ARCH" ]; then
-	"$TARGET" version >&2 || die "the installed binary does not run"
+	"$TARGET" --version >&2 || die "the installed binary does not run"
 fi
 
 # The PATH story, both halves of it. A directory missing from PATH gets the

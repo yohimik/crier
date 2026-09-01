@@ -9,6 +9,8 @@ See [the X guide](../../publishing/x.md) for how to get these values.
 | `publish.x.api-base-url`<br>`CRIER_PUBLISH_X_API_BASE_URL`<br>`--publish-x-api-base-url` | string | `https://api.x.com` | X API base URL |
 | `publish.x.caption`<br>`CRIER_PUBLISH_X_CAPTION`<br>`--publish-x-caption` | string | — | X specific post text |
 | `publish.x.enabled`<br>`CRIER_PUBLISH_X_ENABLED`<br>`--publish-x-enabled` | bool | — | publish to X |
+| `publish.x.fit`<br>`CRIER_PUBLISH_X_FIT`<br>`--publish-x-fit` | string | `none` | how the render is made to match x's frame: none, cover, contain or stretch; anything but none needs width and height |
+| `publish.x.fit-background`<br>`CRIER_PUBLISH_X_FIT_BACKGROUND`<br>`--publish-x-fit-background` | string | `#ffffff` | hex colour behind a contain letterbox for x, and what transparency is flattened onto |
 | `publish.x.height`<br>`CRIER_PUBLISH_X_HEIGHT`<br>`--publish-x-height` | int | — | render height for x; 0 inherits render.height |
 | `publish.x.overlay`<br>`CRIER_PUBLISH_X_OVERLAY`<br>`--publish-x-overlay` | list, path | — | template overlays applied for x only, after the global ones |
 | `publish.x.token`<br>`CRIER_PUBLISH_X_TOKEN`<br>`--publish-x-token` | string | — | X OAuth 2.0 user access token **Secret**: redacted by `crier config`. |

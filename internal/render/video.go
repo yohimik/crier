@@ -40,6 +40,12 @@ type VideoOptions struct {
 	Preset string
 	// Format is mp4 or gif. Empty means mp4.
 	Format string
+	// FitFilter is a video filter chain applied before everything else — the
+	// object-fit for the platform this clip is for. It is a filter expression
+	// rather than an argument list because ffmpeg takes one -vf, and a GIF
+	// already spends it on the palette: the two have to be composed into one
+	// chain rather than passed separately.
+	FitFilter string
 	// ExtraArgs are appended after the preset and before the output.
 	ExtraArgs []string
 	// Audio is an optional audio file mixed in.
@@ -312,9 +318,8 @@ func FFmpegArgs(o VideoOptions) []string {
 		// Audio is dropped rather than refused: a GIF has none, and a
 		// configuration that names an audio file is asking for something the
 		// format cannot carry.
-		args = append(args,
-			"-vf", "split[s0][s1];[s0]palettegen=stats_mode=diff[p];[s1][p]paletteuse=dither=bayer:bayer_scale=3",
-			"-loop", "0")
+		const palette = "split[s0][s1];[s0]palettegen=stats_mode=diff[p];[s1][p]paletteuse=dither=bayer:bayer_scale=3"
+		args = append(args, "-vf", chainFilters(o.FitFilter, palette), "-loop", "0")
 		args = append(args, o.ExtraArgs...)
 		return append(args, o.Output)
 	}
@@ -325,12 +330,30 @@ func FFmpegArgs(o VideoOptions) []string {
 	if o.Audio != "" {
 		args = append(args, "-c:a", "aac", "-b:a", "128k", "-shortest")
 	}
+	// One -vf, whatever wants a place in it. ffmpeg keeps only the last one it
+	// is given, so a second flag would silently discard the first — which is
+	// how a fitted GIF would have come out with the default palette.
+	even := ""
 	if needsEvenSize(o.Preset) && (o.Width%2 != 0 || o.Height%2 != 0) {
 		// yuv420p subsamples chroma, so an odd dimension has nowhere to go.
-		args = append(args, "-vf", "scale=trunc(iw/2)*2:trunc(ih/2)*2")
+		even = "scale=trunc(iw/2)*2:trunc(ih/2)*2"
+	}
+	if chain := chainFilters(o.FitFilter, even); chain != "" {
+		args = append(args, "-vf", chain)
 	}
 	args = append(args, o.ExtraArgs...)
 	return append(args, o.Output)
+}
+
+// chainFilters joins filter expressions with commas, dropping the empty ones.
+func chainFilters(parts ...string) string {
+	var kept []string
+	for _, p := range parts {
+		if strings.TrimSpace(p) != "" {
+			kept = append(kept, p)
+		}
+	}
+	return strings.Join(kept, ",")
 }
 
 // presetArgs is the codec half of the command line.

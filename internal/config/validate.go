@@ -9,6 +9,8 @@ import (
 	"strconv"
 	"strings"
 	"time"
+
+	"github.com/yohimik/crier/internal/template"
 )
 
 // Limits that keep a typo from allocating gigabytes.
@@ -107,6 +109,9 @@ func parseLevelName(s string) (string, error) {
 
 func validateRender(r *Render) error {
 	var errs []error
+	if err := template.CheckEnvPrefix(r.Data); err != nil {
+		errs = append(errs, fmt.Errorf("render.data: %w", err))
+	}
 	if r.Width < 0 || r.Width > MaxDimension {
 		errs = append(errs, invalid("render.width", strconv.Itoa(r.Width),
 			fmt.Sprintf("want 0 to %d", MaxDimension)))
@@ -326,6 +331,7 @@ func validatePublish(p *Publish) []error {
 		if l == nil {
 			continue
 		}
+		errs = append(errs, validateFit(name, l)...)
 		if l.Width < 0 || l.Width > MaxDimension {
 			errs = append(errs, invalid("publish."+name+".width", strconv.Itoa(l.Width),
 				fmt.Sprintf("want 0 to %d", MaxDimension)))
@@ -519,6 +525,35 @@ func validateCustom(p *Publish) []error {
 		default:
 			errs = append(errs, invalid(at+".format", c.Format, "want png or jpeg"))
 		}
+	}
+	return errs
+}
+
+// validateFit checks a platform's object-fit settings.
+//
+// The rule that matters: a fit other than none needs a frame to fit into, and
+// the frame is the platform's own width and height. Without them there is
+// nothing to scale towards, and the run would quietly send the master render —
+// which is exactly the surprise the setting exists to remove.
+func validateFit(name string, l *Layout) []error {
+	var errs []error
+	at := "publish." + name
+
+	fit, ok := ParseFit(l.Fit)
+	if !ok {
+		errs = append(errs, invalid(at+".fit", l.Fit, "want "+strings.Join(FitNames(), ", ")))
+		return errs
+	}
+
+	if fit != FitNone && (l.Width <= 0 || l.Height <= 0) {
+		errs = append(errs, fmt.Errorf(
+			"%s.fit is %s, which needs a frame to fit into: set %s.width and %s.height "+
+				"(they are the target size, not the render size, when a fit is set)",
+			at, fit, at, at))
+	}
+
+	if _, err := ParseColor(l.FitBackground); err != nil {
+		errs = append(errs, invalid(at+".fit-background", l.FitBackground, err.Error()))
 	}
 	return errs
 }

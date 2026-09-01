@@ -10,6 +10,8 @@ See [the Slack guide](../../publishing/slack.md) for how to get these values.
 | `publish.slack.caption`<br>`CRIER_PUBLISH_SLACK_CAPTION`<br>`--publish-slack-caption` | string | — | Slack specific caption |
 | `publish.slack.channel`<br>`CRIER_PUBLISH_SLACK_CHANNEL`<br>`--publish-slack-channel` | string | — | Slack channel ID to post in, such as C0123ABCD; the bot has to be in it |
 | `publish.slack.enabled`<br>`CRIER_PUBLISH_SLACK_ENABLED`<br>`--publish-slack-enabled` | bool | — | publish to Slack |
+| `publish.slack.fit`<br>`CRIER_PUBLISH_SLACK_FIT`<br>`--publish-slack-fit` | string | `none` | how the render is made to match slack's frame: none, cover, contain or stretch; anything but none needs width and height |
+| `publish.slack.fit-background`<br>`CRIER_PUBLISH_SLACK_FIT_BACKGROUND`<br>`--publish-slack-fit-background` | string | `#ffffff` | hex colour behind a contain letterbox for slack, and what transparency is flattened onto |
 | `publish.slack.height`<br>`CRIER_PUBLISH_SLACK_HEIGHT`<br>`--publish-slack-height` | int | — | render height for slack; 0 inherits render.height |
 | `publish.slack.overlay`<br>`CRIER_PUBLISH_SLACK_OVERLAY`<br>`--publish-slack-overlay` | list, path | — | template overlays applied for slack only, after the global ones |
 | `publish.slack.token`<br>`CRIER_PUBLISH_SLACK_TOKEN`<br>`--publish-slack-token` | string | — | Slack bot token (xoxb-…) with files:write and chat:write **Secret**: redacted by `crier config`. |

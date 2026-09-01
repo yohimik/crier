@@ -1,4 +1,8 @@
-/dist/
+# The build script runs with cmd/crier as its working directory, so the six
+# release binaries land in cmd/crier/dist — not at the root. Anchoring this to
+# the root is how v1.0.0-rc.0 came to carry 190MB of binaries in the release
+# commit.
+dist/
 /crier
 /crier.exe
 *.test

@@ -65,6 +65,27 @@ are prereleases, and `dispat install` skips those by default:
 dispat install yohimik/crier --asset 'crier-{os}-{arch}' --prerelease
 ```
 
+### GitHub Actions
+
+```yaml
+- uses: yohimik/crier@v1
+- run: crier
+```
+
+The action installs crier and puts it on `PATH`. It takes `version` (default:
+the latest stable), `bin-dir` and `github-token`, and reports `version` and
+`path`.
+
+**`@v1` appears with the first stable release.** It is a moving tag scoped to
+the stable line, so a release candidate never drags it forward — which means it
+does not exist yet. Until then, pin the full tag:
+
+```yaml
+- uses: yohimik/crier@v1.0.0-rc.0
+```
+
+More: [installing](./docs/operations/install.md#github-actions).
+
 ### go install
 
 ```sh
@@ -153,6 +174,33 @@ crier ping        # 2. are the credentials right? nothing is posted
 crier --dry-run   # 3. what would be sent, still no network
 crier             # 4. post it
 ```
+
+### Or straight from the environment
+
+The same template, with no data file at all. Point `render.data` at a prefix
+and every variable carrying it becomes a value:
+
+```yaml
+# crier.yaml
+render:
+  template: template.html
+  data: env:CARD_
+  width: 1080
+  height: 1080
+  output: card.png
+```
+
+```sh
+CARD_TITLE="crier ships v1" \
+CARD_SUBTITLE="One template, ten platforms, one command." \
+  crier render
+```
+
+`CARD_TITLE` becomes `{{ .title }}` and `CARD_MAIN_TITLE` becomes
+`{{ .main_title }}` — strip the prefix, lower-case the rest, keep the
+underscores. Values are strings exactly as written; anything with structure in
+it still wants a file or `--render-data -`. See
+[the data document](./docs/templates/README.md#the-data-document).
 
 Every option with its default is in
 [`crier.example.yaml`](./crier.example.yaml) — all options at a glance, and

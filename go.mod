@@ -8,6 +8,7 @@ require (
 	github.com/benoitkugler/webrender v0.0.14
 	github.com/minio/minio-go/v7 v7.3.0
 	github.com/rs/zerolog v1.35.1
+	github.com/stretchr/testify v1.12.1
 	github.com/tdewolff/canvas v0.0.0-20260829174008-0338c272fe72
 	github.com/yohimik/dispat/pkg/ccme v1.0.0
 	github.com/yohimik/dispat/pkg/config v1.0.0

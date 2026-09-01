@@ -10,6 +10,8 @@ See [the Telegram guide](../../publishing/telegram.md) for how to get these valu
 | `publish.telegram.caption`<br>`CRIER_PUBLISH_TELEGRAM_CAPTION`<br>`--publish-telegram-caption` | string | — | Telegram specific caption |
 | `publish.telegram.chat-id`<br>`CRIER_PUBLISH_TELEGRAM_CHAT_ID`<br>`--publish-telegram-chat-id` | string | — | Telegram chat id or @channelusername |
 | `publish.telegram.enabled`<br>`CRIER_PUBLISH_TELEGRAM_ENABLED`<br>`--publish-telegram-enabled` | bool | — | publish to Telegram |
+| `publish.telegram.fit`<br>`CRIER_PUBLISH_TELEGRAM_FIT`<br>`--publish-telegram-fit` | string | `none` | how the render is made to match telegram's frame: none, cover, contain or stretch; anything but none needs width and height |
+| `publish.telegram.fit-background`<br>`CRIER_PUBLISH_TELEGRAM_FIT_BACKGROUND`<br>`--publish-telegram-fit-background` | string | `#ffffff` | hex colour behind a contain letterbox for telegram, and what transparency is flattened onto |
 | `publish.telegram.height`<br>`CRIER_PUBLISH_TELEGRAM_HEIGHT`<br>`--publish-telegram-height` | int | — | render height for telegram; 0 inherits render.height |
 | `publish.telegram.overlay`<br>`CRIER_PUBLISH_TELEGRAM_OVERLAY`<br>`--publish-telegram-overlay` | list, path | — | template overlays applied for telegram only, after the global ones |
 | `publish.telegram.token`<br>`CRIER_PUBLISH_TELEGRAM_TOKEN`<br>`--publish-telegram-token` | string | — | Telegram bot token **Secret**: redacted by `crier config`. |

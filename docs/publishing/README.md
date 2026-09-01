@@ -111,6 +111,14 @@ have (`publish.input`) or encode frames you already made
 (`render.video.frames-input`) without rendering anything. See
 [flows](./flows.md).
 
+## One card, many shapes
+
+Two ways to give a platform a different shape: an
+[overlay](../templates/overlays.md) redraws the layout for it, and a
+[fit](../templates/overlays.md#fitting-the-platform) resamples what was drawn.
+`publish.<platform>.fit` is `cover`, `contain` or `stretch`, and Instagram
+stories are what it is for.
+
 ## Animated GIFs
 
 Six of the ten take one: Telegram, Discord, Mastodon, X, Reddit and Slack.

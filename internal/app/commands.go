@@ -64,7 +64,7 @@ func (a App) runRender(ctx context.Context, args []string) error {
 	}
 
 	p, err := NewPipeline(PipelineOptions{
-		Config: s.Config, Logger: s.Log, Client: s.Client, Stdin: a.Stdin,
+		Config: s.Config, Logger: s.Log, Client: s.Client, Stdin: a.Stdin, Environ: a.Environ,
 	})
 	if err != nil {
 		return err
@@ -241,7 +241,7 @@ func (a App) runPublish(ctx context.Context, args []string) error {
 	}
 
 	p, err := NewPipeline(PipelineOptions{
-		Config: cfg, Logger: s.Log, Client: s.Client, Stdin: a.Stdin,
+		Config: cfg, Logger: s.Log, Client: s.Client, Stdin: a.Stdin, Environ: a.Environ,
 	})
 	if err != nil {
 		return err

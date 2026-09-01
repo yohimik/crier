@@ -69,9 +69,14 @@ if ($Version) {
 
 if (-not $Version) {
     Write-Information 'resolving the latest stable release...' -InformationAction Continue
+    # The ForEach-Object is load-bearing: PowerShell 7.6 changed
+    # Invoke-RestMethod to hand a JSON array over as one Object[] instead of
+    # enumerating it, and a page kept whole turns the tag filter below into
+    # member enumeration over every tag on the page. Re-emitting through a
+    # script block enumerates on every PowerShell version.
     $releases = @()
     for ($page = 1; $page -le 3; $page++) {
-        $batch = @(Invoke-RestMethod -Uri "$ApiUrl/repos/$Owner/$Repo/releases?per_page=100&page=$page" -Headers $headers)
+        $batch = @(Invoke-RestMethod -Uri "$ApiUrl/repos/$Owner/$Repo/releases?per_page=100&page=$page" -Headers $headers | ForEach-Object { $_ })
         if ($batch.Count -eq 0) { break }
         $releases += $batch
     }
@@ -120,10 +125,17 @@ $tmp = "$target.download"
 
 Write-Information "downloading $asset $Version..." -InformationAction Continue
 try {
-    # No headers on the download itself, like install.sh: the asset is public,
-    # and the redirect to the storage host rejects the API's Authorization
-    # header on Windows PowerShell 5.1, which forwards it across redirects.
-    Invoke-WebRequest -Uri "$DownloadUrl/$Owner/$Repo/releases/download/$tag/$asset" -OutFile $tmp
+    if ($Token) {
+        # A token sends the download to the asset's API endpoint — the address
+        # that serves a repository the public URL will not — asking for the
+        # bytes themselves rather than the JSON that describes them.
+        $dlHeaders = @{ Accept = 'application/octet-stream'; Authorization = "Bearer $Token" }
+        Invoke-WebRequest -Uri $assetInfo.url -Headers $dlHeaders -OutFile $tmp
+    } else {
+        # No headers on the public download: the redirect to the storage host
+        # rejects a forwarded Authorization header on Windows PowerShell 5.1.
+        Invoke-WebRequest -Uri "$DownloadUrl/$Owner/$Repo/releases/download/$tag/$asset" -OutFile $tmp
+    }
 
     $digest = if ($assetInfo.PSObject.Properties.Name -contains 'digest') { $assetInfo.digest } else { '' }
     if ($digest -match '^sha256:(.+)$') {
@@ -141,7 +153,7 @@ try {
 }
 Write-Information "installed $target" -InformationAction Continue
 
-& $target version | Write-Information -InformationAction Continue
+& $target --version | Write-Information -InformationAction Continue
 
 # The PATH story, both halves of it: a directory missing from PATH gets the
 # one-off assignment and the line that makes it permanent; a directory already

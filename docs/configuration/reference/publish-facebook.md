@@ -9,6 +9,8 @@ See [the Facebook guide](../../publishing/facebook.md) for how to get these valu
 | `publish.facebook.api-base-url`<br>`CRIER_PUBLISH_FACEBOOK_API_BASE_URL`<br>`--publish-facebook-api-base-url` | string | `https://graph.facebook.com/v25.0` | Facebook Graph API base URL |
 | `publish.facebook.caption`<br>`CRIER_PUBLISH_FACEBOOK_CAPTION`<br>`--publish-facebook-caption` | string | — | Facebook specific caption |
 | `publish.facebook.enabled`<br>`CRIER_PUBLISH_FACEBOOK_ENABLED`<br>`--publish-facebook-enabled` | bool | — | publish to a Facebook Page |
+| `publish.facebook.fit`<br>`CRIER_PUBLISH_FACEBOOK_FIT`<br>`--publish-facebook-fit` | string | `none` | how the render is made to match facebook's frame: none, cover, contain or stretch; anything but none needs width and height |
+| `publish.facebook.fit-background`<br>`CRIER_PUBLISH_FACEBOOK_FIT_BACKGROUND`<br>`--publish-facebook-fit-background` | string | `#ffffff` | hex colour behind a contain letterbox for facebook, and what transparency is flattened onto |
 | `publish.facebook.height`<br>`CRIER_PUBLISH_FACEBOOK_HEIGHT`<br>`--publish-facebook-height` | int | — | render height for facebook; 0 inherits render.height |
 | `publish.facebook.overlay`<br>`CRIER_PUBLISH_FACEBOOK_OVERLAY`<br>`--publish-facebook-overlay` | list, path | — | template overlays applied for facebook only, after the global ones |
 | `publish.facebook.page-id`<br>`CRIER_PUBLISH_FACEBOOK_PAGE_ID`<br>`--publish-facebook-page-id` | string | — | Facebook Page id |

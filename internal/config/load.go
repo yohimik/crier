@@ -11,6 +11,7 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/yohimik/crier/internal/template"
 	dispat "github.com/yohimik/dispat/pkg/config"
 )
 
@@ -414,6 +415,12 @@ func anchorPaths(cfg *Config, dir string, fileSettings map[string]any, env, flag
 // an empty value, an absolute path, and the "-" that means standard input.
 func anchorOne(dir, value string) string {
 	if value == "" || value == "-" || filepath.IsAbs(value) {
+		return value
+	}
+	// `env:CARD_` is a source, not a file. Joining it onto the config's
+	// directory would turn it into a path that cannot exist, and the failure
+	// would name a file nobody wrote.
+	if _, ok := template.EnvPrefixOf(value); ok {
 		return value
 	}
 	return filepath.Join(dir, value)

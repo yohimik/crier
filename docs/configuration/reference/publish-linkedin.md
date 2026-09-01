@@ -10,6 +10,8 @@ See [the LinkedIn guide](../../publishing/linkedin.md) for how to get these valu
 | `publish.linkedin.author-urn`<br>`CRIER_PUBLISH_LINKEDIN_AUTHOR_URN`<br>`--publish-linkedin-author-urn` | string | — | author URN, e.g. urn:li:person:XXXX or urn:li:organization:NNNN |
 | `publish.linkedin.caption`<br>`CRIER_PUBLISH_LINKEDIN_CAPTION`<br>`--publish-linkedin-caption` | string | — | LinkedIn specific commentary |
 | `publish.linkedin.enabled`<br>`CRIER_PUBLISH_LINKEDIN_ENABLED`<br>`--publish-linkedin-enabled` | bool | — | publish to LinkedIn |
+| `publish.linkedin.fit`<br>`CRIER_PUBLISH_LINKEDIN_FIT`<br>`--publish-linkedin-fit` | string | `none` | how the render is made to match linkedin's frame: none, cover, contain or stretch; anything but none needs width and height |
+| `publish.linkedin.fit-background`<br>`CRIER_PUBLISH_LINKEDIN_FIT_BACKGROUND`<br>`--publish-linkedin-fit-background` | string | `#ffffff` | hex colour behind a contain letterbox for linkedin, and what transparency is flattened onto |
 | `publish.linkedin.height`<br>`CRIER_PUBLISH_LINKEDIN_HEIGHT`<br>`--publish-linkedin-height` | int | — | render height for linkedin; 0 inherits render.height |
 | `publish.linkedin.overlay`<br>`CRIER_PUBLISH_LINKEDIN_OVERLAY`<br>`--publish-linkedin-overlay` | list, path | — | template overlays applied for linkedin only, after the global ones |
 | `publish.linkedin.token`<br>`CRIER_PUBLISH_LINKEDIN_TOKEN`<br>`--publish-linkedin-token` | string | — | LinkedIn OAuth 2.0 access token **Secret**: redacted by `crier config`. |

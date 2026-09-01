@@ -9,6 +9,8 @@ See [the TikTok guide](../../publishing/tiktok.md) for how to get these values.
 | `publish.tiktok.api-base-url`<br>`CRIER_PUBLISH_TIKTOK_API_BASE_URL`<br>`--publish-tiktok-api-base-url` | string | `https://open.tiktokapis.com` | TikTok Content Posting API base URL |
 | `publish.tiktok.caption`<br>`CRIER_PUBLISH_TIKTOK_CAPTION`<br>`--publish-tiktok-caption` | string | — | TikTok post description |
 | `publish.tiktok.enabled`<br>`CRIER_PUBLISH_TIKTOK_ENABLED`<br>`--publish-tiktok-enabled` | bool | — | publish to TikTok |
+| `publish.tiktok.fit`<br>`CRIER_PUBLISH_TIKTOK_FIT`<br>`--publish-tiktok-fit` | string | `none` | how the render is made to match tiktok's frame: none, cover, contain or stretch; anything but none needs width and height |
+| `publish.tiktok.fit-background`<br>`CRIER_PUBLISH_TIKTOK_FIT_BACKGROUND`<br>`--publish-tiktok-fit-background` | string | `#ffffff` | hex colour behind a contain letterbox for tiktok, and what transparency is flattened onto |
 | `publish.tiktok.height`<br>`CRIER_PUBLISH_TIKTOK_HEIGHT`<br>`--publish-tiktok-height` | int | — | render height for tiktok; 0 inherits render.height |
 | `publish.tiktok.overlay`<br>`CRIER_PUBLISH_TIKTOK_OVERLAY`<br>`--publish-tiktok-overlay` | list, path | — | template overlays applied for tiktok only, after the global ones |
 | `publish.tiktok.poll-interval`<br>`CRIER_PUBLISH_TIKTOK_POLL_INTERVAL`<br>`--publish-tiktok-poll-interval` | duration | `2s` | how often the publish status is polled |

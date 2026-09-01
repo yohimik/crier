@@ -233,7 +233,7 @@ func TestRenderErrors(t *testing.T) {
 		t.Error("expected a json parse error")
 	}
 
-	if _, err := LoadData(filepath.Join(dir, "missing.yaml"), nil); err == nil {
+	if _, err := LoadData(filepath.Join(dir, "missing.yaml"), nil, nil); err == nil {
 		t.Error("expected a read error")
 	}
 }
@@ -241,7 +241,7 @@ func TestRenderErrors(t *testing.T) {
 func TestLoadDataEmptyAndNested(t *testing.T) {
 	dir := t.TempDir()
 	empty := write(t, dir, "empty.yaml", "   \n")
-	v, err := LoadData(empty, nil)
+	v, err := LoadData(empty, nil, nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -249,12 +249,12 @@ func TestLoadDataEmptyAndNested(t *testing.T) {
 		t.Errorf("empty document should be nil, got %#v", v)
 	}
 
-	if v, err := LoadData("", nil); err != nil || v != nil {
+	if v, err := LoadData("", nil, nil); err != nil || v != nil {
 		t.Errorf("no path means no data: %v %v", v, err)
 	}
 
 	nested := write(t, dir, "n.yaml", "a:\n  1: one\n  b:\n    - c: d\n")
-	v, err = LoadData(nested, nil)
+	v, err = LoadData(nested, nil, nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -285,10 +285,10 @@ func TestLoadDataTooLarge(t *testing.T) {
 		big[i] = 'a'
 	}
 	p := write(t, dir, "big.yaml", string(big))
-	if _, err := LoadData(p, nil); err == nil || !strings.Contains(err.Error(), "larger than") {
+	if _, err := LoadData(p, nil, nil); err == nil || !strings.Contains(err.Error(), "larger than") {
 		t.Errorf("err = %v", err)
 	}
-	if _, err := LoadData(StdinName, strings.NewReader(string(big))); err == nil {
+	if _, err := LoadData(StdinName, strings.NewReader(string(big)), nil); err == nil {
 		t.Error("stdin should be bounded too")
 	}
 }

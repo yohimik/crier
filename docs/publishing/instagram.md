@@ -99,4 +99,23 @@ because the media id is not the shortcode and `instagram.com/p/<media-id>` is a
 404. A permalink lookup that fails is logged and the post is still reported as
 published: the post exists, and no link is better than one that goes nowhere.
 
+## Stories are 1080×1920
+
+Instagram crops whatever it is given to the story shape on its own servers, and
+does not say where it cut. `fit: cover` does the cropping here instead:
+
+```yaml
+publish:
+  instagram:
+    story: true
+    width: 1080
+    height: 1920
+    fit: cover
+```
+
+The card is drawn at `render.width` × `render.height` and resampled into the
+story frame, so the design everyone approved is the design that goes out — with
+the middle kept and the edges lost, visibly and on purpose. See
+[fitting the platform](../templates/overlays.md#fitting-the-platform).
+
 Configuration keys: [`publish.instagram.*`](../configuration/reference/publish-instagram.md).
