@@ -275,6 +275,22 @@ func (a App) runPublish(ctx context.Context, args []string) error {
 		}
 	}
 
+	// The same check for a file that was handed to crier rather than made by
+	// it. Its kind is whatever its bytes say, and a platform that cannot take
+	// that kind should be told before anything is staged.
+	if mode == ModePublishInput {
+		art, err := LoadInput(cfg.Publish.Input)
+		if err != nil {
+			return err
+		}
+		for _, pub := range publishers {
+			if !pub.Needs().Accepts(art.Kind) {
+				return failf(ExitConfig, "publish.input is %s and %s cannot post one",
+					describeKind(art.Kind), pub.Name())
+			}
+		}
+	}
+
 	// A platform that can only be given a URL, with nothing configured to
 	// produce one, is a configuration mistake rather than a publish failure —
 	// and saying so now saves the render as well as the confusion.
@@ -398,6 +414,18 @@ func (a App) stager(cfg *config.Config, s *setup, p *Pipeline) (stage.Stager, er
 	}
 	p.onCleanup(st.Close)
 	return st, nil
+}
+
+// describeKind names an artifact kind the way a sentence wants it.
+func describeKind(kind render.Kind) string {
+	switch kind {
+	case render.KindGIF:
+		return "an animated GIF"
+	case render.KindVideo:
+		return "a video"
+	default:
+		return "an image"
+	}
 }
 
 func sortedArtifacts(a Artifacts) []render.Artifact {

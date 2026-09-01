@@ -192,8 +192,12 @@ type Artifacts struct {
 // the preferred still otherwise.
 func (a Artifacts) Primary(needs publish.Needs) (render.Artifact, error) {
 	if a.Video != nil {
-		if !needs.Accepts(render.KindVideo) {
-			return render.Artifact{}, fmt.Errorf("this platform does not take video")
+		// The artifact's own kind, not KindVideo: a GIF lives in this field
+		// too, and four platforms take a video and not an animation. Asking
+		// the wrong question here would upload a GIF to Instagram as if it
+		// were an MP4.
+		if !needs.Accepts(a.Video.Kind) {
+			return render.Artifact{}, fmt.Errorf("this platform does not take %s", a.Video.Kind)
 		}
 		return *a.Video, nil
 	}
