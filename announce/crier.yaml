@@ -87,6 +87,11 @@ publish:
     # died). The Facebook-login flavour, a Page token, would use the
     # registry's graph.facebook.com default instead.
     api-base-url: https://graph.instagram.com/v25.0
+    # Meta takes its time fetching and processing a busy release — v1.0.0's
+    # five pages and a clip all timed out at the default two minutes while
+    # Meta was digesting a day of release candidates. Five minutes is patience,
+    # not hope: a container that will finish usually does so well within it.
+    poll-timeout: 5m
     # No width, height or fit here: the feed post is the card as it was drawn.
     #
     # No max-attachments either. A feed post takes ten, which is the same as

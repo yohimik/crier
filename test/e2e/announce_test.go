@@ -671,6 +671,11 @@ func TestAnnouncePostsFeedThenStory(t *testing.T) {
 		if !strings.Contains(stderr, "rendering the linkedin reel") {
 			t.Errorf("the reel render should be logged: %s", stderr)
 		}
+		// However long the changelog grows, the commentary fits LinkedIn's
+		// cap: v1.0.0's graduation caption was refused at 4408 characters.
+		if n := len([]rune(liPosts[0].Commentary)); n > 4000 {
+			t.Errorf("the commentary is %d characters; linkedin refuses past 4000", n)
+		}
 	} else {
 		if len(liPosts) != 1 {
 			t.Fatalf("made %d linkedin posts, want one album", len(liPosts))

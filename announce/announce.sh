@@ -101,7 +101,8 @@ anthem_dir=""
 # what every pass checks rather than assuming a file is there.
 anthem_mp4=""
 reel_mp4=""
-trap 'rm -rf "$data" "$frames_dir" "$cover_data" "$updates_data" "$anthem_dir"' EXIT
+li_notes_data=""
+trap 'rm -rf "$data" "$frames_dir" "$cover_data" "$updates_data" "$anthem_dir" "$li_notes_data"' EXIT
 sh "$here/notes.sh" >"$data"
 
 # --- staging ------------------------------------------------------------------
@@ -360,7 +361,15 @@ linkedin_post() {
 		post "linkedin post" "$data" "$@"
 		return $?
 	fi
-	if ! post "linkedin post" "$data" "$@" --publish-input "$reel_mp4"; then
+	# The reel's caption gets a shorter changelog than the card: the pages in
+	# the clip carry the full list, and v1.0.0's caption ran a whole rc train
+	# past LinkedIn's 4000-character cap and was refused outright. Eight a
+	# section and "and N more" keeps the text a summary of the film above it;
+	# crier cuts at the cap as the last line of defence either way.
+	li_notes=$(mktemp)
+	li_notes_data=$li_notes
+	ANNOUNCE_MAX_ITEMS=${ANNOUNCE_LINKEDIN_MAX_ITEMS:-8} sh "$here/notes.sh" >"$li_notes"
+	if ! post "linkedin post" "$li_notes" "$@" --publish-input "$reel_mp4"; then
 		# A member token posts text and images, but the video API is a
 		# partner product (LinkedIn's Community Management API) that some
 		# tokens do not carry: rc.11's clip was refused with 403

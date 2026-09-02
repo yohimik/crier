@@ -68,6 +68,32 @@ func (l *LinkedIn) Needs() Needs {
 }
 
 // rest starts a request with the headers LinkedIn insists on.
+// LinkedInCommentaryMax is LinkedIn's hard cap on a post's commentary, in
+// characters, counted after escaping. v1.0.0's graduation collected a whole
+// rc train into the caption's changelog and the post was refused at 4408:
+// "ShareCommentary text length exceeded the maximum allowed (4000)".
+const LinkedInCommentaryMax = 4000
+
+// commentary escapes the caption and, when even a caption worth posting runs
+// past LinkedIn's cap, cuts it at the last whole line that fits and says so.
+// A trimmed changelog reaches people; a refused post reaches nobody.
+func (l *LinkedIn) commentary(caption string) string {
+	c := escapeLittleText(caption)
+	if len([]rune(c)) <= LinkedInCommentaryMax {
+		return c
+	}
+	marker := "\n…"
+	runes := []rune(c)
+	cut := LinkedInCommentaryMax - len([]rune(marker))
+	kept := string(runes[:cut])
+	if nl := strings.LastIndex(kept, "\n"); nl > 0 {
+		kept = kept[:nl]
+	}
+	l.log.Warn().Int("length", len(runes)).Int("max", LinkedInCommentaryMax).
+		Msg("the caption runs past linkedin's commentary cap and was cut at the last line that fits")
+	return kept + marker
+}
+
 // escapeLittleText escapes the characters LinkedIn's "little text format"
 // treats as markup. Commentary is parsed, not displayed: an unescaped
 // parenthesis or pipe is a syntax token, and rc.15's post showed only the
@@ -174,7 +200,7 @@ func (l *LinkedIn) Publish(ctx context.Context, in Input) (Result, error) {
 
 	body := map[string]any{
 		"author":                    l.cfg.AuthorURN,
-		"commentary":                escapeLittleText(in.Caption),
+		"commentary":                l.commentary(in.Caption),
 		"visibility":                "PUBLIC",
 		"distribution":              map[string]any{"feedDistribution": "MAIN_FEED"},
 		"content":                   content,

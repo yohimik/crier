@@ -1672,3 +1672,36 @@ func TestLinkedInEscapesTheCommentary(t *testing.T) {
 		t.Errorf("escaped = %q, want %q", got, want)
 	}
 }
+
+// TestLinkedInCommentaryIsCutAtTheCap: v1.0.0's graduation put a whole rc
+// train into the caption and LinkedIn refused the post at 4408 characters
+// against its cap of 4000. Past the cap the commentary is cut at the last
+// whole line that fits, because a trimmed changelog reaches people and a
+// refused post reaches nobody. Under the cap, nothing is touched.
+func TestLinkedInCommentaryIsCutAtTheCap(t *testing.T) {
+	l := &LinkedIn{log: zerolog.Nop()}
+
+	short := "a caption\nwith lines"
+	if got := l.commentary(short); got != short {
+		t.Errorf("a short caption changed: %q", got)
+	}
+
+	var b strings.Builder
+	line := "- a changelog entry, padded out a little\n"
+	for b.Len() < 5*LinkedInCommentaryMax {
+		b.WriteString(line)
+	}
+	got := l.commentary(b.String())
+	if n := len([]rune(got)); n > LinkedInCommentaryMax {
+		t.Fatalf("commentary is %d runes, past the cap of %d", n, LinkedInCommentaryMax)
+	}
+	if !strings.HasSuffix(got, "\n…") {
+		t.Errorf("a cut commentary should end by saying so: %q", got[len(got)-20:])
+	}
+	// Cut between lines, not through one: the second-to-last line is intact.
+	lines := strings.Split(strings.TrimSuffix(got, "\n…"), "\n")
+	last := lines[len(lines)-1]
+	if !strings.HasSuffix(last, "padded out a little") {
+		t.Errorf("the cut went through a line: %q", last)
+	}
+}
