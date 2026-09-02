@@ -153,6 +153,80 @@ func TestMusicForIsSilentWhereItCannotWork(t *testing.T) {
 	}
 }
 
+// TestCheckMusicOneRowPerKey: the report has a row per line the operator
+// wrote, so a broken override says which line to change.
+func TestCheckMusicOneRowPerKey(t *testing.T) {
+	shared := musicArtifact(t)
+	own := writeAudio(t, "telegram.ogg", audioBytes["ogg"])
+
+	cfg := config.Defaults()
+	cfg.Publish.MusicFile = shared
+	cfg.Publish.Telegram.Music.File = own
+	cfg.Publish.Telegram.Enabled = true
+	cfg.Publish.Discord.Enabled = true
+	cfg.Publish.Instagram.Enabled = true
+
+	got := CheckMusic(&cfg)
+	if len(got) != 2 {
+		t.Fatalf("got %d rows, want the shared file and telegram's own: %+v", len(got), got)
+	}
+	if got[0].Key != "publish.music-file" || got[0].Audio.Format != "mp3" {
+		t.Errorf("shared row = %+v", got[0])
+	}
+	// Telegram named its own, so the shared file reaches Discord alone.
+	// Instagram is enabled and cannot carry audio, so it appears nowhere.
+	if len(got[0].Platforms) != 1 || got[0].Platforms[0] != "discord" {
+		t.Errorf("the shared file reaches %v, want discord alone", got[0].Platforms)
+	}
+	if got[1].Key != "publish.telegram.music-file" || got[1].Audio.Format != "ogg" {
+		t.Errorf("telegram row = %+v", got[1])
+	}
+	if !got[1].Reaches() || !strings.Contains(got[1].Describe(), "telegram") {
+		t.Errorf("telegram row = %+v, %q", got[1], got[1].Describe())
+	}
+}
+
+// TestCheckMusicSaysWhenNothingCarriesIt: the file is fine and the run around
+// it will post no audio at all, which is the finding worth reporting.
+func TestCheckMusicSaysWhenNothingCarriesIt(t *testing.T) {
+	cfg := config.Defaults()
+	cfg.Publish.MusicFile = musicArtifact(t)
+	cfg.Publish.X.Enabled = true
+
+	got := CheckMusic(&cfg)
+	if len(got) != 1 {
+		t.Fatalf("rows = %+v", got)
+	}
+	if got[0].Err != nil || got[0].Reaches() {
+		t.Errorf("row = %+v", got[0])
+	}
+	if !strings.Contains(got[0].Describe(), "no enabled platform can carry it") {
+		t.Errorf("describe = %q", got[0].Describe())
+	}
+}
+
+func TestCheckMusicReportsAFileItCannotRead(t *testing.T) {
+	cfg := config.Defaults()
+	cfg.Publish.MusicFile = filepath.Join(t.TempDir(), "nowhere.mp3")
+	cfg.Publish.Discord.Enabled = true
+
+	got := CheckMusic(&cfg)
+	if len(got) != 1 || got[0].Err == nil {
+		t.Fatalf("rows = %+v", got)
+	}
+	if got[0].Describe() != "" {
+		t.Errorf("a broken file should describe nothing, got %q", got[0].Describe())
+	}
+}
+
+func TestCheckMusicIsEmptyWhenNoneIsConfigured(t *testing.T) {
+	cfg := config.Defaults()
+	cfg.Publish.Discord.Enabled = true
+	if got := CheckMusic(&cfg); len(got) != 0 {
+		t.Errorf("rows = %+v, want none", got)
+	}
+}
+
 func TestMusicForWithNothingConfigured(t *testing.T) {
 	cfg := config.Defaults()
 	got, err := MusicFor(&cfg, "telegram")

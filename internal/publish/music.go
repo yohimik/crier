@@ -86,8 +86,10 @@ func SniffAudio(path string) (AudioFile, error) {
 
 	format, contentType := sniffAudioBytes(head)
 	if format == "" {
+		// The reason comes before the path: a report column is narrow, and a
+		// long temporary path would push the only useful half off the end.
 		return AudioFile{}, fmt.Errorf(
-			"%s does not begin like an audio file; crier recognises mp3, m4a, ogg and wav", path)
+			"does not begin like an audio file; crier recognises mp3, m4a, ogg and wav: %s", path)
 	}
 	return AudioFile{
 		Path:        path,
@@ -163,4 +165,78 @@ func musicKeyFor(p *config.Publish, platform string) string {
 // platform wants it in.
 func (a AudioFile) Part(field string) httpx.Part {
 	return httpx.FilePart(field, a.Path, a.ContentType)
+}
+
+// MusicCheck is one audio file the configuration names, and what came of
+// looking at it.
+type MusicCheck struct {
+	// Key is the configuration key the path was written in.
+	Key string
+	// Path is the file the key named.
+	Path string
+	// Audio is what the file turned out to be, when it could be read.
+	Audio AudioFile
+	// Platforms are the enabled platforms this file will reach, in the order
+	// they are documented. An empty list is the whole point of the check: a
+	// track configured for a run that will post it nowhere.
+	Platforms []string
+	// Err is why the file cannot be used.
+	Err error
+}
+
+// CheckMusic looks at every audio file a configuration names.
+//
+// It is what `crier ping` reports and what the publish command warns from. The
+// question it answers is the one a credential check answers for a token: is
+// this going to work, asked before the post rather than after it.
+func CheckMusic(cfg *config.Config) []MusicCheck {
+	enabled := map[string]bool{}
+	for _, name := range Enabled(cfg) {
+		enabled[name] = true
+	}
+
+	// A platform naming its own file does not take the shared one, so the two
+	// rows never claim the same platform.
+	var own []MusicCheck
+	shared := MusicCheck{Key: "publish.music-file", Path: strings.TrimSpace(cfg.Publish.MusicFile)}
+	for _, name := range config.MusicPlatforms {
+		m := config.MusicOf(&cfg.Publish, name)
+		if m != nil && strings.TrimSpace(m.File) != "" {
+			check := MusicCheck{Key: "publish." + name + ".music-file", Path: strings.TrimSpace(m.File)}
+			if enabled[name] {
+				check.Platforms = []string{name}
+			}
+			own = append(own, check)
+			continue
+		}
+		if shared.Path != "" && enabled[name] {
+			shared.Platforms = append(shared.Platforms, name)
+		}
+	}
+
+	var out []MusicCheck
+	if shared.Path != "" {
+		out = append(out, shared)
+	}
+	out = append(out, own...)
+	for i := range out {
+		audio, err := SniffAudio(out[i].Path)
+		out[i].Audio, out[i].Err = audio, err
+	}
+	return out
+}
+
+// Reaches reports whether any enabled platform will actually post this file.
+func (c MusicCheck) Reaches() bool { return len(c.Platforms) > 0 }
+
+// Describe is the one-line summary of what the file is, for a report.
+func (c MusicCheck) Describe() string {
+	if c.Err != nil {
+		return ""
+	}
+	out := c.Audio.Format + ", " + humanSize(c.Audio.Size)
+	if !c.Reaches() {
+		return out + "; no enabled platform can carry it"
+	}
+	return out + "; " + strings.Join(c.Platforms, ", ")
 }

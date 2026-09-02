@@ -12,6 +12,7 @@ import (
 	"strings"
 	"text/tabwriter"
 
+	"github.com/rs/zerolog"
 	"github.com/yohimik/crier/internal/config"
 	"github.com/yohimik/crier/internal/publish"
 	"github.com/yohimik/crier/internal/render"
@@ -319,6 +320,12 @@ func (a App) runPublish(ctx context.Context, args []string) error {
 		}
 	}
 
+	// A music file nothing will carry is not an error: the platforms it does
+	// reach may simply be turned off today, and refusing the run over it would
+	// be officious. It is worth saying out loud, though, because the alternative
+	// is a silent post and an operator wondering where the track went.
+	warnUnreachableMusic(cfg, s.Log)
+
 	// A platform that can only be given a URL, with nothing configured to
 	// produce one, is a configuration mistake rather than a publish failure —
 	// and saying so now saves the render as well as the confusion.
@@ -431,6 +438,22 @@ func (a App) runPublish(ctx context.Context, args []string) error {
 		return fail(ExitPublish, res.Err())
 	default:
 		return fail(ExitPartial, res.Err())
+	}
+}
+
+// warnUnreachableMusic says so when a configured audio file will reach nothing.
+//
+// Only three platforms have an API that takes an audio file. A run that
+// enables Instagram and X and names a jingle will post no jingle, and nothing
+// else in the run would ever mention it.
+func warnUnreachableMusic(cfg *config.Config, log zerolog.Logger) {
+	for _, c := range publish.CheckMusic(cfg) {
+		if c.Reaches() {
+			continue
+		}
+		log.Warn().Str("key", c.Key).Str("file", c.Path).
+			Strs("carriers", config.MusicPlatforms).
+			Msg("no enabled platform can attach an audio file, so this one will not be posted")
 	}
 }
 

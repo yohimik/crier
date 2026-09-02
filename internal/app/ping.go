@@ -58,12 +58,23 @@ func (a App) runPing(ctx context.Context, args []string) error {
 			strings.Join(config.Platforms, ", "))
 	}
 
+	// The audio is checked first, and on its own. Building a publisher refuses
+	// a file that is not audio, so a check that ran after the build would never
+	// be reached by the very configuration it exists to explain.
+	music := pingMusic(cfg)
+
 	// The same constructors publish uses, so a configuration ping accepts is a
 	// configuration publish would get as far as the network with.
 	publishers, err := publish.Build(cfg, publish.Deps{
 		Client: s.Client, Logger: s.Log, UserAgent: userAgent(), Dir: s.Result.Dir,
 	})
 	if err != nil {
+		// The rows go out anyway: "music failed: jingle.mp3 does not begin like
+		// an audio file" says which line to change, and the joined build error
+		// underneath says the rest.
+		if len(music) > 0 {
+			_ = a.printPing(PingReport{Results: music}, asJSON)
+		}
 		return fail(ExitConfig, err)
 	}
 
@@ -80,6 +91,11 @@ func (a App) runPing(ctx context.Context, args []string) error {
 			Millis:  o.Elapsed.Milliseconds(),
 		})
 	}
+
+	// The audio, for the same reason a token is checked: it is a thing that has
+	// to be right, and finding out from the platform means finding out after
+	// the post.
+	rep.Results = append(rep.Results, music...)
 
 	// Staging is checked too, because a bucket crier cannot write to fails a
 	// publish just as completely as a bad token does — and it fails after the
@@ -108,6 +124,38 @@ func (a App) runPing(ctx context.Context, args []string) error {
 	default:
 		return fail(ExitPartial, pingErr(rep))
 	}
+}
+
+// pingMusic checks the audio files the configuration names, one row each.
+//
+// The file is not a credential, so nothing is asked of any platform: the check
+// is that the file is there, that it can be read, and that its first bytes are
+// one of the containers crier sends. A run with no music configured produces
+// no rows at all, which is why this is not a target that is always present.
+//
+// A file no enabled platform can carry is reported as a success with a note
+// rather than as a failure. The file is fine; the configuration around it is
+// the thing worth looking at, and only the operator can say whether that was
+// the intention.
+func pingMusic(cfg *config.Config) []PingResult {
+	var out []PingResult
+	for _, c := range publish.CheckMusic(cfg) {
+		target := "music"
+		if c.Key != "publish.music-file" {
+			target = "music:" + strings.TrimSuffix(strings.TrimPrefix(c.Key, "publish."), ".music-file")
+		}
+		row := PingResult{Target: target}
+		if c.Err != nil {
+			row.Error = c.Err.Error()
+			out = append(out, row)
+			continue
+		}
+		row.OK = true
+		row.Account = c.Audio.Name
+		row.Note = c.Describe()
+		out = append(out, row)
+	}
+	return out
 }
 
 // pingStage checks the stager when it holds a credential.
