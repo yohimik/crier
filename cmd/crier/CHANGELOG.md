@@ -1,5 +1,25 @@
 # Changelog
 
+## v1.0.0-rc.14 (2026-09-02)
+
+### Fixes
+
+- linkedin urns travel percent-encoded, and ping proves upload ([09c3354](https://github.com/yohimik/crier/commit/09c3354f51299e9ec5c6c5d4d3a3a40a29f0a215)) (by yohimik, Claude Fable 5)
+  Uploads finally succeeded and the release still had no post: Rest.li
+  answers a raw colon in a path with 400 Syntax exception in path
+  variables, and both status polls sent the URN raw. The colons now
+  travel as %3A, and every fake refuses a raw one with LinkedIn's exact
+  400 so this cannot pass a test again. Ping learned the other lesson:
+  identity proved nothing about posting, so it now asks for an upload
+  slot the way a post would and abandons it, and a token that cannot
+  upload fails the gate in the first minute.
+
+### Authors
+
+- yohimik
+- Claude Fable 5
+
+
 ## v1.0.0-rc.13 (2026-09-02)
 
 ### Features
