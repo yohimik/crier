@@ -76,6 +76,10 @@
   }
   body {
     margin: 0;
+    /* Green padding between the text and the page margin: the near-black
+       panel extends past the text on every page, so type never sits against
+       the white frame. The cover height below subtracts it. */
+    padding: 40px 44px;
     font-family: "Space Mono", monospace;
     color: #6cffa8;
   }
@@ -85,7 +89,8 @@
      what pushes the changelog onto page two. */
   .cover {
     position: relative;
-    height: 946px;
+    /* 1080 less the page margins (56 + 78), less the body padding (40 + 40). */
+    height: 866px;
     break-after: page;
   }
 
