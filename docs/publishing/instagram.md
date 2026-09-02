@@ -103,4 +103,20 @@ The card is drawn at `render.width` × `render.height`. It is then resampled int
 
 A feed post takes up to ten images as one carousel. A story takes one, because the Stories API has no carousel: a paged run posts one story per page, in order, each live before the next is created. See [pagination and carousels](../rendering/pagination.md).
 
+## Opening the carousel with a video
+
+Set `publish.instagram.lead-video` and the carousel's first child is a clip, with the pages after it. This is the only way music reaches Instagram: the API takes no audio file and no track id, so a soundtrack has to arrive inside a video.
+
+```yaml
+publish:
+  instagram:
+    lead-video: anthem.mp4
+```
+
+The child container is `video_url` plus `is_carousel_item=true` and carries no `media_type`. It counts as one of the carousel's ten items, so a run with one posts at most nine pages. It is staged like every other Instagram asset, and crier waits for its container to report `FINISHED` before creating the parent, because video children are processed asynchronously.
+
+Instagram crops a carousel to the shape of its **first** item, which with a lead video is the clip. Render the cards to match it.
+
+A story ignores this setting: stories have no carousel. Post the clip as its own story with `publish.input` instead. See [music](./music.md#a-video-that-opens-the-post).
+
 Configuration keys: [`publish.instagram.*`](../configuration/publish/instagram.md).

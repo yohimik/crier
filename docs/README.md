@@ -36,7 +36,7 @@ crier renders an HTML template to an image or a video. It publishes this to ten 
 | [Publishing](./publishing/README.md) | The pipeline, the fan-out, dry runs |
 | [Flows](./publishing/flows.md) | The four ways into the pipeline: full, render-only, publish-only, encode-only |
 | [Instagram](./publishing/instagram.md) · [Facebook](./publishing/facebook.md) · [TikTok](./publishing/tiktok.md) · [Telegram](./publishing/telegram.md) · [X](./publishing/x.md) · [Mastodon](./publishing/mastodon.md) · [Discord](./publishing/discord.md) · [LinkedIn](./publishing/linkedin.md) · [Reddit](./publishing/reddit.md) · [Slack](./publishing/slack.md) | Getting the credentials, and each platform's quirks |
-| [Music](./publishing/music.md) | Attaching an audio file, and why no API names a licensed track |
+| [Music](./publishing/music.md) | Attaching an audio file, opening a post with a video, and why no API names a licensed track |
 | [Custom platforms](./publishing/custom.md) | Any shell script as a platform, and the environment contract |
 
 ## Staging

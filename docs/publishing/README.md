@@ -101,7 +101,7 @@ Six of the ten platforms accept them: Telegram, Discord, Mastodon, X, Reddit and
 
 ## A track with the post
 
-Discord, Slack and Telegram accept an audio file, and TikTok can add a track it picks itself. No API anywhere takes the id of a licensed song, so there is no key for one. See [music](./music.md).
+Discord, Slack and Telegram accept an audio file, and TikTok can add a track it picks itself. No API anywhere takes the id of a licensed song, so there is no key for one. Instagram and Telegram can open a post with a video instead, which is the only way a soundtrack reaches Instagram at all. See [music](./music.md).
 
 ## A platform crier does not have
 

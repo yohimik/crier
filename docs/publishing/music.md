@@ -29,7 +29,7 @@ What is left is an audio file you send yourself, and one TikTok flag that asks T
 | [TikTok](./tiktok.md) | TikTok adds a track it recommends | `auto_add_music` on a photo post |
 | Instagram, Facebook, X, Mastodon, LinkedIn, Reddit | nothing | there is no API for it |
 
-Discord and Slack show a player inline. Telegram renders the audio message as a player under the album.
+Discord and Slack show a player inline. Telegram renders the audio message as a player under the album. Instagram and Facebook get nothing this way, which is what the [lead video](#a-video-that-opens-the-post) is for: a soundtrack reaches Instagram only inside a video.
 
 Telegram is a second message because it has to be. The Bot API groups audio only with other audio, so a track cannot join the album of pictures it belongs to. crier sends the pictures, waits for them to land, and sends the audio next. That message failing is a warning rather than a failure of the post. The pictures are already out, and there is no taking them back.
 
@@ -102,20 +102,73 @@ That is `render.video.audio`, and it is unrelated to `publish.music-file`. One i
 
 A GIF has no audio track, so `render.video.audio` is ignored for one.
 
+## A video that opens the post
+
+This is the other half of the story, and the way a soundtrack reaches Instagram at all.
+
+```yaml
+publish:
+  instagram:
+    lead-video: anthem.mp4
+```
+
+The clip becomes item one of the post. The pages follow it. A reader meets the video first and hears whatever is inside it, which is the only music Instagram will play from an API.
+
+Two platforms take a post of mixed media:
+
+| Platform | What happens | How |
+| --- | --- | --- |
+| [Instagram](./instagram.md) | the carousel's first child is the clip | a `video_url` child container, then the images |
+| [Telegram](./telegram.md) | the album's first item is the clip | an `InputMediaVideo` at the head of the media group |
+| the other eight | nothing | a post there is pictures or a video, never both |
+
+Setting `lead-video` on any of the other eight is a configuration error. The message names the platform and says why.
+
+The clip has to be an MP4. crier reads the first bytes and refuses anything else, for the same reason it does with audio.
+
+### It costs an attachment
+
+Both platforms take ten items, and the clip is one of them. A run with a lead video therefore posts at most nine pages per post. crier reserves the slot rather than refusing the post later, so a long document paginates into posts that fit. See [pagination and carousels](../rendering/pagination.md).
+
+Every post of a sequence opens with the clip, not only the first. A reader meets each post on its own, and one that began with a page out of the middle would be the only one without an opening.
+
+A single page plus a lead video is still a carousel of two. That is the point: one card and one clip are two items.
+
+### Instagram
+
+The child container is `video_url` plus `is_carousel_item=true`, and nothing else. It carries no `media_type`: that parameter names a container kind, and its documented values are `CAROUSEL`, `REELS` and `STORIES`. `VIDEO` is no longer one of them, and a reel is refused inside a carousel outright, so Meta infers the kind from which URL was sent. A child carries no caption either, which Meta does not accept.
+
+Instagram fetches the clip from a public URL like everything else it posts, so the lead video is staged the way the pages are. See [staging](../staging/README.md).
+
+Video children are processed asynchronously. crier waits for the clip's container to report `FINISHED` before it creates the parent, which is the same wait every container gets.
+
+One thing worth knowing about the shape: Instagram crops a carousel to the aspect ratio of its **first** item. With a lead video, that first item is the clip, so the clip's shape decides how the cards beside it are cropped. Render them to match.
+
+Stories have no carousel, so a story pass ignores `lead-video` and says so in the log. Post the clip as its own story instead, with `publish.input`.
+
+### Telegram
+
+The clip is an `InputMediaVideo` at the head of the media group, which is the one Telegram shape that mixes a video with photos. Telegram takes the bytes, so nothing is staged.
+
+The caption belongs to an album's first item, so with a lead video the caption travels with the clip. It still appears under the album exactly as before.
+
+The audio file takes nothing away from this. `music-file` is a message of its own after the album, so a Telegram post can open with a clip and still have a track playing under it.
+
 ## Check it
 
 ```sh
 crier ping
 ```
 
-A configured music file gets a row of its own. The row says the file was found, which container it is, how large it is, and which enabled platforms will carry it:
+A configured music file gets a row of its own, and so does a lead video. The row says the file was found, what it is, how large it is, and which enabled platforms will carry it:
 
 ```
-TARGET          STATUS  ACCOUNT      MS  DETAIL
-music           ok      jingle.mp3   0   mp3, 412.0kB; discord, slack
-music:telegram  ok      long.mp3     0   m4a, 2.1MB; telegram
+TARGET                STATUS  ACCOUNT      MS  DETAIL
+music                 ok      jingle.mp3   0   mp3, 412.0kB; discord, slack
+music:telegram        ok      long.mp3     0   m4a, 2.1MB; telegram
+lead-video:instagram  ok      anthem.mp4   0   mp4, 4.2MB; opens the instagram post
 ```
 
 One row per key, so a broken override says which line to change. Nothing is uploaded and nothing is posted.
 
-Configuration keys: [`publish.music-file`](../configuration/publish/README.md), and `publish.<platform>.music-file` on each platform's page.
+Configuration keys: [`publish.music-file`](../configuration/publish/README.md), and `publish.<platform>.music-file` and `publish.<platform>.lead-video` on each platform's page.

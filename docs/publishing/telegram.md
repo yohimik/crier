@@ -56,4 +56,8 @@ Several images go as one album through `sendMediaGroup`, up to ten, with the cap
 
 Set `publish.music-file` and the track goes out as a `sendAudio` message immediately after the post, in the same chat, which clients render as a player under the album. It has to be its own message: the Bot API groups audio only with other audio, so a track cannot join an album of pictures. That message failing is a warning, not a failed post. See [music](./music.md).
 
+## Opening with a video
+
+Set `publish.telegram.lead-video` and the album opens with the clip: an `InputMediaVideo` at the head of the media group, which is the one Telegram shape that mixes a video with photos. It takes one of the album's ten slots, and the caption travels with it because an album's caption belongs to its first item. A post can open with a clip and still carry a track after it. See [music](./music.md#a-video-that-opens-the-post).
+
 Configuration keys: [`publish.telegram.*`](../configuration/publish/telegram.md).
