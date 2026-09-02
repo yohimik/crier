@@ -55,9 +55,16 @@ func newLinkedIn(cfg *config.Config, d Deps) (Publisher, error) {
 // Name implements Publisher.
 func (l *LinkedIn) Name() string { return "linkedin" }
 
+// LinkedInImageMax is how many images one multi-image post holds.
+//
+// The API also sets a minimum of two, and a single image uses a different
+// content shape entirely, so a batch of one takes the single-image path rather
+// than a multiImage of one.
+const LinkedInImageMax = 20
+
 // Needs implements Publisher.
 func (l *LinkedIn) Needs() Needs {
-	return Needs{Formats: imageFormats, Kinds: imageAndVideo}
+	return Needs{Formats: imageFormats, Kinds: imageAndVideo, MaxAttachments: LinkedInImageMax}
 }
 
 // rest starts a request with the headers LinkedIn insists on.
@@ -96,18 +103,47 @@ type liPost struct {
 }
 
 // Publish uploads the media and creates the post.
+//
+// One image and several are two different posts as far as LinkedIn is
+// concerned: content.media carries one, content.multiImage carries two to
+// twenty, and a multiImage of one is refused. So the shape is chosen by how
+// many pages the batch holds rather than by a flag.
 func (l *LinkedIn) Publish(ctx context.Context, in Input) (Result, error) {
-	var (
-		urn string
-		err error
-	)
-	if in.Artifact.Kind == render.KindVideo {
-		urn, err = l.uploadVideo(ctx, in.Artifact)
-	} else {
-		urn, err = l.uploadImage(ctx, in.Artifact)
+	arts := in.Sequence()
+	if len(arts) > LinkedInImageMax {
+		return Result{}, fmt.Errorf("a linkedin multi-image post holds %d images and this one has %d",
+			LinkedInImageMax, len(arts))
 	}
-	if err != nil {
-		return Result{}, err
+
+	content := map[string]any{}
+	var urns []string
+	switch {
+	case len(arts) > 1:
+		images := make([]map[string]any, 0, len(arts))
+		for n, a := range arts {
+			urn, err := l.uploadImage(ctx, a)
+			if err != nil {
+				return Result{}, fmt.Errorf("image %d of %d: %w", n+1, len(arts), err)
+			}
+			urns = append(urns, urn)
+			images = append(images, map[string]any{"id": urn})
+		}
+		content["multiImage"] = map[string]any{"images": images}
+	default:
+		var (
+			urn string
+			err error
+		)
+		if in.Artifact.Kind == render.KindVideo {
+			urn, err = l.uploadVideo(ctx, in.Artifact)
+		} else {
+			urn, err = l.uploadImage(ctx, in.Artifact)
+		}
+		if err != nil {
+			return Result{}, err
+		}
+		urns = append(urns, urn)
+		content["media"] = map[string]any{"id": urn}
 	}
 
 	body := map[string]any{
@@ -115,7 +151,7 @@ func (l *LinkedIn) Publish(ctx context.Context, in Input) (Result, error) {
 		"commentary":                in.Caption,
 		"visibility":                "PUBLIC",
 		"distribution":              map[string]any{"feedDistribution": "MAIN_FEED"},
-		"content":                   map[string]any{"media": map[string]any{"id": urn}},
+		"content":                   content,
 		"lifecycleState":            "PUBLISHED",
 		"isReshareDisabledByAuthor": false,
 	}
@@ -136,7 +172,7 @@ func (l *LinkedIn) Publish(ctx context.Context, in Input) (Result, error) {
 	return Result{
 		ID:    id,
 		URL:   postURL(id),
-		Extra: map[string]string{"mediaUrn": urn},
+		Extra: map[string]string{"mediaUrn": strings.Join(urns, ",")},
 	}, nil
 }
 

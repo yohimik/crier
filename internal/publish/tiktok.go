@@ -24,6 +24,9 @@ const TikTokVideoLimit = 4 << 30
 // chunk allowed past the 64MB ceiling, and it is not allowed past this.
 const TikTokFinalChunkLimit = 128 << 20
 
+// TikTokPhotoMax is how many images one photo post carries.
+const TikTokPhotoMax = 35
+
 // TikTok posts through the Content Posting API.
 //
 // Photos are pulled from a URL; video is pushed in chunks, because
@@ -61,7 +64,12 @@ func (t *TikTok) Name() string { return "tiktok" }
 // uploaded, so it is not. Declaring URL as needed covers the stricter case,
 // and a video-only run simply does not use the staged URL.
 func (t *TikTok) Needs() Needs {
-	return Needs{URL: true, Formats: []config.Format{config.JPEG, config.PNG}, Kinds: imageAndVideo}
+	return Needs{
+		URL:            true,
+		Formats:        []config.Format{config.JPEG, config.PNG},
+		Kinds:          imageAndVideo,
+		MaxAttachments: TikTokPhotoMax,
+	}
 }
 
 type tiktokInit struct {
@@ -134,12 +142,21 @@ func (t *TikTok) publishPhoto(ctx context.Context, in Input) (string, error) {
 	if in.URL == "" {
 		return "", fmt.Errorf("tiktok needs a public URL for a photo post; configure stage.mode")
 	}
+	// A photo post is already a list at TikTok, so several pages need no
+	// second shape: they are more entries in the one it always sent.
+	images := in.SequenceURLs()
+	if len(images) > TikTokPhotoMax {
+		return "", fmt.Errorf("a tiktok photo post holds %d images and this one has %d",
+			TikTokPhotoMax, len(images))
+	}
 	body := map[string]any{
 		"post_info": t.postInfo(in),
 		"source_info": map[string]any{
-			"source":            "PULL_FROM_URL",
+			"source": "PULL_FROM_URL",
+			// The cover is chosen by index rather than by position, and the
+			// first page is the one that reads as the cover.
 			"photo_cover_index": 0,
-			"photo_images":      []string{in.URL},
+			"photo_images":      images,
 		},
 		"post_mode":  "DIRECT_POST",
 		"media_type": "PHOTO",

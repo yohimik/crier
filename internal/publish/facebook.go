@@ -41,7 +41,12 @@ func newFacebook(cfg *config.Config, d Deps) (Publisher, error) {
 // Name implements Publisher.
 func (f *Facebook) Name() string { return "facebook" }
 
-// FacebookPhotoMax is how many photos one Page post carries.
+// FacebookPhotoMax is how many photos crier will attach to one Page post.
+//
+// Meta documents the mechanism and no limit on it, so this is crier's own
+// ceiling rather than Facebook's: ten matches what the other feed platforms
+// take, and a page list longer than it becomes a second post instead of a
+// request nobody can predict the answer to.
 const FacebookPhotoMax = 10
 
 // Needs implements Publisher.

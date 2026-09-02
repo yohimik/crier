@@ -42,7 +42,13 @@ func newMastodon(cfg *config.Config, d Deps) (Publisher, error) {
 // Name implements Publisher.
 func (m *Mastodon) Name() string { return "mastodon" }
 
-// MastodonMediaMax is how many attachments one status holds.
+// MastodonMediaMax is how many attachments crier puts in one status.
+//
+// The API documents no maximum: each instance advertises its own as
+// max_media_attachments, and four is what mastodon.social and the default
+// configuration allow. crier assumes four rather than asking, so an instance
+// that allows more is served conservatively and one that allows fewer needs
+// publish.mastodon.max-attachments set.
 const MastodonMediaMax = 4
 
 // Needs implements Publisher.

@@ -4,51 +4,112 @@
 <style>
   /* The release card crier posts about itself. Terminal green on near-black,
      in the spirit of examples/release-changelog — a release announcement that
-     looks like the thing that cut it. */
+     looks like the thing that cut it.
+
+     It paginates. Page one is the cover: the version badge a thumbnail has to
+     carry, and the install commands pinned to the bottom edge. The changelog
+     flows on from there across as many pages as it needs, under a repeated
+     header and footer drawn in the page margins. A release with nothing much
+     in it is one page and looks exactly as it always did. */
   @font-face { font-family: "Space Mono"; font-weight: 400; src: url("../examples/fonts/space-mono/SpaceMono-Regular.ttf") }
   @font-face { font-family: "Space Mono"; font-weight: 700; src: url("../examples/fonts/space-mono/SpaceMono-Bold.ttf") }
 
-  html, body { height: 100%; margin: 0 }
-  body { font-family: "Space Mono", monospace }
+  /* The page margin is where the running header and footer draw. crier's own
+     injected rule sets the size and leaves the margin to the template, which
+     is what makes this possible at all. */
+  @page {
+    margin: 56px 60px 78px 60px;
 
-  .card {
-    /* position: relative so the install block can pin itself to the bottom
-       edge: a short changelist would otherwise leave it floating mid-card,
-       and a long one would push it against the edge. Absolute positioning
-       rather than a flex column because the layout engine's flexbox is the
-       weaker of the two. */
-    position: relative;
-    width: 100%; height: 100%; box-sizing: border-box;
+    /* The small badge that says which release this is, on every page after
+       the cover. It reads its text from the big badge below, so the two can
+       never disagree. */
+    @top-left {
+      content: string(ver);
+      font-family: "Space Mono", monospace;
+      font-size: 22px; font-weight: 700; color: #2fd98a;
+      letter-spacing: 2px;
+      vertical-align: bottom;
+    }
+    @bottom-left {
+      content: "github.com/yohimik/crier";
+      font-family: "Space Mono", monospace;
+      font-size: 20px; color: #2f7f56;
+      vertical-align: top;
+    }
+    @bottom-right {
+      content: counter(page) " / " counter(pages);
+      font-family: "Space Mono", monospace;
+      font-size: 20px; color: #2f7f56;
+      vertical-align: top;
+    }
+  }
+
+  /* The cover carries its own badge, so it does not need the small one. It
+     also skips the page counter: a release that fits on one page would
+     otherwise announce itself as "1 / 1", which says nothing and looks like a
+     mistake. The domain stays. */
+  @page :first {
+    @top-left { content: none }
+    @bottom-right { content: none }
+  }
+
+  html, body { height: 100%; margin: 0 }
+  /* The background is on the page rather than on a box inside it, so it fills
+     the margins too and the running header and footer sit on the card rather
+     than on white paper. */
+  body {
+    font-family: "Space Mono", monospace;
+    color: #6cffa8;
     background:
       repeating-linear-gradient(0deg,
         rgba(0,255,140,.05) 0px, rgba(0,255,140,.05) 1px,
         rgba(0,0,0,0) 1px, rgba(0,0,0,0) 4px),
       #04140c;
-    color: #6cffa8;
-    padding: 64px 60px;
+  }
+
+  /* The cover is exactly one page of content: 1080 less the page margins.
+     Giving it a height is what pins the install block to the bottom edge and
+     what pushes the changelog onto page two. */
+  .cover {
+    position: relative;
+    height: 946px;
+    break-after: page;
   }
 
   .prompt { font-size: 22px; color: #2f7f56 }
 
-  /* The version badge: the one thing a thumbnail has to carry. */
+  /* The version badge: the one thing a thumbnail has to carry, and the source
+     of the small one in the page margin. */
   .badge {
+    string-set: ver content();
     display: inline-block; margin: 14px 0 0 0;
     background: #6cffa8; color: #04140c;
     font-size: 62px; font-weight: 700;
     padding: 6px 22px;
   }
 
+  .lede {
+    margin-top: 34px; font-size: 27px; line-height: 1.5; color: #8ff0bd;
+    max-width: 820px;
+  }
+
   .section { margin-top: 26px }
   .section h2 {
     font-size: 22px; font-weight: 700; margin: 0 0 10px 0;
     letter-spacing: 4px; color: #2fd98a;
+    /* A heading alone at the foot of a page, with its list overleaf, is the
+       one break this layout must not take. */
+    break-after: avoid;
   }
   .section ul { margin: 0; padding: 0; list-style: none }
   .section li {
     font-size: 25px; line-height: 1.45; color: #8ff0bd;
     /* A release subject is as long as somebody wrote it. One line each,
-       ellipsised — see docs/templates/text-overflow.md. */
+       ellipsised — see docs/templates/text-overflow.md. Pagination gives the
+       card more room for entries, not for longer ones: a wall of wrapped
+       prose is not what anybody reads a release card for. */
     overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+    break-inside: avoid;
   }
   .section li:before { content: "- "; color: #2f7f56 }
   .more { color: #2f7f56; font-size: 21px; margin-top: 4px }
@@ -58,11 +119,9 @@
   .breaking li { color: #ffb9a1 }
   .breaking li:before { color: #a85138 }
 
-  /* Pinned to the bottom of the card, changelist long or short. The changes
-     above are truncated to three lines a section, so they can never grow
-     down into this. */
+  /* Pinned to the bottom of the cover. */
   .install {
-    position: absolute; left: 60px; right: 60px; bottom: 118px;
+    position: absolute; left: 0; right: 0; bottom: 0;
     border-top: 2px solid #14432c; padding-top: 26px;
   }
   .install h2 {
@@ -80,32 +139,30 @@
   }
   .install .cmd + .cmd { margin-top: 2px }
   .install .cmd span { color: #2f7f56 }
-
-  .footer {
-    position: absolute; left: 60px; bottom: 64px;
-    font-size: 20px; color: #2f7f56;
-  }
 </style>
 </head>
 <body>
-  <div class="card">
-    <div class="prompt">$ dispat release #THIS IS RENDERED AND POSTED FROM GITHUB ACTIONS (DATA COMING FROM COMMIT MESSAGES)</div>
+  <div class="cover">
+    <div class="prompt">$ dispat release</div>
     <div class="badge">v{{ .version }}</div>
 
-    {{ range .sections }}
-    <div class="section{{ if eq .label "BREAKING" }} breaking{{ end }}">
-      <h2>{{ .label }}</h2>
-      <ul>{{ range .items }}<li>{{ . }}</li>{{ end }}</ul>
-      {{ if gt .more 0 }}<div class="more">+{{ .more }} more</div>{{ end }}
+    <div class="lede">
+      Render an HTML template to an image or a video and publish it to ten
+      social platforms with one command.
     </div>
-    {{ end }}
 
     <div class="install">
       <h2>INSTALL</h2>
       {{ range .install }}<div class="cmd"><span>$</span> {{ .command }}</div>{{ end }}
     </div>
-
-    <div class="footer">github.com/yohimik/crier</div>
   </div>
+
+  {{ range .sections }}
+  <div class="section{{ if eq .label "BREAKING" }} breaking{{ end }}">
+    <h2>{{ .label }}</h2>
+    <ul>{{ range .items }}<li>{{ . }}</li>{{ end }}</ul>
+    {{ if gt .more 0 }}<div class="more">+{{ .more }} more</div>{{ end }}
+  </div>
+  {{ end }}
 </body>
 </html>

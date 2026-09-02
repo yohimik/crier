@@ -41,7 +41,12 @@ func newDiscord(cfg *config.Config, d Deps) (Publisher, error) {
 // Name implements Publisher.
 func (d *Discord) Name() string { return "discord" }
 
-// DiscordFileMax is how many files one webhook message carries.
+// DiscordFileMax is how many files crier will put in one webhook message.
+//
+// Discord documents the files[n] mechanism and no limit on the count, so ten
+// is crier's own ceiling. It is the number Discord's own clients settle on and
+// the one its Media Gallery component documents, which makes it the safest
+// guess available.
 const DiscordFileMax = 10
 
 // Needs implements Publisher.

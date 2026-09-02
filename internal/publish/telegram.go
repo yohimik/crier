@@ -152,9 +152,11 @@ type telegramMedia struct {
 // mediaGroup posts several images as one album.
 //
 // The files ride along as ordinary multipart parts and the media array points
-// at them by name, which is what the attach:// scheme is for. Only the first
-// item carries the caption: Telegram shows an album's caption once, and
-// repeating it on every item shows it on every item.
+// at them by name, which is what the attach:// scheme is for.
+//
+// Only the first item carries the caption. The Bot API has no caption of its
+// own for a group — the caption belongs to an item — and every client shows an
+// album's caption from the first one, so putting it anywhere else hides it.
 func (t *Telegram) mediaGroup(ctx context.Context, arts []render.Artifact, caption string) (Result, error) {
 	if len(arts) > TelegramGroupMax {
 		return Result{}, fmt.Errorf("a telegram media group holds %d items and this post has %d",

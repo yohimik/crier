@@ -103,10 +103,12 @@ type slackComplete struct {
 	Channels []string `json:"channels"`
 }
 
-// SlackFileMax is how many files one completeUploadExternal call shares.
+// SlackFileMax is how many files crier will share in one call.
 //
 // Steps 1 and 2 are per file; step 3 takes the lot, which is what makes
-// several files land as one message rather than as several.
+// several files land as one message rather than as several. Slack documents
+// neither a maximum for the files array nor the one-message behaviour, so ten
+// is crier's own ceiling.
 const SlackFileMax = 10
 
 // Publish runs the three-step external upload.

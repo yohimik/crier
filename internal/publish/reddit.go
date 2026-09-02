@@ -91,6 +91,13 @@ func (r *Reddit) Name() string { return "reddit" }
 // A link post is the only kind that needs a staged URL; image and video are
 // uploaded. URL is declared as needed only in link mode so that an
 // image-posting configuration does not demand staging it will not use.
+//
+// One file per post, deliberately. Reddit does have galleries, but the only
+// way to make one is api/submit_gallery_post — an endpoint Reddit's own web
+// client uses and Reddit documents nowhere, with no published limit and no
+// promise it will keep working. A paged run therefore becomes a run of
+// ordinary posts here: several posts that will still be there next month beat
+// one gallery built on an endpoint that might not be.
 func (r *Reddit) Needs() Needs {
 	return Needs{
 		URL:     strings.EqualFold(strings.TrimSpace(r.cfg.Kind), "link"),
