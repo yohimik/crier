@@ -46,7 +46,7 @@ crier --publish-input ./card.png
 CRIER_PUBLISH_INPUT=./card.png crier
 ```
 
-The tool does not read a template. It lays out nothing. It does not involve ffmpeg. Staging, the fan-out, the captions and the exit codes all work exactly as they do for a rendered post.
+The tool does not read a template. It lays out nothing. Staging, the fan-out, the captions and the exit codes all work exactly as they do for a rendered post. ffmpeg is only involved when a platform asked for a frame, or when Reddit needs a poster.
 
 **The file is identified by its bytes, not its name.** crier knows four formats: PNG, JPEG, GIF and MP4. It refuses anything else by name. If a file named `.png` holds a JPEG, crier uploads it as a JPEG. Platforms check the content type. If the type does not match, they reject the file with a message about something else entirely.
 
@@ -56,11 +56,17 @@ The tool does not read a template. It lays out nothing. It does not involve ffmp
 INF transcoded the input for a platform that needs it from=png to=jpeg
 ```
 
-**Clips are passed through as they are.** A publish command should not surprise you by re-encoding your video to satisfy a format preference. If a platform cannot accept the clip format, crier treats it as a configuration error. It finds this error before uploading anything.
+**Clips are passed through as they are, unless the platform asked for a frame.** A publish command should not surprise you by re-encoding your video to satisfy a format preference. If a platform cannot accept the clip format, crier treats it as a configuration error. It finds this error before uploading anything.
+
+A [fit](../templates/overlays.md#fitting-the-platform) is not a format preference. It says what shape the platform is to receive. Passing the file through means the platform crops or pads it on its own servers, without telling you where the cut fell or what colour it used: a square clip posted as a story came back with black bars instead of the card's own colour. So a platform with `fit`, `width` and `height` set gets the file reshaped.
+
+An image is resampled. A clip is re-encoded through the same ffmpeg filter a rendered clip is fitted with, and its audio stream is copied rather than encoded again. This needs ffmpeg on your `PATH`; without it, crier refuses the combination before uploading anything. A GIF is left alone, because reshaping one means rebuilding its palette and the platforms that take one show it inline at whatever size it is.
+
+Only the platforms that asked are affected. Everyone else still gets the bytes as they arrived, and two platforms asking for the same frame share one re-encode.
 
 **Reddit needs a poster.** A rendered clip has a frame 0 to encode. A clip taken from disk does not. To fix this, crier uses ffmpeg to pull the first frame out of the file. You must have ffmpeg on your `PATH`. If you do not, crier refuses the combination before uploading anything. The error names the platform and the file.
 
-Per-platform overlays and sizes do not apply. These are instructions for the renderer, and there is nothing to render. Every platform gets the one file.
+Per-platform overlays and render sizes do not apply. These are instructions for the renderer, and there is nothing to render. Every platform gets the one file, apart from the ones that set a fit.
 
 Running `crier render` with `publish.input` set is a config error. There is nothing to render.
 
@@ -101,6 +107,6 @@ every frame has to be the same size
 
 Frames are decoded one at a time rather than all at once. Holding ninety 1080-square images in memory while ffmpeg reads them wastes a gigabyte for no reason.
 
-The first frame doubles as the poster image for [the platforms that need one](../rendering/video.md#publishing-a-video).
+The first frame doubles as the poster image for [the platforms that need one](../rendering/video.md#publishing-a-video). Both the clip and the poster are fitted to a platform's frame when it set one, the same way a rendered clip is, so `crier render --render-variant instagram` on a frames run previews the shape that platform will receive.
 
 Configuration keys: [`publish.input`](../configuration/publish/README.md) and [`render.video.frames-input`](../configuration/render/video.md).

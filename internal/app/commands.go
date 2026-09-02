@@ -347,12 +347,16 @@ func (a App) runPublish(ctx context.Context, args []string) error {
 	report := PublishReport{DryRun: cfg.Publish.DryRun}
 	var jobs []publish.Job
 
-	// One variant when the artifact was not rendered: per-platform overlays and
-	// sizes are instructions to the renderer, and there is nothing to render.
-	// Every platform shares the one file.
+	// Per-platform overlays and sizes are instructions to the renderer, and in
+	// the other two modes there is nothing to render: every platform shares the
+	// one file. A fit is not an instruction to the renderer, though. It says
+	// what shape the platform is to receive, and it applies to a file crier was
+	// handed exactly as it applies to one crier drew — so the platforms that
+	// asked for a frame get a variant of their own, and everyone else still
+	// shares the file as it arrived.
 	variants := Variants(cfg, enabled)
 	if mode != ModeFull {
-		variants = []Variant{{Platforms: enabled}}
+		variants = FitVariants(cfg, enabled)
 	}
 
 	for _, v := range variants {

@@ -163,6 +163,104 @@ func EncodeVideo(ctx context.Context, o VideoOptions, frame FrameFunc) (Artifact
 	}, nil
 }
 
+// RefitOptions describes reshaping a clip that already exists.
+type RefitOptions struct {
+	// Input is the clip to read.
+	Input string
+	// Output is the clip to write.
+	Output string
+	// Filter is the video filter chain, which is what does the fitting. An
+	// empty filter is a caller mistake: there would be nothing to re-encode
+	// for.
+	Filter string
+	// Width and Height are the frame size the filter produces. They are the
+	// platform's own frame, and they are reported on the artifact rather than
+	// measured, because the filter is what decides them.
+	Width, Height int
+	// Bin is the ffmpeg executable.
+	Bin string
+	// Preset selects the codec arguments: h264, h265, vp9 or none.
+	Preset string
+	// ExtraArgs are appended after the preset and before the output.
+	ExtraArgs []string
+	// Env replaces ffmpeg's environment when non-nil.
+	Env    []string
+	Logger zerolog.Logger
+}
+
+// RefitVideo re-encodes a clip through a fit filter.
+//
+// It exists for the clip crier was handed rather than made. A rendered clip is
+// fitted while it is encoded, in the same pass that draws it; one that arrives
+// as a file has already been encoded, and the only way to change its shape is
+// to encode it again.
+//
+// The audio is copied rather than re-encoded. Re-encoding it would cost time
+// and a generation of quality to produce the same soundtrack, and the whole
+// point of the clip is often the soundtrack. A clip with no audio copies
+// nothing, which ffmpeg treats as the ordinary case rather than as an error.
+func RefitVideo(ctx context.Context, o RefitOptions) (Artifact, error) {
+	if strings.TrimSpace(o.Filter) == "" {
+		return Artifact{}, fmt.Errorf("refit: no filter to apply")
+	}
+	if o.Output == "" {
+		return Artifact{}, fmt.Errorf("refit: no output path")
+	}
+	if err := CheckFFmpeg(o.Bin); err != nil {
+		return Artifact{}, err
+	}
+	bin := o.Bin
+	if bin == "" {
+		bin = "ffmpeg"
+	}
+
+	start := time.Now()
+	proc, err := procutil.Start(ctx, procutil.Options{
+		Name: "ffmpeg", Bin: bin, Args: RefitArgs(o), Env: o.Env, Logger: o.Logger,
+	})
+	if err != nil {
+		return Artifact{}, err
+	}
+	if err := proc.Wait(); err != nil {
+		return Artifact{}, fmt.Errorf("fitting %s to %dx%d: %w\n%s",
+			filepath.Base(o.Input), o.Width, o.Height, err, proc.Tail())
+	}
+	st, err := os.Stat(o.Output)
+	if err != nil {
+		return Artifact{}, fmt.Errorf("ffmpeg produced no fitted clip: %w", err)
+	}
+	o.Logger.Info().
+		Str("path", o.Output).Str("filter", o.Filter).
+		Int("width", o.Width).Int("height", o.Height).
+		Int64("bytes", st.Size()).Dur("elapsed", time.Since(start)).
+		Msg("fitted a clip to the platform's frame")
+
+	return Artifact{
+		Kind:        KindVideo,
+		ContentType: VideoContentType,
+		Path:        o.Output,
+		Size:        st.Size(),
+		Width:       o.Width,
+		Height:      o.Height,
+	}, nil
+}
+
+// RefitArgs is the command line RefitVideo runs, exported so a test can assert
+// it without running ffmpeg.
+func RefitArgs(o RefitOptions) []string {
+	args := []string{
+		"-hide_banner", "-loglevel", "error", "-nostdin", "-y",
+		"-i", o.Input,
+		"-vf", o.Filter,
+	}
+	args = append(args, presetArgs(o.Preset)...)
+	// The audio stream as it stands. -c:a copy on a file with no audio is a
+	// no-op rather than a failure.
+	args = append(args, "-c:a", "copy")
+	args = append(args, o.ExtraArgs...)
+	return append(args, o.Output)
+}
+
 // PosterOptions describes extracting a still from a clip.
 type PosterOptions struct {
 	// Input is the clip to read.

@@ -12,6 +12,7 @@ import (
 	"testing"
 
 	"github.com/rs/zerolog"
+	"github.com/yohimik/crier/internal/config"
 )
 
 // TestRealFFmpeg runs the video path against a real encoder.
@@ -73,5 +74,69 @@ func TestRealFFmpeg(t *testing.T) {
 		if !strings.Contains(got, want) {
 			t.Errorf("ffprobe reported %q, missing %q", got, want)
 		}
+	}
+}
+
+// TestRealFFmpegRefitsAnExistingClip is defect three of rc.8, against a real
+// encoder: a square clip published as a story came out with black bars,
+// because publish-only mode passed the file through and Instagram padded it on
+// its own servers.
+//
+// The two things worth proving are what that cost: the frame really is the
+// platform's, and the soundtrack survived the re-encode. A fit that produced a
+// silent story would trade one defect for a worse one.
+func TestRealFFmpegRefitsAnExistingClip(t *testing.T) {
+	if _, err := exec.LookPath("ffmpeg"); err != nil {
+		t.Skip("ffmpeg is not installed")
+	}
+	probe, err := exec.LookPath("ffprobe")
+	if err != nil {
+		t.Skip("ffprobe is not installed")
+	}
+
+	dir := t.TempDir()
+	square := filepath.Join(dir, "square.mp4")
+	// A square clip with a real audio stream, which is what the announcement
+	// anthem is.
+	build := exec.Command("ffmpeg", "-hide_banner", "-loglevel", "error", "-y",
+		"-f", "lavfi", "-i", "color=c=red:s=240x240:d=1",
+		"-f", "lavfi", "-i", "sine=frequency=440:duration=1",
+		"-c:v", "libx264", "-pix_fmt", "yuv420p", "-c:a", "aac", "-shortest", square)
+	if out, err := build.CombinedOutput(); err != nil {
+		t.Fatalf("building the input clip: %v\n%s", err, out)
+	}
+
+	out := filepath.Join(dir, "story.mp4")
+	art, err := RefitVideo(context.Background(), RefitOptions{
+		Input:  square,
+		Output: out,
+		Filter: FitFilter(360, 640, config.FitContain, "#04140c"),
+		Width:  360,
+		Height: 640,
+		Logger: zerolog.New(zerolog.NewTestWriter(t)).Level(zerolog.DebugLevel),
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if art.Width != 360 || art.Height != 640 || art.Kind != KindVideo {
+		t.Errorf("artifact = %+v", art)
+	}
+
+	dims, err := exec.Command(probe, "-v", "error", "-select_streams", "v",
+		"-show_entries", "stream=width,height", "-of", "csv=p=0", out).Output()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got := strings.TrimSpace(string(dims)); got != "360,640" {
+		t.Errorf("the fitted clip is %s, want 360,640", got)
+	}
+
+	audio, err := exec.Command(probe, "-v", "error", "-select_streams", "a",
+		"-show_entries", "stream=codec_name", "-of", "csv=p=0", out).Output()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got := strings.TrimSpace(string(audio)); got != "aac" {
+		t.Errorf("the audio stream is %q, want the aac that was copied over", got)
 	}
 }

@@ -418,6 +418,45 @@ func dimensionOr(override, fallback int) int {
 	return fallback
 }
 
+// FitVariants groups the platforms by the frame they asked for, and by nothing
+// else.
+//
+// It is Variants for the modes that render nothing. Overlays and render sizes
+// have no meaning when the artifact came off disk, so grouping by them would
+// split platforms that are going to receive identical bytes — but a fit still
+// has meaning, because it is about the file the platform receives rather than
+// about how it was drawn. Platforms that asked for no frame share one variant,
+// which is the single shared one those modes always had.
+func FitVariants(cfg *config.Config, platforms []string) []Variant {
+	byKey := map[string]*Variant{}
+	var order []string
+
+	for _, name := range platforms {
+		l := config.LayoutOf(&cfg.Publish, name)
+		fit, _ := config.ParseFit(fitOf(l))
+		var v Variant
+		if fit != config.FitNone && widthOf(l) > 0 && heightOf(l) > 0 {
+			v.Fit = fit
+			v.FitWidth, v.FitHeight = widthOf(l), heightOf(l)
+			v.FitBackground = fitBackgroundOf(l)
+		}
+		key := v.Key()
+		if existing, ok := byKey[key]; ok {
+			existing.Platforms = append(existing.Platforms, name)
+			continue
+		}
+		v.Platforms = []string{name}
+		byKey[key] = &v
+		order = append(order, key)
+	}
+
+	out := make([]Variant, 0, len(order))
+	for _, key := range order {
+		out = append(out, *byKey[key])
+	}
+	return out
+}
+
 // BaseVariant is what `crier render` produces when no platform is named.
 func BaseVariant(cfg *config.Config) Variant {
 	return Variant{
@@ -440,7 +479,7 @@ func (p *Pipeline) Render(ctx context.Context, v Variant, data any, formats []co
 	}
 	switch mode {
 	case ModePublishInput:
-		return p.fromInput(formats)
+		return p.fromInput(ctx, v, formats)
 	case ModeEncodeFrames:
 		return p.fromFrames(ctx, v)
 	}
@@ -516,11 +555,19 @@ func (p *Pipeline) PosterFor(ctx context.Context, clip render.Artifact) (*render
 
 // fromInput publishes a file that already exists.
 //
-// The only work is transcoding: a PNG aimed at Instagram has to become a JPEG,
-// because Instagram will not fetch a PNG. A clip is passed through untouched —
-// re-encoding somebody's video to satisfy a format preference would be a
-// surprising thing for a publish command to do.
-func (p *Pipeline) fromInput(formats []config.Format) (Artifacts, error) {
+// Mostly the only work is transcoding: a PNG aimed at Instagram has to become
+// a JPEG, because Instagram will not fetch a PNG. The file is otherwise passed
+// through untouched — re-encoding somebody's video to satisfy a format
+// preference would be a surprising thing for a publish command to do.
+//
+// The exception is a platform that asked for a frame. A fit is not a
+// preference: it says what shape the platform is to receive, and passing the
+// file through means the platform crops or pads it on its own servers without
+// saying where. That is how a square clip published as a story came back with
+// black bars instead of the card's own colour. So a fitted platform gets the
+// file reshaped, and only that platform: everyone else still gets the bytes as
+// they arrived.
+func (p *Pipeline) fromInput(ctx context.Context, v Variant, formats []config.Format) (Artifacts, error) {
 	art, err := LoadInput(p.cfg.Publish.Input)
 	if err != nil {
 		return Artifacts{}, err
@@ -532,21 +579,33 @@ func (p *Pipeline) fromInput(formats []config.Format) (Artifacts, error) {
 		Msg("publishing an existing file")
 
 	if art.Kind != render.KindImage {
-		out.Video = &art
+		clip, err := p.refitInput(ctx, v, art)
+		if err != nil {
+			return out, err
+		}
+		out.Video = &clip
+		out.Variant = v
 		return out, nil
 	}
 
-	page.Images[art.Format] = art
 	img, err := decodeFrame(art.Path)
 	if err != nil {
 		return out, fail(ExitRender, err)
 	}
 	enc := p.encoder()
+	if v.Fits() {
+		// The file as it arrived is the wrong shape for this platform, so it is
+		// not kept: every format is encoded from the fitted picture.
+		img = p.applyFit(v, img)
+		out.Variant = v
+	} else {
+		page.Images[art.Format] = art
+	}
 	for _, format := range formats {
 		if _, have := page.Images[format]; have {
 			continue
 		}
-		transcoded, err := enc.Encode(img, format, "input")
+		transcoded, err := enc.Encode(img, format, "input-"+v.Key())
 		if err != nil {
 			return out, fail(ExitRender, err)
 		}
@@ -556,6 +615,36 @@ func (p *Pipeline) fromInput(formats []config.Format) (Artifacts, error) {
 	}
 	out.Pages = []Page{page}
 	return out, nil
+}
+
+// refitInput reshapes a clip crier was handed, when the platform asked for a
+// frame. It returns the clip untouched when it did not.
+func (p *Pipeline) refitInput(ctx context.Context, v Variant, art render.Artifact) (render.Artifact, error) {
+	if !v.Fits() || art.Kind != render.KindVideo {
+		// A GIF is left alone: reshaping it would mean rebuilding its palette,
+		// and the platforms that take one show it inline at whatever size it is.
+		return art, nil
+	}
+	vid := &p.cfg.Render.Video
+	if err := render.CheckFFmpeg(vid.FFmpegBin); err != nil {
+		return render.Artifact{}, failf(ExitConfig,
+			"%s asked for a %dx%d frame and the file to publish is a clip, which only ffmpeg can reshape: %v",
+			v.Name(), v.FitWidth, v.FitHeight, err)
+	}
+	fitted, err := render.RefitVideo(ctx, render.RefitOptions{
+		Input:  art.Path,
+		Output: filepath.Join(p.dir, "input-"+v.Key()+render.VideoExt(vid.Format)),
+		Filter: render.FitFilter(v.FitWidth, v.FitHeight, v.Fit, v.FitBackground),
+		Width:  v.FitWidth,
+		Height: v.FitHeight,
+		Bin:    vid.FFmpegBin,
+		Preset: vid.CodecPreset,
+		Logger: p.log,
+	})
+	if err != nil {
+		return render.Artifact{}, fail(ExitRender, err)
+	}
+	return fitted, nil
 }
 
 // fromFrames encodes images that already exist.
@@ -584,10 +673,21 @@ func (p *Pipeline) fromFrames(ctx context.Context, v Variant) (Artifacts, error)
 
 	out := Artifacts{Variant: v}
 
-	// The first frame doubles as the poster, as it does for a rendered clip.
-	poster, err := p.encoder().Encode(first, config.JPEG, "frames-poster")
+	// The first frame doubles as the poster, as it does for a rendered clip,
+	// and it is fitted like the clip so the still is the same shape as it.
+	poster, err := p.encoder().Encode(p.applyFit(v, first), config.JPEG, "frames-poster")
 	if err != nil {
 		return out, fail(ExitRender, err)
+	}
+
+	// The same fit a rendered clip gets. Frames from disk went through the
+	// encoder without one until now, which meant `--render-variant instagram`
+	// on a frames run previewed the wrong shape.
+	fitFilter := ""
+	if v.Fits() {
+		fitFilter = render.FitFilter(v.FitWidth, v.FitHeight, v.Fit, v.FitBackground)
+		p.log.Debug().Str("variant", v.Name()).Str("fit", string(v.Fit)).
+			Str("filter", fitFilter).Msg("fitting the encoded frames to the platform's frame")
 	}
 
 	bg, _ := config.ParseColor(p.cfg.Render.Background)
@@ -600,6 +700,7 @@ func (p *Pipeline) fromFrames(ctx context.Context, v Variant) (Artifacts, error)
 		Bin:        vid.FFmpegBin,
 		Preset:     vid.CodecPreset,
 		Format:     vid.Format,
+		FitFilter:  fitFilter,
 		ExtraArgs:  vid.FFmpegArgs,
 		Audio:      vid.Audio,
 		Background: bg,
@@ -607,6 +708,11 @@ func (p *Pipeline) fromFrames(ctx context.Context, v Variant) (Artifacts, error)
 	}, reader.at)
 	if err != nil {
 		return out, fail(ExitRender, err)
+	}
+	// The artifact reports the frame's size, not the drawn size, exactly as a
+	// rendered clip does.
+	if v.Fits() {
+		art.Width, art.Height = v.FitWidth, v.FitHeight
 	}
 	out.Video, out.Poster = &art, &poster
 	return out, nil
