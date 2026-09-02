@@ -360,7 +360,7 @@ func TestAnnouncePostsFeedThenStory(t *testing.T) {
 	_, stderr, code := runScript(t, "announce.sh", []string{
 		"DISPAT_NEW_VERSION=9.9.9",
 		"DISPAT_BREAKING_CHANGES=publish is the default",
-		"DISPAT_FEATURES=add slack\nfit the render\nread data from the environment\nand one more",
+		"DISPAT_FEATURES=add slack\nfit the render\nread data from the environment\nand one more\na fifth entry, phrased at enough length to wrap on the card and weigh a page down properly\na sixth in the same generous register, so the coverless document still needs two pages\na seventh for good measure\nan eighth that wraps as well, carrying the count safely past one page of entries\nentry number 9 of the padding parade\nentry number 10 of the padding parade\nentry number 11 of the padding parade\nentry number 12 of the padding parade\nentry number 13 of the padding parade\nentry number 14 of the padding parade\nentry number 15 of the padding parade\nentry number 16 of the padding parade\nentry number 17 of the padding parade\nentry number 18 of the padding parade\nentry number 19 of the padding parade\nentry number 20 of the padding parade",
 		"DISPAT_FIXES=close a leak",
 		"CRIER_PUBLISH_INSTAGRAM_TOKEN=ig-token",
 		"CRIER_PUBLISH_INSTAGRAM_USER_ID=ig-user",
@@ -424,9 +424,9 @@ func TestAnnouncePostsFeedThenStory(t *testing.T) {
 	// The reel is the anthem video plus the changelog pages: the picture
 	// cover would only repeat what the video shows, so the story pass strips
 	// it and posts one picture story per changelog page.
-	if len(stories) != len(pageChildren)-1 {
-		t.Errorf("posted %d picture stories for %d changelog pages; the cover is the video's",
-			len(stories), len(pageChildren)-1)
+	if len(stories) != len(pageChildren) {
+		t.Errorf("posted %d picture stories for %d changelog pages; both rows page the same document",
+			len(stories), len(pageChildren))
 	}
 
 	// The carousel opens with the anthem, where there was an ffmpeg to make

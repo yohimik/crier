@@ -107,9 +107,10 @@ export CRIER_STAGE_MODE
 # without saying what is in it.
 post() {
 	what=$1
-	shift
+	doc=$2
+	shift 2
 	log "posting the $what"
-	if "$crier" --config "$here/crier.yaml" --render-data - "$@" <"$data"; then
+	if "$crier" --config "$here/crier.yaml" --render-data - "$@" <"$doc"; then
 		log "posted the $what"
 		return 0
 	fi
@@ -207,18 +208,32 @@ anthem_story() {
 # what the video already shows, so the story pass strips it.
 failures=0
 render_anthem || failures=$((failures + 1))
-if [ -n "$anthem_mp4" ]; then
-	post "feed post" --publish-instagram-lead-video "$anthem_mp4" || failures=$((failures + 1))
-else
-	post "feed post" || failures=$((failures + 1))
-fi
-anthem_story || failures=$((failures + 1))
-if [ -z "$(printf '%s' "${DISPAT_BREAKING_CHANGES:-}${DISPAT_FEATURES:-}${DISPAT_FIXES:-}" | tr -d '[:space:]')" ]; then
-	log "no changelog pages; the cover video is the whole story"
-else
+
+# The nocover pages, prepared up front: with the anthem leading the carousel,
+# the feed post uses them too — an image cover behind the video cover would
+# just repeat it, which is the reel's lesson learned twice.
+has_changelog=1
+[ -n "$(printf '%s' "${DISPAT_BREAKING_CHANGES:-}${DISPAT_FEATURES:-}${DISPAT_FIXES:-}" | tr -d '[:space:]')" ] || has_changelog=0
+updates=$data
+if [ "$has_changelog" = 1 ]; then
 	updates=$(mktemp)
 	updates_data=$updates
 	ANNOUNCE_NO_COVER=1 sh "$here/notes.sh" >"$updates"
+fi
+
+if [ -n "$anthem_mp4" ] && [ "$has_changelog" = 1 ]; then
+	post "feed post" "$updates" --publish-instagram-lead-video "$anthem_mp4" || failures=$((failures + 1))
+elif [ -n "$anthem_mp4" ]; then
+	# Nothing to page: the video is the whole carousel, and the image cover
+	# stays home rather than repeating it.
+	post "feed post" "$cover_data" --publish-input "$anthem_mp4" || failures=$((failures + 1))
+else
+	post "feed post" "$data" || failures=$((failures + 1))
+fi
+anthem_story || failures=$((failures + 1))
+if [ "$has_changelog" = 0 ]; then
+	log "no changelog pages; the cover video is the whole story"
+else
 	post_updates() {
 		log "posting the stories"
 		if "$crier" --config "$here/crier.yaml" --render-data - \
