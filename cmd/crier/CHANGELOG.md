@@ -1,5 +1,35 @@
 # Changelog
 
+## v1.0.0-rc.15 (2026-09-02)
+
+### Features
+
+- linkedin gets the whole release in one post ([06700f3](https://github.com/yohimik/crier/commit/06700f3eb1c011f5ab4d7e8a85c2c83f9898515a)) (by yohimik, Claude Fable 5)
+  One post was the requirement and LinkedIn's schema forbids the easy
+  shape: a post takes one video or many images, never both, with
+  content.multiImage documented images-only. So the pages go inside the
+  video. The reel holds the cover under the fanfare and then leafs
+  through the changelog pages in reading order, sixteen seconds for the
+  whole release, one post carrying all of it. The pages render once and
+  feed everything: the anthem's frames, the reel's, and the cover both
+  clips open on. No ffmpeg still means the album, cover first.
+
+### Fixes
+
+- a transient meta refusal of a status read is waited out ([292721a](https://github.com/yohimik/crier/commit/292721aa7ef306319ae70112f88d331a6149c426)) (by yohimik, Claude Fable 5)
+  Meta marks the errors it considers worth retrying, and rc.14 showed
+  why that flag matters: an hourly rate limit answered the container
+  status GET, is_transient true, and three posts died over a read that
+  creates nothing. The poll now waits such refusals out inside its own
+  budget and still fails a permanent one at once. Only reads: a
+  rejected write stays somebody else's judgement call.
+
+### Authors
+
+- yohimik
+- Claude Fable 5
+
+
 ## v1.0.0-rc.14 (2026-09-02)
 
 ### Fixes
