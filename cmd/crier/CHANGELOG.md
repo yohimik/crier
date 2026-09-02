@@ -1,5 +1,25 @@
 # Changelog
 
+## v1.0.0-rc.16 (2026-09-02)
+
+### Fixes
+
+- linkedin commentary survives its own punctuation ([fbb37dd](https://github.com/yohimik/crier/commit/fbb37ddcd22cac3338a872bd827475f931e3f45b)) (by yohimik, Claude Fable 5)
+  LinkedIn parses commentary as markup it calls little text format, and
+  an unescaped parenthesis is a syntax token: the last post displayed
+  only the text before its first one and swallowed the link, the install
+  command and every hashtag behind it. Reserved characters now travel
+  escaped, hashes excepted so hashtags stay hashtags. The announcement's
+  commentary is rewritten around what a reader wants from it: the
+  changelog rides as a plain list right after the opening, the repository
+  link is a real URL, and the install command and hashtags close it out.
+
+### Authors
+
+- yohimik
+- Claude Fable 5
+
+
 ## v1.0.0-rc.15 (2026-09-02)
 
 ### Features
