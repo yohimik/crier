@@ -149,8 +149,17 @@ func (t *TikTok) publishPhoto(ctx context.Context, in Input) (string, error) {
 		return "", fmt.Errorf("a tiktok photo post holds %d images and this one has %d",
 			TikTokPhotoMax, len(images))
 	}
+	// auto_add_music is the only music setting any of these APIs offers, and it
+	// belongs to a photo post made with DIRECT_POST. TikTok picks the track:
+	// nothing anywhere takes the id of one. The video path below does not set
+	// it, because TikTok documents it only for a photo post.
+	postInfo := t.postInfo(in)
+	if t.cfg.AutoAddMusic {
+		postInfo["auto_add_music"] = true
+		t.log.Debug().Msg("asking tiktok to add a recommended track to the photo post")
+	}
 	body := map[string]any{
-		"post_info": t.postInfo(in),
+		"post_info": postInfo,
 		"source_info": map[string]any{
 			"source": "PULL_FROM_URL",
 			// The cover is chosen by index rather than by position, and the

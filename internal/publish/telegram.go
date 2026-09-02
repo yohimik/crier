@@ -26,6 +26,7 @@ const TelegramVideoLimit = 50 << 20
 // polling, and it takes the bytes rather than a URL.
 type Telegram struct {
 	cfg    config.Telegram
+	music  AudioFile
 	client *httpx.Client
 	log    zerolog.Logger
 }
@@ -41,8 +42,24 @@ func newTelegram(cfg *config.Config, d Deps) (Publisher, error) {
 	if err := require(c.APIBaseURL, "publish.telegram.api-base-url"); err != nil {
 		return nil, err
 	}
-	return &Telegram{cfg: c, client: d.Client, log: d.Logger}, nil
+	music, err := MusicFor(cfg, "telegram")
+	if err != nil {
+		return nil, err
+	}
+	if music.Attached() && !telegramPlaysInline(music.Format) {
+		// The Bot API documents sendAudio as taking .MP3 or .M4A. Anything else
+		// is usually accepted and then shown as a file rather than as a player,
+		// which is a disappointment worth predicting rather than a failure.
+		d.Logger.Warn().Str("platform", "telegram").Str("audio", music.Name).
+			Str("format", music.Format).
+			Msg("telegram documents mp3 and m4a for a music player; this may arrive as a plain file")
+	}
+	return &Telegram{cfg: c, music: music, client: d.Client, log: d.Logger}, nil
 }
+
+// telegramPlaysInline reports whether the Bot API names this container as one
+// sendAudio takes.
+func telegramPlaysInline(format string) bool { return format == "mp3" || format == "m4a" }
 
 // Name implements Publisher.
 func (t *Telegram) Name() string { return "telegram" }
@@ -77,6 +94,16 @@ type telegramResponse struct {
 // sendPhoto: a media group has a minimum of two, so the last batch of an odd
 // page count would be refused as a group of one.
 func (t *Telegram) Publish(ctx context.Context, in Input) (Result, error) {
+	res, err := t.post(ctx, in)
+	if err != nil {
+		return res, err
+	}
+	t.sendMusic(ctx, &res)
+	return res, nil
+}
+
+// post sends the pictures themselves.
+func (t *Telegram) post(ctx context.Context, in Input) (Result, error) {
 	if arts := in.Sequence(); len(arts) > 1 {
 		return t.mediaGroup(ctx, arts, in.Caption)
 	}
@@ -213,6 +240,54 @@ func (t *Telegram) mediaGroup(ctx context.Context, arts []render.Artifact, capti
 		res.URL = fmt.Sprintf("https://t.me/%s/%d", strings.TrimPrefix(u, "@"), first.MessageID)
 	}
 	return res, nil
+}
+
+// sendMusic sends the audio as its own message, straight after the post.
+//
+// It has to be its own message. The Bot API groups audio only with audio:
+// "Documents and audio files can be only grouped in an album with messages of
+// the same type", so a track cannot join the album it belongs to. An adjacent
+// message is the closest thing available, and it is what clients render as a
+// player under the pictures — which is why it goes out immediately after, in
+// the same chat, rather than as a reply that would arrive quoted.
+//
+// A failure here is a warning rather than a failure of the post. The pictures
+// and the caption are already published; reporting the platform as failed
+// would say something untrue, and there is no way to take them back.
+func (t *Telegram) sendMusic(ctx context.Context, res *Result) {
+	if !t.music.Attached() {
+		return
+	}
+	if t.music.Size > TelegramVideoLimit {
+		t.log.Warn().Str("audio", t.music.Path).Int64("bytes", t.music.Size).
+			Msg("the audio is over telegram's 50MB limit and was not sent; the post itself went out")
+		return
+	}
+
+	req := httpx.NewRequest(http.MethodPost, t.cfg.APIBaseURL, "bot"+t.cfg.Token, "sendAudio").
+		Multipart(
+			httpx.Field("chat_id", t.cfg.ChatID),
+			t.music.Part("audio"),
+		)
+
+	var out telegramResponse
+	if err := t.client.NoRetry().JSON(ctx, req, &out); err != nil {
+		t.log.Warn().Err(err).Str("audio", t.music.Name).
+			Msg("the post went out but the audio message did not")
+		return
+	}
+	if !out.OK {
+		t.log.Warn().Str("audio", t.music.Name).Str("reason", out.Description).
+			Msg("the post went out but telegram refused the audio message")
+		return
+	}
+	id := strconv.FormatInt(out.Result.MessageID, 10)
+	t.log.Info().Str("audio", t.music.Name).Str("message", id).
+		Msg("sent the audio under the telegram post")
+	if res.Extra == nil {
+		res.Extra = map[string]string{}
+	}
+	res.Extra["audioMessageId"] = id
 }
 
 // Ping asks the Bot API who the bot is.

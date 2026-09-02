@@ -26,6 +26,7 @@ import (
 // Verified against Slack's method reference on 2026-09-01.
 type Slack struct {
 	cfg    config.Slack
+	music  AudioFile
 	client *httpx.Client
 	log    zerolog.Logger
 }
@@ -41,7 +42,11 @@ func newSlack(cfg *config.Config, d Deps) (Publisher, error) {
 	if err := require(c.Channel, "publish.slack.channel"); err != nil {
 		return nil, err
 	}
-	return &Slack{cfg: c, client: d.Client, log: d.Logger}, nil
+	music, err := MusicFor(cfg, "slack")
+	if err != nil {
+		return nil, err
+	}
+	return &Slack{cfg: c, music: music, client: d.Client, log: d.Logger}, nil
 }
 
 // Name implements Publisher.
@@ -51,8 +56,16 @@ func (s *Slack) Name() string { return "slack" }
 //
 // Slack takes the bytes, so it needs no staging, and it renders an animation
 // inline like any other image.
+//
+// The audio is one of the files the message shares, so a run with music
+// declares one fewer page per post and a long document paginates into messages
+// that fit.
 func (s *Slack) Needs() Needs {
-	return Needs{Formats: imageFormats, Kinds: imageVideoAndGIF, MaxAttachments: SlackFileMax}
+	max := SlackFileMax
+	if s.music.Attached() {
+		max--
+	}
+	return Needs{Formats: imageFormats, Kinds: imageVideoAndGIF, MaxAttachments: max}
 }
 
 // slackResponse is the envelope every Web API method returns.
@@ -111,17 +124,42 @@ type slackComplete struct {
 // is crier's own ceiling.
 const SlackFileMax = 10
 
+// slackUpload is one file on its way through the three steps: a path and the
+// length Slack sizes the slot from.
+//
+// The pictures and the audio go through it identically, which is the whole
+// reason it exists: step 3 takes them as one list, so they land as one message
+// with the track playing under the pictures.
+type slackUpload struct {
+	Path string
+	Size int64
+}
+
 // Publish runs the three-step external upload.
 func (s *Slack) Publish(ctx context.Context, in Input) (Result, error) {
 	arts := in.Sequence()
-	if len(arts) > SlackFileMax {
+	uploads := make([]slackUpload, 0, len(arts)+1)
+	for _, a := range arts {
+		uploads = append(uploads, slackUpload{Path: a.Path, Size: a.Size})
+	}
+	if s.music.Attached() {
+		uploads = append(uploads, slackUpload{Path: s.music.Path, Size: s.music.Size})
+		s.log.Debug().Str("audio", s.music.Name).Str("format", s.music.Format).
+			Msg("sharing the audio in the same slack message")
+	}
+	if len(uploads) > SlackFileMax {
+		if s.music.Attached() {
+			return Result{}, fmt.Errorf(
+				"a slack message shares %d files and this post has %d pages plus the audio; "+
+					"lower publish.slack.max-attachments", SlackFileMax, len(arts))
+		}
 		return Result{}, fmt.Errorf("a slack message shares %d files and this post has %d",
 			SlackFileMax, len(arts))
 	}
 
-	uploaded := make([]map[string]string, 0, len(arts))
+	uploaded := make([]map[string]string, 0, len(uploads))
 	firstID := ""
-	for n, a := range arts {
+	for n, a := range uploads {
 		name := filepath.Base(a.Path)
 
 		// 1. Ask for somewhere to put the bytes. The length is not advisory:
@@ -142,7 +180,7 @@ func (s *Slack) Publish(ctx context.Context, in Input) (Result, error) {
 		if slot.UploadURL == "" || slot.FileID == "" {
 			return Result{}, fmt.Errorf("slack returned no upload url")
 		}
-		s.log.Debug().Str("file", slot.FileID).Int("of", len(arts)).
+		s.log.Debug().Str("file", slot.FileID).Int("of", len(uploads)).
 			Msg("slack handed out an upload url")
 
 		// 2. The bytes, raw, to the URL Slack named. No token: the URL is the
@@ -151,8 +189,8 @@ func (s *Slack) Publish(ctx context.Context, in Input) (Result, error) {
 		upload := httpx.NewRequest(http.MethodPost, slot.UploadURL).
 			File("application/octet-stream", a.Path)
 		if err := s.client.Discard(ctx, upload); err != nil {
-			if len(arts) > 1 {
-				return Result{}, fmt.Errorf("uploading file %d of %d to slack: %w", n+1, len(arts), err)
+			if len(uploads) > 1 {
+				return Result{}, fmt.Errorf("uploading file %d of %d to slack: %w", n+1, len(uploads), err)
 			}
 			return Result{}, fmt.Errorf("uploading the file to slack: %w", err)
 		}

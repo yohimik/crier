@@ -23,6 +23,7 @@ const DiscordUploadLimit = 10 << 20
 // is why it is the secret rather than a token beside it.
 type Discord struct {
 	cfg    config.Discord
+	music  AudioFile
 	client *httpx.Client
 	log    zerolog.Logger
 }
@@ -35,7 +36,11 @@ func newDiscord(cfg *config.Config, d Deps) (Publisher, error) {
 	if !strings.HasPrefix(c.WebhookURL, "http://") && !strings.HasPrefix(c.WebhookURL, "https://") {
 		return nil, fmt.Errorf("publish.discord.webhook-url must be the full webhook URL")
 	}
-	return &Discord{cfg: c, client: d.Client, log: d.Logger}, nil
+	music, err := MusicFor(cfg, "discord")
+	if err != nil {
+		return nil, err
+	}
+	return &Discord{cfg: c, music: music, client: d.Client, log: d.Logger}, nil
 }
 
 // Name implements Publisher.
@@ -50,11 +55,19 @@ func (d *Discord) Name() string { return "discord" }
 const DiscordFileMax = 10
 
 // Needs implements Publisher.
+//
+// The audio takes one of the message's file slots, so a run with music
+// declares one fewer page per post. Reserving it here rather than refusing the
+// post later is what makes a long document paginate into messages that fit.
 func (d *Discord) Needs() Needs {
+	max := DiscordFileMax
+	if d.music.Attached() {
+		max--
+	}
 	return Needs{
 		Formats:        []config.Format{config.PNG, config.JPEG},
 		Kinds:          imageVideoAndGIF,
-		MaxAttachments: DiscordFileMax,
+		MaxAttachments: max,
 	}
 }
 
@@ -71,9 +84,22 @@ type discordResponse struct {
 }
 
 // Publish posts the artifact to the webhook.
+//
+// The audio, when there is one, is another file in the same message rather
+// than a message of its own. Discord's clients give an audio attachment a
+// player, so the track sits under the pictures it belongs to.
 func (d *Discord) Publish(ctx context.Context, in Input) (Result, error) {
 	arts := in.Sequence()
-	if len(arts) > DiscordFileMax {
+	files := len(arts)
+	if d.music.Attached() {
+		files++
+	}
+	if files > DiscordFileMax {
+		if d.music.Attached() {
+			return Result{}, fmt.Errorf(
+				"a discord message carries %d files and this post has %d pages plus the audio; "+
+					"lower publish.discord.max-attachments", DiscordFileMax, len(arts))
+		}
 		return Result{}, fmt.Errorf("a discord message carries %d files and this post has %d",
 			DiscordFileMax, len(arts))
 	}
@@ -90,6 +116,17 @@ func (d *Discord) Publish(ctx context.Context, in Input) (Result, error) {
 			return Result{}, err
 		}
 		parts = append(parts, httpx.FilePart(fmt.Sprintf("files[%d]", n), a.Path, a.ContentType))
+	}
+	if d.music.Attached() {
+		if d.music.Size > DiscordUploadLimit {
+			return Result{}, fmt.Errorf("%s is %s, which is over discord's limit of %s",
+				d.music.Path, humanSize(d.music.Size), humanSize(DiscordUploadLimit))
+		}
+		// The audio comes last, so it reads as an addition to the pictures
+		// rather than as the first thing in the message.
+		parts = append(parts, d.music.Part(fmt.Sprintf("files[%d]", len(arts))))
+		d.log.Debug().Str("audio", d.music.Name).Str("format", d.music.Format).
+			Msg("attaching the audio to the discord message")
 	}
 
 	req := httpx.NewRequest(http.MethodPost, d.cfg.WebhookURL).
