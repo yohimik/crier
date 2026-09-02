@@ -4,8 +4,10 @@
 # environment, ffmpeg on PATH, and a Go toolchain. Nothing touches Instagram.
 set -eu
 cd "$(git rev-parse --show-toplevel)"
-go build -o /tmp/crier-replay ./cmd/crier
-export ANNOUNCE_CRIER_BIN=/tmp/crier-replay
+if [ -z "${ANNOUNCE_CRIER_BIN:-}" ]; then
+	go build -o /tmp/crier-replay ./cmd/crier
+	export ANNOUNCE_CRIER_BIN=/tmp/crier-replay
+fi
 export ANNOUNCE_ONLY=linkedin
 export DISPAT_NEW_VERSION=1.0.0 DISPAT_OLD_VERSION=1.0.0-rc.17 DISPAT_OLD_CHANNEL=rc DISPAT_CHANNEL=stable
 export DISPAT_BREAKING_CHANGES='finally graduated, thanks for not unsubscribing during dogfooding

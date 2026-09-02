@@ -404,5 +404,9 @@ if [ "$failures" -gt 0 ]; then
 	# step of its own since the anthem posts twice and the reel once, and
 	# linkedin is a pass of its own with a document of its own.
 	log "$failures of the announcement's steps did not go out; the release itself is unaffected"
+	# A replay is a person asking for one thing. Failing to do it is the
+	# answer, and a green run would hide it; only a release must never go
+	# red over a post.
+	[ "$only" != "linkedin" ] || exit 1
 fi
 exit 0
