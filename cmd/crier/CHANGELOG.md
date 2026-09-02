@@ -1,5 +1,126 @@
 # Changelog
 
+## v1.0.0-rc.8 (2026-09-02)
+
+### Features
+
+- a twentieth probe to round the parade off at a number worth a page break of its own ([0d89c31](https://github.com/yohimik/crier/commit/0d89c3180295ae4319168e66475225c621bb9f90)) (by yohimik, Claude Fable 5)
+  A dogfooding probe for the paginated release card.
+
+- an eighteenth probe of comfortable two-line length, the kind most real subjects turn out to be ([f1ef42a](https://github.com/yohimik/crier/commit/f1ef42a036df565e05579f9579c7d293d7fbedfc)) (by yohimik, Claude Fable 5)
+  A dogfooding probe for the paginated release card.
+
+- a sixteenth probe, generously proportioned in the manner of the eighth, invoking imaginary flags and fictitious platforms for no purpose but the three lines it will be given on the card ([8297cdf](https://github.com/yohimik/crier/commit/8297cdfa436f428891d141746815e6cb7c7f4e20)) (by yohimik, Claude Fable 5)
+  A dogfooding probe for the paginated release card.
+
+- the release renders its anthem once and leads with it ([42ff389](https://github.com/yohimik/crier/commit/42ff38936102461b1e35221332197221ca31f54f)) (by yohimik, Claude Fable 5)
+  The clip was rendered inside the story pass and existed only for that
+  pass. It is now rendered first, on its own, to a temp file that outlives
+  the step: crier render with the frames input and the audio, output to
+  anthem.mp4.
+
+  Both surfaces then use that one file. The feed pass passes it as
+  --publish-instagram-lead-video, so the carousel opens with the fanfare
+  before the cover card. The story pass publishes the same bytes with
+  --publish-input, so the reel opens with it too and nothing is encoded
+  twice. Order is unchanged: feed, anthem story, changelog stories.
+
+  Rendering it first is also what makes the feed pass able to lead with it,
+  which is the point. Without ffmpeg, or when the render fails, anthem.mp4
+  stays empty: the feed pass goes out with no lead video and the anthem
+  story is skipped, which is the same thing the missing-ffmpeg path always
+  did.
+
+  This also carries the in-flight nocover work the tree was found with: the
+  data document grows a nocover flag, the template honours it, and the
+  story pass posts the changelog pages alone because the cover story is now
+  the video. The two changes touch the same lines of announce.sh and could
+  not be separated into two commits that both run.
+
+- the carousel and the album open with the clip ([331ce8a](https://github.com/yohimik/crier/commit/331ce8a2506e5bc2680bb124397b380089269620)) (by yohimik, Claude Fable 5)
+  Instagram builds a video child first and lists it first in the parent.
+  The child is video_url plus is_carousel_item and nothing else: media_type
+  names a container kind, and its documented values are CAROUSEL, REELS and
+  STORIES. VIDEO is no longer among them, and REELS is refused inside a
+  carousel outright, so the kind is inferred from which URL was sent. Meta
+  accepts no caption on a child either. Video children process
+  asynchronously and the existing container wait already covers that, so
+  the parent is not created until the clip says FINISHED.
+
+  Telegram prepends an InputMediaVideo to the media group, which is the one
+  Telegram shape that mixes a clip with photos. The caption belongs to the
+  album's first item, so it travels with the clip and still appears under
+  the album.
+
+  A clip is one of the ten items on both, so a run that opens with one
+  declares nine pages per post. The audio takes nothing away at Telegram:
+  it is a message of its own, so an album can carry a lead video and the
+  track after it. A story ignores the clip and says so, because a story has
+  no carousel to open and one config file drives both passes.
+
+- a thirteenth probe, medium length, with just enough said to wrap once ([1d177a5](https://github.com/yohimik/crier/commit/1d177a5cfc491963dc69f08101182b7ea32d10ef)) (by yohimik, Claude Fable 5)
+  A dogfooding probe for the paginated release card.
+
+- an eighth probe that describes an imaginary feature in the language of a real one, mentioning a configuration key that does not exist and a platform that never heard of it, purely to occupy three wrapped lines ([37db480](https://github.com/yohimik/crier/commit/37db480b0b4fc3f72159ce0e50b294c39b700b92)) (by yohimik, Claude Fable 5)
+  A dogfooding probe for the paginated release card.
+
+- a seventh, short probe ([c24eb86](https://github.com/yohimik/crier/commit/c24eb86d5db9715b8d721a74a4f4b5ed803c3d90)) (by yohimik, Claude Fable 5)
+  A dogfooding probe for the paginated release card.
+
+- a sixth probe about nothing at all, phrased the way changelog entries actually arrive, with a clause after the comma that pushes it past the width of one line ([89d2baf](https://github.com/yohimik/crier/commit/89d2baf7af62a4224b4e4a3e083f0ac9030f0345)) (by yohimik, Claude Fable 5)
+  A dogfooding probe for the paginated release card.
+
+- a fifth probe, whose subject settles in at around one hundred and sixty characters so that it reliably wraps to a second line and reaches toward a third on the card ([81d9ee7](https://github.com/yohimik/crier/commit/81d9ee768a7817ff6258426375a2f2e870c171ff)) (by yohimik, Claude Fable 5)
+  A dogfooding probe for the paginated release card.
+
+- a post can name the clip that opens it ([7157208](https://github.com/yohimik/crier/commit/7157208d5c2636ae6aabe42504f2ab3d87d5aab0)) (by yohimik, Claude Fable 5)
+  publish.<platform>.lead-video, on the same terms as music-file: the key
+  exists for all ten platforms, and the eight that cannot post mixed media
+  are answered by Validate with the reason rather than by the decoder with
+  an unknown-key error.
+
+  Two platforms can. An Instagram feed carousel takes video children beside
+  image children. A Telegram media group mixes InputMediaPhoto and
+  InputMediaVideo in one array. Everywhere else a post is pictures or it is
+  a video, and no arrangement of API calls makes it both.
+
+  There is no shared key to fall back to, unlike the audio. A clip that
+  opens a post is part of that post's composition rather than a decoration
+  applied to every surface, and the two that take one want different shapes
+  of it often enough that naming it twice is the honest spelling.
+
+### Fixes
+
+- a nineteenth probe that wraps twice by design, padding its clause with qualifiers the way release notes do when nobody edits them down before the tag ([70a545d](https://github.com/yohimik/crier/commit/70a545d2f732ddeca7365971fe8603ceae1067f0)) (by yohimik, Claude Fable 5)
+  A dogfooding probe for the paginated release card.
+
+- a seventeenth probe recounting, in the past tense and with unnecessary chronology, the discovery of a bug that never existed and the weekend that was never lost to it ([d7daa57](https://github.com/yohimik/crier/commit/d7daa57ef1f0fc482e53fa423160ecc19890f483)) (by yohimik, Claude Fable 5)
+  A dogfooding probe for the paginated release card.
+
+- a fifteenth probe that closes the parade at a length calculated to wrap twice, so the last page of the card has some weight to carry as well ([4a13cbf](https://github.com/yohimik/crier/commit/4a13cbfc1fe82eda8a3b5fd822ce6caeda32b78a)) (by yohimik, Claude Fable 5)
+  A dogfooding probe for the paginated release card.
+
+- a fourteenth probe, one word longer than the tenth ([cb715ab](https://github.com/yohimik/crier/commit/cb715ab1f8985c8b37d50364fd500c8ddd14ef61)) (by yohimik, Claude Fable 5)
+  A dogfooding probe for the paginated release card.
+
+- a twelfth probe whose subject would have been two sentences anywhere else, joined here by a comma because commit subjects have no full stops to spare, and stretched to guarantee its third line ([d7a6667](https://github.com/yohimik/crier/commit/d7a66670638af4da69e5e7c2b882ee3f7a4c6429)) (by yohimik, Claude Fable 5)
+  A dogfooding probe for the paginated release card.
+
+- an eleventh probe carrying a middling subject that lands almost exactly on the wrap boundary of the card face ([e5f1211](https://github.com/yohimik/crier/commit/e5f12119c66f6ba02357b9954a02b6827e3025ba)) (by yohimik, Claude Fable 5)
+  A dogfooding probe for the paginated release card.
+
+- a tenth probe, terse ([4fc6440](https://github.com/yohimik/crier/commit/4fc644074269bb25567f6a657109fc031a3bb937)) (by yohimik, Claude Fable 5)
+  A dogfooding probe for the paginated release card.
+
+- a ninth probe fixing nothing, at length: the sort of subject where the author explains the symptom, the cause and the cure all before the colon has any right to expect them ([20a5e0f](https://github.com/yohimik/crier/commit/20a5e0f39150f96ca88a8c764ce2e824595a7795)) (by yohimik, Claude Fable 5)
+  A dogfooding probe for the paginated release card.
+
+### Authors
+
+- yohimik
+- Claude Fable 5
+
+
 ## v1.0.0-rc.7 (2026-09-02)
 
 ### Features
