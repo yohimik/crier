@@ -1,5 +1,41 @@
 # Changelog
 
+## v1.0.0-rc.11 (2026-09-02)
+
+### Features
+
+- threads is the twelfth platform ([841b4c5](https://github.com/yohimik/crier/commit/841b4c5eae7572785855fc7429e38a3afc37e63b)) (by yohimik, Claude Fable 5)
+  The same Meta machinery Instagram taught crier: a container per page,
+  a poll to FINISHED, one publish, and the bounded retry for the refusals
+  proven to have created nothing. Threads adds two rules of its own: a
+  carousel wants at least two items, so a single page posts as a plain
+  image, and the token is a Threads token, which an Instagram token is
+  not. Twenty pages to a carousel, captions ride as the post's text.
+
+- the release announces itself on linkedin too ([16a46fd](https://github.com/yohimik/crier/commit/16a46fd98171b084da0c4d2d1d32fce3e6e82d36)) (by yohimik, Claude Fable 5)
+  The anthem clip is the announcement: a LinkedIn post takes one video or
+  many images, never both, so the cover with its soundtrack carries the
+  commentary and the changelog pages follow as a multi-image album. The
+  commentary is written around what makes the post worth stopping for:
+  the changelog came from the commits, and the render and the publish
+  both happened inside the release run. No secrets, no post, no red
+  release, as ever.
+
+- vk is the eleventh platform ([a5e621e](https://github.com/yohimik/crier/commit/a5e621e41f535be127c8c5693635dccf4ec240af)) (by yohimik, Claude Fable 5)
+  A wall post is three borrowed steps: an upload slot from
+  photos.getWallUploadServer, the bytes to that slot, and the
+  server-photo-hash triple handed back through photos.saveWallPhoto.
+  Pages become one post of up to ten attachments, a clip goes through
+  video.save, and a GIF travels as a document, which is what VK calls
+  one. The owner id's sign decides whose wall: negative is a community,
+  posted as the community itself.
+
+### Authors
+
+- yohimik
+- Claude Fable 5
+
+
 ## v1.0.0-rc.10 (2026-09-02)
 
 ### Fixes
