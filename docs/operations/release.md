@@ -13,11 +13,12 @@ You can find the whole configuration in [`dispat.yaml`](../../dispat.yaml).
 The **release** workflow uses `workflow_dispatch`. It has four jobs:
 
 1. **plan**: Runs `dispat status --require-release`. Exit 3 means the commits hold nothing releasable. The run stops there.
-2. **tests**: Runs every gate against the commit about to be tagged.
-3. **release**: Runs `dispat --log-format json`. This one command handles the version, changelog, commit, tag, build and GitHub release.
-4. **install**: Runs on Ubuntu, macOS and Windows. It installs the published binary and runs it. A release is not finished until its assets install.
+2. **ping**: Runs `crier ping` with the previous release's binary against the announcement's credentials. Nothing is posted. A revoked or expired token fails the run here, in a minute, instead of surfacing as a skipped announcement at the end. A repository without the announcement secrets skips this and releases without announcing.
+3. **tests**: Runs every gate against the commit about to be tagged.
+4. **release**: Runs `dispat --log-format json`. This one command handles the version, changelog, commit, tag, build and GitHub release.
+5. **install**: Runs on Ubuntu, macOS and Windows. It installs the published binary and runs it. A release is not finished until its assets install.
 
-It needs no secrets beyond the automatic `GITHUB_TOKEN`.
+It needs no secrets beyond the automatic `GITHUB_TOKEN`. The announcement secrets are optional; when they are set, the ping job holds the release to them.
 
 ## Commits
 

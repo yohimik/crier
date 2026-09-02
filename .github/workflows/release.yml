@@ -40,6 +40,49 @@ jobs:
             *) echo "dispat status failed"; exit 1 ;;
           esac
 
+  ping:
+    name: Ping
+    needs: plan
+    runs-on: ubuntu-latest
+    # The credentials the announcement will use, checked up front with
+    # `crier ping` — read-only, nothing posted — so a revoked or expired
+    # token fails the run in a minute instead of surfacing as a skipped
+    # announcement after the release already spent fifteen. Job-level env
+    # for the same reason as the release job: a step's `if` is evaluated
+    # before its own `env`.
+    #
+    # No secrets, no gate: a repository without the announcement secrets
+    # skips the ping and releases without announcing, exactly as before.
+    env:
+      CRIER_PUBLISH_INSTAGRAM_TOKEN: ${{ secrets.CRIER_PUBLISH_INSTAGRAM_TOKEN }}
+      CRIER_PUBLISH_INSTAGRAM_USER_ID: ${{ secrets.CRIER_PUBLISH_INSTAGRAM_USER_ID }}
+      CRIER_PUBLISH_LINKEDIN_TOKEN: ${{ secrets.CRIER_PUBLISH_LINKEDIN_TOKEN }}
+      CRIER_PUBLISH_LINKEDIN_AUTHOR_URN: ${{ secrets.LINKEDIN_URN }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Set up dispat
+        if: env.CRIER_PUBLISH_INSTAGRAM_TOKEN != ''
+        uses: yohimik/dispat@v1
+      # The previous release's binary: the point is the credentials, not the
+      # code, and the binary this run releases does not exist yet.
+      - name: Install the previous crier
+        if: env.CRIER_PUBLISH_INSTAGRAM_TOKEN != ''
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: dispat install yohimik/crier --prerelease --bin-dir ./ping-bin
+      # LinkedIn is enabled only when its token is set, mirroring how the
+      # announce script decides whether that pass runs at all. stdin is
+      # closed because the announce config reads its data document from it.
+      - name: Ping the announcement's platforms
+        if: env.CRIER_PUBLISH_INSTAGRAM_TOKEN != ''
+        run: |
+          ./ping-bin/crier ping --config announce/crier.yaml \
+            ${CRIER_PUBLISH_LINKEDIN_TOKEN:+--publish-linkedin-enabled=true} \
+            </dev/null
+      - name: Nothing to ping
+        if: env.CRIER_PUBLISH_INSTAGRAM_TOKEN == ''
+        run: echo "no announcement secrets; the release will skip the announcement"
+
   tests:
     name: Tests
     needs: plan
@@ -58,7 +101,7 @@ jobs:
 
   release:
     name: Release
-    needs: tests
+    needs: [tests, ping]
     runs-on: ubuntu-latest
     outputs:
       released: ${{ steps.dispat.outputs.released }}
