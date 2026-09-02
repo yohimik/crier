@@ -1,5 +1,26 @@
 # Changelog
 
+## v1.0.0-rc.6 (2026-09-02)
+
+### Fixes
+
+- Meta's second costume for the same race, and ffmpeg for the runner ([3c95025](https://github.com/yohimik/crier/commit/3c950252bf4ffe8bbaee940631d07a59dfeb57fd)) (by yohimik, Claude Fable 5)
+  The rc.5 story died on error 24, Media Not Found: the container this
+  process created and polled FINISHED seconds earlier did not exist at
+  the publish endpoint for a moment. A container that does not exist
+  published nothing, so it joins 9007 in the ask-again matcher — and one
+  genuinely gone spends the budget and surfaces the same error.
+
+  The anthem skipped for a plainer reason: the runner image carries no
+  ffmpeg. The release job now installs it when the announce secrets are
+  present.
+
+### Authors
+
+- yohimik
+- Claude Fable 5
+
+
 ## v1.0.0-rc.5 (2026-09-02)
 
 ### Features
