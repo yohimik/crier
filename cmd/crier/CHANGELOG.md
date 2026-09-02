@@ -1,5 +1,59 @@
 # Changelog
 
+## v1.0.0-rc.12 (2026-09-02)
+
+### Features
+
+- the release chooses its own look and its own fanfare ([6e257ee](https://github.com/yohimik/crier/commit/6e257eefeda6519fe1d0cce6178ecb831e487ea6)) (by yohimik, Claude Fable 5)
+  Audio pools join template pools: render.video.audio-pool lists the
+  files, the run's seed picks one, and the pick is drawn right after the
+  layout's so the two travel together. The announcement dogfoods both.
+  Four public-domain anthems now sit beside the card, two layouts share
+  every load-bearing rule and differ in everything cosmetic, and
+  announce.sh derives one seed from the version for every pass, so the
+  stories wear the face the feed wore and any release can be rendered
+  again exactly as it went out.
+
+- boosty is the fourteenth platform ([ee06f06](https://github.com/yohimik/crier/commit/ee06f066bc16703fae76496951890198f6687054)) (by yohimik, Claude Fable 5)
+  The first platform without an official API: the contract is what the
+  web editor itself speaks, pinned from four independent client
+  libraries and encoded in the test fake, with every host configurable.
+  A post is uploaded images and draft-style text blocks in one call,
+  and its audience is the new part: free for everyone, priced for a
+  one-time purchase, or held to a subscription level. Video stays out
+  until someone captures the editor uploading one; a guessed endpoint
+  would leave an unplayable file in a paid post.
+
+- youtube is the thirteenth platform ([10784ca](https://github.com/yohimik/crier/commit/10784caea7be11c074dfb35d7b52470aa4f396ef)) (by yohimik, Claude Fable 5)
+  Video only, because that is all the Data API takes: community image
+  posts have no public API at all. OAuth refresh tokens the way reddit
+  taught crier, a resumable session and one streamed PUT, the caption as
+  the description and its first line as the title. A Short is not an
+  endpoint, just a vertical video that says so. Privacy defaults to
+  private, which is also what Google forces on unaudited projects, and a
+  refused thumbnail is a warning, because the video is already up.
+
+### Fixes
+
+- the story example stops counting platforms ([95e82d6](https://github.com/yohimik/crier/commit/95e82d65ce003f63c64c46149b95bc4cd4316459)) (by yohimik, Claude Fable 5)
+  Its card said nine when the answer had become twelve, and a number in
+  sample data goes stale every time the real one moves. Every platform,
+  counted by nobody, stays true. The preview is re-rendered to match.
+
+- a refused linkedin clip costs the clip, not the platform ([02ebffb](https://github.com/yohimik/crier/commit/02ebffbd0fa54772ebd94b9d429ccfcb0a034243)) (by yohimik, Claude Fable 5)
+  LinkedIn's video API is a partner product most member tokens do not
+  carry, and when it refused the clip with ACCESS_DENIED the changelog
+  album chained behind it never ran: the release reached everyone but
+  the audience the commentary was written for. The clip now falls back
+  to the whole card as one album, cover first, under the same
+  commentary, and the e2e replays the refusal word for word.
+
+### Authors
+
+- yohimik
+- Claude Fable 5
+
+
 ## v1.0.0-rc.11 (2026-09-02)
 
 ### Features
