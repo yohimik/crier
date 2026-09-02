@@ -78,6 +78,9 @@ fi
 # CRIER_STAGE_MODE at s3 or at a URL somebody else publishes skips it, which is
 # the escape hatch for anyone who would rather not run a tunnel in CI.
 stage_mode=${CRIER_STAGE_MODE:-server}
+# LinkedIn takes the bytes directly, so the replay stages nothing at all —
+# and the default server mode would demand a tunnel URL it will never use.
+[ "$only" != "linkedin" ] || stage_mode=none
 if [ "$only" != "linkedin" ] && [ "$stage_mode" = "server" ] && [ -z "${NGROK_AUTHTOKEN:-}" ]; then
 	missing="$missing NGROK_AUTHTOKEN"
 fi
