@@ -195,6 +195,7 @@ var registry = map[string]constructor{
 	"slack":     newSlack,
 	"vk":        newVK,
 	"threads":   newThreads,
+	"youtube":   newYouTube,
 }
 
 // Names are every platform crier knows, sorted.
@@ -253,6 +254,8 @@ func enabledIn(cfg *config.Config, name string) bool {
 		return p.VK.Enabled
 	case "threads":
 		return p.Threads.Enabled
+	case "youtube":
+		return p.YouTube.Enabled
 	default:
 		if c := config.CustomOf(p, name); c != nil {
 			return c.Enabled
@@ -506,8 +509,8 @@ func (r Report) Err() error {
 // RunAll publishes to every platform, a bounded number at a time.
 //
 // One platform's failure never cancels another's: the whole point of posting
-// to twelve places is that eleven of them still get the post when the twelfth
-// is down. The context is passed through unchanged, so a cancelled run does stop
+// to thirteen places is that twelve of them still get the post when the
+// thirteenth is down. The context is passed through unchanged, so a cancelled run does stop
 // everything.
 func RunAll(ctx context.Context, jobs []Job, concurrency int, log zerolog.Logger) Report {
 	if concurrency < 1 {
@@ -705,5 +708,6 @@ var imageAndVideo = []render.Kind{render.KindImage, render.KindVideo}
 //
 // It is a separate list because a GIF is not "a small video" to these APIs:
 // Telegram wants a different method for it, X a different media category, and
-// Instagram, Facebook, TikTok and LinkedIn will not take one at all.
+// Instagram, Facebook, TikTok, LinkedIn, Threads and YouTube will not take one
+// at all.
 var imageVideoAndGIF = []render.Kind{render.KindImage, render.KindVideo, render.KindGIF}

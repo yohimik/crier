@@ -19,7 +19,7 @@ func gifArtifact(t *testing.T, size int) render.Artifact {
 }
 
 // TestGIFSupportMatrix is the routing table as a test: seven platforms take an
-// animation and five do not, and a configuration that mixes them has to fail
+// animation and six do not, and a configuration that mixes them has to fail
 // before anything is rendered rather than at the API.
 func TestGIFSupportMatrix(t *testing.T) {
 	const at = "https://example.test"
@@ -34,6 +34,7 @@ func TestGIFSupportMatrix(t *testing.T) {
 		"slack":     slackConfig(at),
 		"vk":        vkConfig(at, vkCommunity),
 		"threads":   threadsConfig(at),
+		"youtube":   youtubeConfig(at, at),
 	}
 	discord := config.Defaults()
 	discord.Publish.Discord.Enabled = true
@@ -52,6 +53,7 @@ func TestGIFSupportMatrix(t *testing.T) {
 		"vk":        true,
 		"instagram": false, "facebook": false, "tiktok": false, "linkedin": false,
 		"threads": false,
+		"youtube": false,
 	} {
 		p := onlyPublisher(t, byName[name])
 		if got := p.Needs().Accepts(render.KindGIF); got != want {

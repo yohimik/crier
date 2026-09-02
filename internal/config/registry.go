@@ -96,6 +96,7 @@ var Platforms = []string{
 	"mastodon", "discord", "linkedin", "reddit",
 	"vk",
 	"threads",
+	"youtube",
 }
 
 // MusicPlatforms are the platforms whose API can carry an audio file beside
@@ -339,10 +340,33 @@ var registry = []Descriptor{
 	{Key: "publish.threads.caption", Kind: KindString, Usage: "Threads specific post text"},
 	{Key: "publish.threads.poll-interval", Kind: KindDuration, Default: "2s", Usage: "how often the media container status is polled"},
 	{Key: "publish.threads.poll-timeout", Kind: KindDuration, Default: "2m", Usage: "how long to wait for the media container to be ready"},
+
+	{Key: "publish.youtube.enabled", Kind: KindBool, Usage: "publish to YouTube (videos only)"},
+	{Key: "publish.youtube.api-base-url", Kind: KindString, Default: "https://www.googleapis.com",
+		Usage: "YouTube Data API v3 base URL"},
+	{Key: "publish.youtube.auth-base-url", Kind: KindString, Default: "https://oauth2.googleapis.com",
+		Usage: "Google OAuth 2.0 token endpoint base URL"},
+	{Key: "publish.youtube.client-id", Kind: KindString, Secret: true,
+		Usage: "Google Cloud OAuth client id"},
+	{Key: "publish.youtube.client-secret", Kind: KindString, Secret: true,
+		Usage: "Google Cloud OAuth client secret"},
+	{Key: "publish.youtube.refresh-token", Kind: KindString, Secret: true,
+		Usage: "OAuth refresh token carrying the youtube.upload scope; it is traded for an access token each run"},
+	{Key: "publish.youtube.title", Kind: KindString,
+		Usage: "YouTube video title; empty uses the caption's first line, cut to 100 characters"},
+	{Key: "publish.youtube.caption", Kind: KindString, Usage: "YouTube video description"},
+	{Key: "publish.youtube.category-id", Kind: KindString, Default: "22",
+		Usage: `YouTube category id; 22 is "People & Blogs"`},
+	{Key: "publish.youtube.privacy-status", Kind: KindString, Default: "private",
+		Usage: "video privacy: private, unlisted or public; " +
+			"an API project Google has not audited gets private whatever is asked for"},
+	{Key: "publish.youtube.thumbnail", Kind: KindString, Path: true,
+		Usage: "JPEG or PNG set as the video's thumbnail; it needs a phone-verified channel, " +
+			"so a refusal is a warning rather than a failed post"},
 }
 
 // layoutDescriptors are the three keys every platform has for overriding what
-// gets rendered for it. They are generated rather than written out twelve
+// gets rendered for it. They are generated rather than written out thirteen
 // times, because a platform silently missing one would be a hole nobody
 // notices.
 func layoutDescriptors(platform string) []Descriptor {

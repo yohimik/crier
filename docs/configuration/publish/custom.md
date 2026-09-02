@@ -25,7 +25,7 @@ are written with `<name>` standing in for it. See
 | `publish.custom.<name>.env.<VAR>` | string | — | extra environment variables for the command |
 
 A name is lower-case letters, digits and dashes, and may not be one of the
-twelve built-in platforms. It has to survive the round trip through an
+thirteen built-in platforms. It has to survive the round trip through an
 environment variable.
 
 [All configuration](../README.md)

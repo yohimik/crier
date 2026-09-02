@@ -45,6 +45,11 @@ func textFields(cfg *config.Config, platform string) []textField {
 		return []textField{{"publish.vk.caption", &p.VK.Caption, true}}
 	case "threads":
 		return []textField{{"publish.threads.caption", &p.Threads.Caption, true}}
+	case "youtube":
+		return []textField{
+			{"publish.youtube.caption", &p.YouTube.Caption, true},
+			{"publish.youtube.title", &p.YouTube.Title, false},
+		}
 	case "mastodon":
 		return []textField{
 			{"publish.mastodon.caption", &p.Mastodon.Caption, true},

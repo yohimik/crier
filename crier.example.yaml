@@ -417,6 +417,45 @@ publish:
     token: "<your-token>"
     # render width for x; 0 inherits render.width
     width: 0
+  youtube:
+    # YouTube Data API v3 base URL
+    api-base-url: "https://www.googleapis.com"
+    # Google OAuth 2.0 token endpoint base URL
+    auth-base-url: "https://oauth2.googleapis.com"
+    # YouTube video description
+    caption: ""
+    # YouTube category id; 22 is "People & Blogs"
+    category-id: "22"
+    # Google Cloud OAuth client id
+    client-id: "<your-client-id>"
+    # Google Cloud OAuth client secret
+    client-secret: "<your-client-secret>"
+    # publish to YouTube (videos only)
+    enabled: false
+    # how the render is made to match youtube's frame: none, cover, contain or stretch; anything but none needs width and height
+    fit: "none"
+    # hex colour behind a contain letterbox for youtube, and what transparency is flattened onto
+    fit-background: "#ffffff"
+    # render height for youtube; 0 inherits render.height
+    height: 0
+    # not available: a youtube post is pictures or a video and never both, so a value here is refused rather than ignored
+    lead-video: ""
+    # post at most this many pages to youtube at once; 0 uses the platform's own limit, which is also the ceiling
+    max-attachments: 0
+    # not available: youtube has no API for attaching an audio file, so a value here is refused rather than ignored
+    music-file: ""
+    # template overlays applied for youtube only, after the global ones
+    overlay: []
+    # video privacy: private, unlisted or public; an API project Google has not audited gets private whatever is asked for
+    privacy-status: "private"
+    # OAuth refresh token carrying the youtube.upload scope; it is traded for an access token each run
+    refresh-token: "<your-refresh-token>"
+    # JPEG or PNG set as the video's thumbnail; it needs a phone-verified channel, so a refusal is a warning rather than a failed post
+    thumbnail: ""
+    # YouTube video title; empty uses the caption's first line, cut to 100 characters
+    title: ""
+    # render width for youtube; 0 inherits render.width
+    width: 0
 render:
   # background colour transparent pixels are flattened onto for JPEG
   background: "#ffffff"

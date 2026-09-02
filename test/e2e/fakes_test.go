@@ -17,7 +17,7 @@ import (
 
 // fakes is one server standing in for every platform crier can post to.
 //
-// One server rather than twelve because every base URL is configurable: the
+// One server rather than thirteen because every base URL is configurable: the
 // contract each platform's fake enforces is the point, not the host it lives
 // on.
 type fakes struct {
@@ -35,6 +35,10 @@ type fakes struct {
 	// what was actually created rather than against a string.
 	threadsContainers map[string]url.Values
 	threadsPosts      int
+	// youtubeSessions is every resumable upload session this fake opened, keyed
+	// by the id in the Location it handed out, so a PUT can be checked against
+	// a session that exists rather than against a string.
+	youtubeSessions map[string]string
 }
 
 type request struct {
@@ -47,7 +51,10 @@ type request struct {
 
 func newFakes(t *testing.T) *fakes {
 	t.Helper()
-	f := &fakes{threadsContainers: map[string]url.Values{}}
+	f := &fakes{
+		threadsContainers: map[string]url.Values{},
+		youtubeSessions:   map[string]string{},
+	}
 	f.Server = httptest.NewServer(http.HandlerFunc(f.serve))
 	f.uploadHost = f.URL
 	t.Cleanup(f.Close)
@@ -95,7 +102,8 @@ func (f *fakes) count(fragment string) int {
 }
 
 // serve routes by path prefix. Every platform gets a namespace of its own so
-// the config can point twelve base URLs at one server.
+// the config can point fourteen base URLs at one server: thirteen platforms,
+// and YouTube's second host for its token.
 func (f *fakes) serve(w http.ResponseWriter, r *http.Request) {
 	req := f.record(r)
 	path := req.Path
@@ -347,6 +355,16 @@ func (f *fakes) serve(w http.ResponseWriter, r *http.Request) {
 	case strings.HasPrefix(path, "/threads/"):
 		f.serveThreads(w, req)
 
+	// --- youtube ----------------------------------------------------------
+	//
+	// Two hosts, like Reddit: the token comes from the auth namespace and
+	// everything else from the API one. The upload session is a third path
+	// because Google's is a third host.
+	case strings.HasPrefix(path, "/youtube-auth/token"):
+		f.youtubeToken(w, req)
+	case strings.HasPrefix(path, "/youtube/"), strings.HasPrefix(path, "/youtube-upload/"):
+		f.serveYouTube(w, req)
+
 	default:
 		http.Error(w, "no fake for "+path, http.StatusNotFound)
 	}
@@ -565,6 +583,129 @@ func (f *fakes) threadsPublish(w http.ResponseWriter, form url.Values) {
 	n := f.threadsPosts
 	f.mu.Unlock()
 	writeJSON(w, map[string]any{"id": fmt.Sprintf("th-post-%d", n)})
+}
+
+// youtubeChannel is the channel this fake uploads to.
+const youtubeChannel = "UC-e2e"
+
+// youtubeToken is the OAuth refresh, which is the one YouTube call that carries
+// no bearer: the credentials travel in the form body, so the shared bad-token
+// rule at the top of serve cannot see them.
+func (f *fakes) youtubeToken(w http.ResponseWriter, req request) {
+	form, _ := url.ParseQuery(req.Body)
+	if form.Get("refresh_token") == "bad-token" {
+		w.WriteHeader(http.StatusBadRequest)
+		writeJSON(w, map[string]any{
+			"error": "invalid_grant", "error_description": "Token has been expired or revoked.",
+		})
+		return
+	}
+	if form.Get("grant_type") != "refresh_token" ||
+		form.Get("client_id") == "" || form.Get("client_secret") == "" {
+		w.WriteHeader(http.StatusBadRequest)
+		writeJSON(w, map[string]any{
+			"error": "invalid_request", "error_description": "the refresh needs all four fields",
+		})
+		return
+	}
+	writeJSON(w, map[string]any{"access_token": "yt-access", "expires_in": 3600})
+}
+
+// serveYouTube is the Data API surface, and the binding contract for the
+// publisher.
+//
+// Two things are enforced rather than merely answered. The bytes have to arrive
+// at a session this fake opened, so an upload sent to the API host instead of
+// to the Location is a refusal; and the video id is derived from the byte count
+// received, so a truncated upload comes out as a different id rather than as a
+// passing test.
+func (f *fakes) serveYouTube(w http.ResponseWriter, req request) {
+	if req.Header.Get("Authorization") != "Bearer yt-access" {
+		w.WriteHeader(http.StatusUnauthorized)
+		writeJSON(w, map[string]any{"error": map[string]any{
+			"code": 401, "message": "the call carried " + req.Header.Get("Authorization"),
+		}})
+		return
+	}
+	query, _ := url.ParseQuery(req.Query)
+
+	switch {
+	case req.Path == "/youtube/youtube/v3/channels":
+		writeJSON(w, map[string]any{"items": []map[string]any{
+			{"id": youtubeChannel, "snippet": map[string]any{"title": "Crier Releases"}},
+		}})
+
+	case req.Path == "/youtube/upload/youtube/v3/videos":
+		if query.Get("uploadType") != "resumable" || query.Get("part") != "snippet,status" {
+			youtubeRefuse(w, "uploadType="+query.Get("uploadType")+" part="+query.Get("part"))
+			return
+		}
+		var body struct {
+			Snippet struct {
+				Title string `json:"title"`
+			} `json:"snippet"`
+		}
+		if err := json.Unmarshal([]byte(req.Body), &body); err != nil {
+			youtubeRefuse(w, "the initiate body is not JSON: "+err.Error())
+			return
+		}
+		if strings.TrimSpace(body.Snippet.Title) == "" {
+			youtubeRefuse(w, "a video needs a title")
+			return
+		}
+		f.mu.Lock()
+		id := fmt.Sprintf("s%d", len(f.youtubeSessions)+1)
+		f.youtubeSessions[id] = body.Snippet.Title
+		f.mu.Unlock()
+		w.Header().Set("Location", f.uploadHost+"/youtube-upload/"+id+"?upload_id="+id)
+		writeJSON(w, map[string]any{})
+
+	case strings.HasPrefix(req.Path, "/youtube-upload/"):
+		session := strings.TrimPrefix(req.Path, "/youtube-upload/")
+		f.mu.Lock()
+		_, ok := f.youtubeSessions[session]
+		f.mu.Unlock()
+		if !ok {
+			youtubeRefuse(w, "no such upload session: "+session)
+			return
+		}
+		// The id says how many bytes arrived, so a short upload is visible.
+		writeJSON(w, map[string]any{"id": fmt.Sprintf("yt-%d", len(req.Body))})
+
+	case req.Path == "/youtube/upload/youtube/v3/thumbnails/set":
+		if query.Get("videoId") == "" || query.Get("uploadType") != "media" {
+			youtubeRefuse(w, "a thumbnail needs videoId and uploadType=media")
+			return
+		}
+		writeJSON(w, map[string]any{"items": []map[string]any{
+			{"default": map[string]any{"url": "https://i.ytimg.com/e2e.jpg"}},
+		}})
+
+	default:
+		http.Error(w, "no youtube fake for "+req.Path, http.StatusNotFound)
+	}
+}
+
+func youtubeRefuse(w http.ResponseWriter, why string) {
+	w.WriteHeader(http.StatusBadRequest)
+	writeJSON(w, map[string]any{"error": map[string]any{"code": 400, "message": why}})
+}
+
+// youtubeConfig is the YouTube block, kept out of platformConfig on purpose.
+//
+// YouTube takes no images, so it cannot join the all-platform image fan-out the
+// way the other twelve do: a run that enabled it there would be refused before
+// anything was staged, which is the right behaviour and the wrong test. It has
+// a video scenario of its own instead, and joins the ping fan-out through this.
+func (f *fakes) youtubeConfig() string {
+	return fmt.Sprintf(`  youtube:
+    enabled: true
+    api-base-url: %[1]s/youtube
+    auth-base-url: %[1]s/youtube-auth
+    client-id: yt-client
+    client-secret: yt-secret
+    refresh-token: yt-refresh
+`, f.URL)
 }
 
 func threadsRefuse(w http.ResponseWriter, why string) {

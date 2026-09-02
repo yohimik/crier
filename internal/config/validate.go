@@ -336,6 +336,20 @@ func validatePublish(p *Publish) []error {
 	default:
 		errs = append(errs, invalid("publish.reddit.kind", p.Reddit.Kind, "want auto, image, video or link"))
 	}
+	switch strings.ToLower(strings.TrimSpace(p.YouTube.PrivacyStatus)) {
+	case "private", "unlisted", "public":
+	default:
+		errs = append(errs, invalid("publish.youtube.privacy-status", p.YouTube.PrivacyStatus,
+			"want private, unlisted or public"))
+	}
+	// A youtube upload is one video, so the only thing this key could ask for
+	// is a cap it already has. Anything above it names a carousel that is not
+	// there, which is a mistake worth reporting rather than clamping.
+	if p.YouTube.MaxAttachments > 1 {
+		errs = append(errs, invalid("publish.youtube.max-attachments",
+			strconv.Itoa(p.YouTube.MaxAttachments),
+			"a youtube upload is one video; there is no carousel here to lower"))
+	}
 
 	errs = append(errs, validateMusic(p)...)
 	errs = append(errs, validateLeadVideo(p)...)
@@ -363,7 +377,7 @@ func validatePublish(p *Publish) []error {
 }
 
 // MusicOf returns a platform's own audio setting, or nil when the name is not
-// one of the twelve built-in platforms.
+// one of the thirteen built-in platforms.
 //
 // A custom platform has none. Its command decides what it sends, so an audio
 // file crier attached for it would be a file the command never sees.
@@ -393,6 +407,8 @@ func MusicOf(p *Publish, name string) *Music {
 		return &p.VK.Music
 	case "threads":
 		return &p.Threads.Music
+	case "youtube":
+		return &p.YouTube.Music
 	default:
 		return nil
 	}
@@ -404,7 +420,7 @@ func MusicOf(p *Publish, name string) *Music {
 //
 // The last clause is what keeps a global setting from being a mistake. Someone
 // naming one file for the whole run means it for the platforms that can take
-// it, not as an instruction the other nine have to refuse.
+// it, not as an instruction the other ten have to refuse.
 func MusicFileFor(p *Publish, name string) string {
 	if !CanCarryMusic(name) {
 		return ""
@@ -416,7 +432,7 @@ func MusicFileFor(p *Publish, name string) string {
 }
 
 // LeadVideoOf returns a platform's opening clip, or nil when the name is not
-// one of the twelve built-in platforms.
+// one of the thirteen built-in platforms.
 func LeadVideoOf(p *Publish, name string) *LeadVideo {
 	switch name {
 	case "instagram":
@@ -443,6 +459,8 @@ func LeadVideoOf(p *Publish, name string) *LeadVideo {
 		return &p.VK.LeadVideo
 	case "threads":
 		return &p.Threads.LeadVideo
+	case "youtube":
+		return &p.YouTube.LeadVideo
 	default:
 		return nil
 	}
@@ -493,6 +511,8 @@ func LayoutOf(p *Publish, name string) *Layout {
 		return &p.VK.Layout
 	case "threads":
 		return &p.Threads.Layout
+	case "youtube":
+		return &p.YouTube.Layout
 	default:
 		if c := CustomOf(p, name); c != nil {
 			return &c.Layout

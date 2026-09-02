@@ -193,9 +193,10 @@ type Publish struct {
 	Slack     Slack
 	VK        VK
 	Threads   Threads
+	YouTube   YouTube
 
 	// Custom are script-backed platforms, keyed by the name the configuration
-	// gave them. They are peers of the twelve above: they take part in the
+	// gave them. They are peers of the thirteen above: they take part in the
 	// fan-out, in the render variants, in caption templating, in `crier ping`
 	// and in a dry run.
 	//
@@ -417,11 +418,49 @@ type Threads struct {
 	PollTimeout  string
 }
 
+// YouTube configures the YouTube Data API v3 publisher.
+//
+// It is the one platform here that posts no pictures: the Data API uploads
+// videos, and a community post — where a still image would go — has no public
+// API at all.
+//
+// Like Reddit it has two hosts. The access token comes from Google's OAuth
+// host and everything else goes to the API host, and both are configurable so
+// the end-to-end tests can point them at a fake.
+type YouTube struct {
+	Layout
+	Music
+	LeadVideo
+
+	Enabled     bool
+	APIBaseURL  string
+	AuthBaseURL string
+	// ClientID, ClientSecret and RefreshToken are the OAuth 2.0 installed-app
+	// credentials. There is no long-lived token to paste here: a refresh token
+	// is traded for an access token at the start of every run.
+	ClientID     string
+	ClientSecret string
+	RefreshToken string
+	Title        string
+	Caption      string
+	// CategoryID is YouTube's own category number. 22 is "People & Blogs",
+	// which is the safe answer for anything that is not obviously one of the
+	// others.
+	CategoryID string
+	// PrivacyStatus is private, unlisted or public. It defaults to private, and
+	// an unaudited API project gets private whatever is asked for.
+	PrivacyStatus string
+	// Thumbnail is a JPEG or PNG set on the video after it is uploaded. It
+	// needs a phone-verified channel, so a failure here is a warning rather
+	// than a failed post.
+	Thumbnail string
+}
+
 // Reddit configures the Reddit publisher.
 //
-// Reddit is the only platform with two hosts: tokens come from the www host
-// and everything else goes to the oauth host, and both are configurable so the
-// end-to-end tests can point them at a fake.
+// Reddit is one of the two platforms with two hosts, YouTube being the other:
+// tokens come from the www host and everything else goes to the oauth host,
+// and both are configurable so the end-to-end tests can point them at a fake.
 type Reddit struct {
 	Layout
 	Music

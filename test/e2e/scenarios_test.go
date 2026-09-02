@@ -581,7 +581,13 @@ func enableAll(f *fakes, extra string) string {
 
 // TestSmokePublishToEveryPlatform is in the release smoke subset: twelve
 // publishers fanned out against fakes, which is the one test that touches
-// every platform's request shape.
+// every image platform's request shape.
+//
+// Twelve of the thirteen. YouTube is the exception and stays out on purpose: it
+// uploads videos and nothing else, so enabling it on a run of image posts is a
+// configuration error rather than a thirteenth row. Its own flow is
+// TestYouTubeUploadsTheRenderedClip, and its credentials are checked in the
+// ping fan-out with the rest.
 func TestSmokePublishToEveryPlatform(t *testing.T) {
 	f := newFakes(t)
 	dir := newProject(t, enableAll(f, "\n  caption: \"{{ .title }} {{ .version }} via {{ .Platform }}\"\n")+
@@ -1378,11 +1384,14 @@ token = "tok"
 
 // --- ping ------------------------------------------------------------------
 
-// TestPingChecksEveryEnabledPlatform is the safe setup check: twelve identity
+// TestPingChecksEveryEnabledPlatform is the safe setup check: thirteen identity
 // endpoints, no post anywhere.
 func TestPingChecksEveryEnabledPlatform(t *testing.T) {
 	f := newFakes(t)
-	dir := newProject(t, enableAll(f, ""))
+	// YouTube is here and not in the publish fan-out: it takes no images, so it
+	// cannot join a run of image posts, but its credentials are checked exactly
+	// like every other platform's.
+	dir := newProject(t, enableAll(f, "")+f.youtubeConfig())
 
 	res := crier(t, dir, nil, "ping", "--json")
 	if res.Code != exitOK {
@@ -1399,8 +1408,8 @@ func TestPingChecksEveryEnabledPlatform(t *testing.T) {
 	if err := json.Unmarshal([]byte(res.Stdout), &rep); err != nil {
 		t.Fatalf("%v\n%s", err, res.Stdout)
 	}
-	if len(rep.Results) != 12 {
-		t.Fatalf("checked %d targets, want 12: %+v", len(rep.Results), rep.Results)
+	if len(rep.Results) != 13 {
+		t.Fatalf("checked %d targets, want 13: %+v", len(rep.Results), rep.Results)
 	}
 	for _, r := range rep.Results {
 		if !r.OK {
@@ -1418,6 +1427,7 @@ func TestPingChecksEveryEnabledPlatform(t *testing.T) {
 		"/tiktok/v2/post/publish/creator_info/query/",
 		"/linkedin/v2/userinfo", "/reddit/api/v1/me", "/slack/auth.test",
 		"/vk/method/groups.getById", "/threads/me",
+		"/youtube-auth/token", "/youtube/youtube/v3/channels",
 	} {
 		if _, ok := f.find(fragment); !ok {
 			t.Errorf("ping did not reach %s", fragment)
@@ -1433,6 +1443,7 @@ func TestPingChecksEveryEnabledPlatform(t *testing.T) {
 		"/slack/files.getUploadURLExternal", "/slack/files.completeUploadExternal",
 		"/vk/method/wall.post", "/vk/method/photos.getWallUploadServer",
 		"/threads/th-user/threads", "/threads/th-user/threads_publish",
+		"/youtube/upload/youtube/v3/videos", "/youtube-upload/",
 	} {
 		if _, ok := f.find(fragment); ok {
 			t.Errorf("ping posted something: %s was called", fragment)
@@ -2325,6 +2336,212 @@ func TestThreadsUserIDIsRequired(t *testing.T) {
 	}
 	if !strings.Contains(res.Stderr, "publish.threads.user-id") {
 		t.Errorf("the error should name the key to fix: %s", res.Stderr)
+	}
+}
+
+// --- youtube -----------------------------------------------------------------
+
+// youtubeProject writes a project that renders a short clip and uploads it.
+//
+// The base URLs come from the environment rather than the file, because that is
+// the pair a run has to wire for the fake to be reachable at all, and doing it
+// through CRIER_ proves the environment layer reaches a thirteenth platform the
+// same way it reaches the first.
+func youtubeProject(t *testing.T, f *fakes, extra ...string) (dir string, env []string) {
+	t.Helper()
+	dir = newProject(t, "")
+	writeFile(t, dir, "crier.yaml", strings.Join(append([]string{
+		"render:",
+		"  template: template.html",
+		"  data: data.yaml",
+		"  width: 80",
+		"  height: 40",
+		"  hermetic-fonts: true",
+		"  video:",
+		"    enabled: true",
+		"    fps: 5",
+		"    frames: 3",
+		"    ffmpeg-bin: " + selfPath(t),
+		"publish:",
+		"  caption: \"{{ .title }} {{ .version }}\\n\\nthe whole release, in three frames. #Shorts\"",
+		"  youtube:",
+		"    enabled: true",
+		"    client-id: yt-client",
+		"    client-secret: yt-secret",
+		"    refresh-token: yt-refresh",
+	}, extra...), "\n"))
+	writeFile(t, dir, "template.html",
+		`<html><body style="margin:0;background:#fff">`+
+			`<div style="width:80px;height:40px;background:#00{{ printf "%02x" .Video.Frame }}00"></div>`+
+			`</body></html>`)
+	return dir, []string{
+		helperEnv + "=ffmpeg",
+		"CRIER_PUBLISH_YOUTUBE_API_BASE_URL=" + f.URL + "/youtube",
+		"CRIER_PUBLISH_YOUTUBE_AUTH_BASE_URL=" + f.URL + "/youtube-auth",
+	}
+}
+
+// TestYouTubeUploadsTheRenderedClip is the flow end to end through the real
+// binary: a token refreshed once, a resumable session opened with the metadata,
+// the bytes PUT to the Location that came back, and a watch link built from the
+// id the upload answered with.
+func TestYouTubeUploadsTheRenderedClip(t *testing.T) {
+	f := newFakes(t)
+	dir, env := youtubeProject(t, f,
+		"    privacy-status: unlisted",
+		"    category-id: \"28\"",
+	)
+
+	res := crier(t, dir, env, "publish", "--json")
+	if res.Code != exitOK {
+		t.Fatalf("code=%d stderr=%s", res.Code, res.Stderr)
+	}
+	var rep struct {
+		Results []struct {
+			Platform string `json:"platform"`
+			OK       bool   `json:"ok"`
+			ID       string `json:"id"`
+			URL      string `json:"url"`
+			Error    string `json:"error"`
+		} `json:"results"`
+	}
+	if err := json.Unmarshal([]byte(res.Stdout), &rep); err != nil {
+		t.Fatalf("%v\n%s", err, res.Stdout)
+	}
+	if len(rep.Results) != 1 || rep.Results[0].Platform != "youtube" || !rep.Results[0].OK {
+		t.Fatalf("results = %+v", rep.Results)
+	}
+	if !strings.HasPrefix(rep.Results[0].ID, "yt-") {
+		t.Errorf("id = %q; the fake names the video after the bytes it received", rep.Results[0].ID)
+	}
+	if rep.Results[0].URL != "https://www.youtube.com/watch?v="+rep.Results[0].ID {
+		t.Errorf("url = %q", rep.Results[0].URL)
+	}
+
+	// One refresh, whatever the run did afterwards.
+	if n := f.count("/youtube-auth/token"); n != 1 {
+		t.Errorf("the token was refreshed %d times, want once per run", n)
+	}
+
+	init, ok := f.find("/youtube/upload/youtube/v3/videos")
+	if !ok {
+		t.Fatal("nothing initiated an upload")
+	}
+	if init.Header.Get("Authorization") != "Bearer yt-access" {
+		t.Errorf("the initiate carried %q", init.Header.Get("Authorization"))
+	}
+	for _, want := range []string{
+		`"title":"end to end 9.9.9"`,
+		`"description":"end to end 9.9.9\n\nthe whole release, in three frames. #Shorts"`,
+		`"categoryId":"28"`,
+		`"privacyStatus":"unlisted"`,
+		`"selfDeclaredMadeForKids":false`,
+	} {
+		if !strings.Contains(init.Body, want) {
+			t.Errorf("the initiate body is missing %s:\n%s", want, init.Body)
+		}
+	}
+
+	// The bytes went to the session the Location named, and they are an MP4.
+	put, ok := f.find("/youtube-upload/")
+	if !ok {
+		t.Fatal("the clip never reached the upload session")
+	}
+	if put.Method != http.MethodPut {
+		t.Errorf("the upload was a %s", put.Method)
+	}
+	if !strings.Contains(put.Header.Get("Content-Type"), "video/mp4") {
+		t.Errorf("content type = %q", put.Header.Get("Content-Type"))
+	}
+	if len(put.Body) == 0 {
+		t.Error("the upload carried no bytes")
+	}
+	if got := "yt-" + strconv.Itoa(len(put.Body)); got != rep.Results[0].ID {
+		t.Errorf("id = %q but %d bytes arrived; something was truncated", rep.Results[0].ID, len(put.Body))
+	}
+}
+
+// TestYouTubeSetsAThumbnail is the optional third step, and the one whose
+// failure is a warning rather than a failed post.
+func TestYouTubeSetsAThumbnail(t *testing.T) {
+	f := newFakes(t)
+	dir, env := youtubeProject(t, f, "    thumbnail: cover.jpg")
+	makeImage(t, filepath.Join(dir, "cover.jpg"), 32, 18, true)
+
+	res := crier(t, dir, env, "publish")
+	if res.Code != exitOK {
+		t.Fatalf("code=%d stderr=%s", res.Code, res.Stderr)
+	}
+	set, ok := f.find("/youtube/upload/youtube/v3/thumbnails/set")
+	if !ok {
+		t.Fatal("no thumbnail was set")
+	}
+	if !strings.Contains(set.Query, "videoId=yt-") {
+		t.Errorf("query = %q, want the video that was just uploaded", set.Query)
+	}
+	if set.Header.Get("Content-Type") != "image/jpeg" {
+		t.Errorf("content type = %q", set.Header.Get("Content-Type"))
+	}
+}
+
+// TestYouTubeWithAnImageRunIsAConfigError is the gate that matters: the Data
+// API uploads videos and there is no public API for a community post, so a run
+// of image posts with youtube enabled is refused before anything is staged, and
+// the refusal names the platform.
+func TestYouTubeWithAnImageRunIsAConfigError(t *testing.T) {
+	f := newFakes(t)
+	dir := newProject(t, f.youtubeConfig())
+
+	res := crier(t, dir, []string{
+		"CRIER_PUBLISH_YOUTUBE_API_BASE_URL=" + f.URL + "/youtube",
+		"CRIER_PUBLISH_YOUTUBE_AUTH_BASE_URL=" + f.URL + "/youtube-auth",
+	}, "publish")
+	if res.Code != exitConfig {
+		t.Fatalf("code=%d stderr=%s", res.Code, res.Stderr)
+	}
+	if !strings.Contains(res.Stderr, "youtube") || !strings.Contains(res.Stderr, "image") {
+		t.Errorf("the refusal should name the platform and the kind: %s", res.Stderr)
+	}
+	if len(f.all()) != 0 {
+		t.Errorf("it made %d requests before refusing", len(f.all()))
+	}
+}
+
+// TestYouTubeBadRefreshTokenIsReported: ping says so without uploading, and a
+// run that tries anyway fails with nothing created.
+func TestYouTubeBadRefreshTokenIsReported(t *testing.T) {
+	f := newFakes(t)
+	dir, env := youtubeProject(t, f)
+	env = append(env, "CRIER_PUBLISH_YOUTUBE_REFRESH_TOKEN=bad-token")
+
+	res := crier(t, dir, env, "ping")
+	if res.Code != exitPublish {
+		t.Fatalf("code=%d stderr=%s stdout=%s", res.Code, res.Stderr, res.Stdout)
+	}
+	if !strings.Contains(res.Stdout, "youtube") || !strings.Contains(res.Stdout, "failed") {
+		t.Errorf("the failing platform should be named:\n%s", res.Stdout)
+	}
+
+	res = crier(t, dir, env, "publish")
+	if res.Code != exitPublish {
+		t.Fatalf("code=%d stderr=%s", res.Code, res.Stderr)
+	}
+	if _, ok := f.find("/youtube/upload/"); ok {
+		t.Error("something was uploaded without a token")
+	}
+}
+
+// TestYouTubePingNamesTheChannel, which is the answer a setup is asking for.
+func TestYouTubePingNamesTheChannel(t *testing.T) {
+	f := newFakes(t)
+	dir := newProject(t, f.youtubeConfig())
+
+	res := crier(t, dir, nil, "ping")
+	if res.Code != exitOK {
+		t.Fatalf("code=%d stderr=%s", res.Code, res.Stderr)
+	}
+	if !strings.Contains(res.Stdout, "Crier Releases") {
+		t.Errorf("the channel should be in the table:\n%s", res.Stdout)
 	}
 }
 

@@ -288,6 +288,7 @@ func TestEveryPlatformHasACaptionishKey(t *testing.T) {
 		"reddit":    {"caption", "title"},
 		"vk":        {"caption"},
 		"threads":   {"caption"},
+		"youtube":   {"caption", "title"},
 	}
 	for _, name := range Platforms {
 		keys, ok := captionish[name]
@@ -319,6 +320,11 @@ func TestVideoValidation(t *testing.T) {
 		{"duration", func(c *Config) { c.Render.Video.Duration = "soon" }, "render.video.duration"},
 		{"bin", func(c *Config) { c.Render.Video.Enabled = true; c.Render.Video.FFmpegBin = "" }, "render.video.ffmpeg-bin"},
 		{"kind", func(c *Config) { c.Publish.Reddit.Kind = "poll" }, "publish.reddit.kind"},
+		{"privacy", func(c *Config) { c.Publish.YouTube.PrivacyStatus = "friends" }, "publish.youtube.privacy-status"},
+		// There is no youtube carousel to lower, so a value above one names a
+		// thing that is not there rather than asking for less of one.
+		{"youtube attachments", func(c *Config) { c.Publish.YouTube.MaxAttachments = 2 },
+			"publish.youtube.max-attachments"},
 		{"width", func(c *Config) { c.Publish.Discord.Width = -1 }, "publish.discord.width"},
 		{"height", func(c *Config) { c.Publish.Discord.Height = MaxDimension + 1 }, "publish.discord.height"},
 	} {

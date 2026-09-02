@@ -16,7 +16,7 @@ publish:
         echo "id=$(jq -r .id /tmp/reply.json)" >> "$CRIER_OUTPUT"
 ```
 
-`my-webhook` is a name you choose. It is a peer of the twelve built-in platforms, not a lesser thing. It takes part in the fan-out. It gets its own [overlay and size](../templates/overlays.md). It gets its [caption templated](../templates/captions.md). It appears in `crier ping` and in a `--dry-run` listing. Its failure is a partial failure like any other.
+`my-webhook` is a name you choose. It is a peer of the thirteen built-in platforms, not a lesser thing. It takes part in the fan-out. It gets its own [overlay and size](../templates/overlays.md). It gets its [caption templated](../templates/captions.md). It appears in `crier ping` and in a `--dry-run` listing. Its failure is a partial failure like any other.
 
 ## The contract
 
@@ -116,7 +116,7 @@ Append rather than overwrite. The file exists before the command starts. A scrip
 
 ## Names
 
-A name consists of lower-case letters, digits and dashes. It cannot be one of the twelve built-ins.
+A name consists of lower-case letters, digits and dashes. It cannot be one of the thirteen built-ins.
 
 This rule exists because a name must survive a round trip through an environment variable. For example, `publish.custom.my-hook.command` becomes `CRIER_PUBLISH_CUSTOM_MY_HOOK_COMMAND`. Using `my_hook` would result in the same variable and a different platform.
 

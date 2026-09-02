@@ -44,7 +44,7 @@ func Bindings(cfg *Config) map[string]Binding {
 	tun := &srv.Tunnel
 	ig, fb, tt, tg := &p.Instagram, &p.Facebook, &p.TikTok, &p.Telegram
 	x, ma, dc, li, rd := &p.X, &p.Mastodon, &p.Discord, &p.LinkedIn, &p.Reddit
-	sl, vk, th := &p.Slack, &p.VK, &p.Threads
+	sl, vk, th, yt := &p.Slack, &p.VK, &p.Threads, &p.YouTube
 	vid := &r.Video
 
 	out := map[string]Binding{
@@ -221,6 +221,18 @@ func Bindings(cfg *Config) map[string]Binding {
 		"publish.threads.caption":       bindString(&th.Caption),
 		"publish.threads.poll-interval": bindString(&th.PollInterval),
 		"publish.threads.poll-timeout":  bindString(&th.PollTimeout),
+
+		"publish.youtube.enabled":        bindBool(&yt.Enabled),
+		"publish.youtube.api-base-url":   bindString(&yt.APIBaseURL),
+		"publish.youtube.auth-base-url":  bindString(&yt.AuthBaseURL),
+		"publish.youtube.client-id":      bindString(&yt.ClientID),
+		"publish.youtube.client-secret":  bindString(&yt.ClientSecret),
+		"publish.youtube.refresh-token":  bindString(&yt.RefreshToken),
+		"publish.youtube.title":          bindString(&yt.Title),
+		"publish.youtube.caption":        bindString(&yt.Caption),
+		"publish.youtube.category-id":    bindString(&yt.CategoryID),
+		"publish.youtube.privacy-status": bindString(&yt.PrivacyStatus),
+		"publish.youtube.thumbnail":      bindString(&yt.Thumbnail),
 	}
 
 	// The layout keys are generated exactly like their descriptors are, so a
@@ -230,6 +242,7 @@ func Bindings(cfg *Config) map[string]Binding {
 		"telegram": &tg.Layout, "x": &x.Layout, "mastodon": &ma.Layout,
 		"discord": &dc.Layout, "linkedin": &li.Layout, "reddit": &rd.Layout,
 		"slack": &sl.Layout, "vk": &vk.Layout, "threads": &th.Layout,
+		"youtube": &yt.Layout,
 	} {
 		out["publish."+name+".overlay"] = bindStrings(&l.Overlay)
 		out["publish."+name+".width"] = bindInt(&l.Width)
@@ -240,25 +253,27 @@ func Bindings(cfg *Config) map[string]Binding {
 	}
 
 	// The audio file, the same way. Every platform has the key, including the
-	// nine that cannot use it: the value is refused by Validate with a reason,
+	// ten that cannot use it: the value is refused by Validate with a reason,
 	// rather than by the decoder as a key nobody has heard of.
 	for name, m := range map[string]*Music{
 		"instagram": &ig.Music, "facebook": &fb.Music, "tiktok": &tt.Music,
 		"telegram": &tg.Music, "x": &x.Music, "mastodon": &ma.Music,
 		"discord": &dc.Music, "linkedin": &li.Music, "reddit": &rd.Music,
 		"slack": &sl.Music, "vk": &vk.Music, "threads": &th.Music,
+		"youtube": &yt.Music,
 	} {
 		out["publish."+name+".music-file"] = bindString(&m.File)
 	}
 
 	// The opening clip, on the same terms as the audio: every platform has the
-	// key, and the ten that cannot post mixed media are answered by Validate
+	// key, and the eleven that cannot post mixed media are answered by Validate
 	// with the reason rather than by the decoder with a shrug.
 	for name, v := range map[string]*LeadVideo{
 		"instagram": &ig.LeadVideo, "facebook": &fb.LeadVideo, "tiktok": &tt.LeadVideo,
 		"telegram": &tg.LeadVideo, "x": &x.LeadVideo, "mastodon": &ma.LeadVideo,
 		"discord": &dc.LeadVideo, "linkedin": &li.LeadVideo, "reddit": &rd.LeadVideo,
 		"slack": &sl.LeadVideo, "vk": &vk.LeadVideo, "threads": &th.LeadVideo,
+		"youtube": &yt.LeadVideo,
 	} {
 		out["publish."+name+".lead-video"] = bindString(&v.File)
 	}
