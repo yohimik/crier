@@ -1,5 +1,26 @@
 # Changelog
 
+## v1.0.1 (2026-09-02)
+
+### Fixes
+
+- the graduation caption could not fit its own train ([9da1e5f](https://github.com/yohimik/crier/commit/9da1e5f4fca4a33745fde40c8dd2c4e5e52a49df)) (by yohimik, Claude Fable 5)
+  Two lessons from the v1.0.0 announcement, which released cleanly and
+  announced nothing. LinkedIn refused the commentary at 4408 characters
+  against its cap of 4000, because a graduation collects a whole train
+  into one changelog: the caption now cuts at the last whole line that
+  fits and says so, the reel's caption takes eight entries a section
+  with an and-more line, and the pages in the clip carry the full list.
+  Instagram timed out waiting on every container while Meta digested a
+  day of release candidates: the announcement now waits five minutes
+  where it waited two.
+
+### Authors
+
+- yohimik
+- Claude Fable 5
+
+
 ## v1.0.0 (2026-09-02)
 
 ### Breaking Changes
