@@ -27,16 +27,52 @@ crier runs `sh -c <command>` and reads the result out of a file.
 | Variable | What it holds |
 | -------- | ------------- |
 | `CRIER_PLATFORM` | the name you gave this platform |
-| `CRIER_ARTIFACT` | the file to publish |
+| `CRIER_ARTIFACT` | the file to publish; the first one when a post carries several |
+| `CRIER_ARTIFACTS` | every file this post carries, one per line, in page order |
+| `CRIER_ARTIFACT_COUNT` | how many files that is |
 | `CRIER_ARTIFACT_KIND` | `image` or `video` |
 | `CRIER_ARTIFACT_FORMAT` | `png` or `jpeg`; empty for a video |
 | `CRIER_ARTIFACT_TYPE` | the MIME type |
 | `CRIER_CAPTION` | the rendered post text |
 | `CRIER_URL` | where the file was staged, **only** when `needs-url` is on |
+| `CRIER_URLS` | where each file was staged, one per line, same order, **only** when `needs-url` is on |
 | `CRIER_POSTER` | a still image for a video, when there is one |
 | `CRIER_OUTPUT` | a file to append the result to |
+| `CRIER_POST` · `CRIER_POSTS` | which post of how many this is |
+| `CRIER_PAGE` · `CRIER_PAGES` | the first page this post carries, and how many the run produced |
 
 When `needs-url` is off, `CRIER_URL` is absent rather than empty. This lets a script tell "no URL was needed" from "staging produced nothing".
+
+## Several files at once
+
+A template whose content overflows its page [paginates](../rendering/pagination.md). By default your command runs once per page. Set `max-attachments` to take more than one at a time:
+
+```yaml
+publish:
+  custom:
+    mine:
+      command: sh ./publish.sh
+      max-attachments: 10
+```
+
+`CRIER_ARTIFACTS` then holds up to ten paths, one per line, and `CRIER_ARTIFACT_COUNT` says how many. One per line rather than space separated, because a path may contain a space:
+
+```sh
+#!/bin/sh
+set -eu
+args=""
+while IFS= read -r file; do
+	args="$args -F file[]=@$file"
+done <<EOF
+$CRIER_ARTIFACTS
+EOF
+# shellcheck disable=SC2086
+curl -fsS $args -F "text=$CRIER_CAPTION" "$WEBHOOK"
+```
+
+`CRIER_ARTIFACTS` always holds at least the file `CRIER_ARTIFACT` names, so a script can read it alone and never look at the singular form.
+
+A page list longer than `max-attachments` runs the command more than once, in page order, and stops at the first failure. `CRIER_POST` and `CRIER_POSTS` say where in that sequence a run sits. They read `1` and `1` when nothing paginated.
 
 Everything in `env:` is set too, right after crier's own variables. This means a token lives in the configuration or the environment rather than inside the command string. The whole process environment is inherited. Variables like `$HOME`, `$PATH`, and anything your CI exports are all there.
 

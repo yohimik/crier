@@ -111,4 +111,6 @@ crier ping
 
 It asks every enabled platform who its credentials belong to. It uses a read-only endpoint, so nothing is posted. This is how you find out a token is wrong without making a real post on a real feed. See [the command line](../operations/cli.md#crier-ping).
 
+A post can carry more than one image. Long content paginates, and the pages become a carousel, an album, or a run of posts, depending on what the platform takes. See [pagination and carousels](../rendering/pagination.md) for the per-platform table.
+
 Configuration keys: [`publish.*`](../configuration/publish/README.md).

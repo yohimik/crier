@@ -101,4 +101,6 @@ publish:
 
 The card is drawn at `render.width` × `render.height`. It is then resampled into the story frame. This means the approved design is exactly what goes out. The middle is kept and the edges are lost. This is done visibly and on purpose. See [fitting the platform](../templates/overlays.md#fitting-the-platform).
 
+A feed post takes up to ten images as one carousel. A story takes one, because the Stories API has no carousel: a paged run posts one story per page, in order, each live before the next is created. See [pagination and carousels](../rendering/pagination.md).
+
 Configuration keys: [`publish.instagram.*`](../configuration/publish/instagram.md).

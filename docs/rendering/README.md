@@ -49,4 +49,6 @@ Use `--render-variant <platform>` to render exactly what a platform gets. This i
 - [CSS support](./css-support.md): see what the engine implements.
 - [Video](./video.md): read about rendering a clip instead of a still.
 
+Content taller than the page becomes the next page rather than an error. See [pagination and carousels](./pagination.md).
+
 You can find the configuration keys at [`render.*`](../configuration/render/README.md).

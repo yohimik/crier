@@ -26,6 +26,7 @@ crier renders an HTML template to an image or a video. It publishes this to ten 
 | ---- | -------------- |
 | [Rendering](./rendering/README.md) | The render command, sizes, scale, formats |
 | [CSS support](./rendering/css-support.md) | What the engine implements, and what it does not |
+| [Pagination and carousels](./rendering/pagination.md) | Long content across several pages, and the posts they become |
 | [Video](./rendering/video.md) | ffmpeg, frame variables, codecs |
 
 ## Publishing

@@ -50,4 +50,6 @@ The GIF is attached exactly as it is. Discord animates it inline.
 
 Set `render.video.format: gif`. See [video](../rendering/video.md).
 
+A message carries up to ten files. See [pagination and carousels](../rendering/pagination.md).
+
 Configuration keys: [`publish.discord.*`](../configuration/publish/discord.md).

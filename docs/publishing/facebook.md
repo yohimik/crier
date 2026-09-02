@@ -49,4 +49,6 @@ It posts nothing. The ping command reads the Page with `GET /{page-id}?fields=id
 
 **Not supported.** Facebook only supports MP4 files for animations. Setting `render.video.format: gif` with this platform enabled causes a configuration error before anything is rendered. Use `render.video.format: mp4`. See [video](../rendering/video.md).
 
+A Page post takes up to ten photos, uploaded unpublished and attached to one feed post. A story takes one. See [pagination and carousels](../rendering/pagination.md).
+
 Configuration keys: [`publish.facebook.*`](../configuration/publish/facebook.md).

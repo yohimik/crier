@@ -50,4 +50,6 @@ Nothing is posted. Ping calls `creator_info/query/`. The posting scope must also
 
 **Not supported.** TikTok only supports MP4 for animations. If you enable this platform and set `render.video.format: gif`, you will get a configuration error before rendering starts. Use `render.video.format: mp4` instead. See [video](../rendering/video.md).
 
+A photo post takes up to thirty-five images; it was always a list of URLs, so several pages are more entries in the same request. See [pagination and carousels](../rendering/pagination.md).
+
 Configuration keys: [`publish.tiktok.*`](../configuration/publish/tiktok.md).

@@ -47,4 +47,6 @@ A GIF uses the same v2 media endpoint as a video. This includes the 202-and-poll
 
 Set `render.video.format: gif`. See [video](../rendering/video.md).
 
+A status takes four attachments. The real limit is the instance's `max_media_attachments` and four is only the common default, so an instance that allows fewer needs `publish.mastodon.max-attachments` set. See [pagination and carousels](../rendering/pagination.md).
+
 Configuration keys: [`publish.mastodon.*`](../configuration/publish/mastodon.md).

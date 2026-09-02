@@ -78,4 +78,6 @@ Nothing is posted. Ping calls `auth.test`, which needs no scope at all. That is 
 
 `auth.test` says nothing about channel membership. This is the other half of a working setup. As a result, the row's note says which channel was configured. It also admits this could not be confirmed.
 
+Up to ten files are shared in one call, which is what makes them one message. See [pagination and carousels](../rendering/pagination.md).
+
 Configuration keys: [`publish.slack.*`](../configuration/publish/slack.md).

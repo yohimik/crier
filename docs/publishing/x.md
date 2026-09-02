@@ -49,4 +49,6 @@ Upload a GIF through the chunked upload with `media_category=tweet_gif`. If you 
 
 Set `render.video.format: gif`. See [video](../rendering/video.md).
 
+A post takes up to four images. A longer page list becomes several posts in a row. See [pagination and carousels](../rendering/pagination.md).
+
 Configuration keys: [`publish.x.*`](../configuration/publish/x.md).

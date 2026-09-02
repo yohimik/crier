@@ -53,4 +53,6 @@ crier --dry-run
 
 This command prints the resolved caption for each platform. It makes no network calls.
 
+A caption is rendered once per post. When a run paginates into several posts, `{{ .Post }}`, `{{ .Posts }}`, `{{ .Page }}` and `{{ .Pages }}` say which one this is. They read `1 of 1` otherwise. See [pagination and carousels](../rendering/pagination.md).
+
 For configuration keys, check [`publish.caption`](../configuration/publish/README.md) and each platform's own page.

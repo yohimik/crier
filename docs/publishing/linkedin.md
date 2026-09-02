@@ -58,4 +58,6 @@ Nothing is posted: ping calls `GET /v2/userinfo`. See [the caveat](../operations
 
 **Not supported.** LinkedIn requires an MP4 upload for animations. Setting `render.video.format: gif` with this platform enabled is a configuration error. This error is caught before anything is rendered. Use `render.video.format: mp4` instead. See [video](../rendering/video.md).
 
+Two to twenty images go as one multi-image post. One image is a different request shape entirely, so crier picks the shape from how many there are. See [pagination and carousels](../rendering/pagination.md).
+
 Configuration keys: [`publish.linkedin.*`](../configuration/publish/linkedin.md).

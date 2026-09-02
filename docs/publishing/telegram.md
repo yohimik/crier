@@ -50,4 +50,6 @@ Send a GIF using `sendAnimation` instead of `sendVideo`. The `sendVideo` method 
 
 Set `render.video.format: gif`. See [video](../rendering/video.md).
 
+Several images go as one album through `sendMediaGroup`, up to ten, with the caption on the first. A single image still goes through `sendPhoto`, because a media group has a minimum of two. See [pagination and carousels](../rendering/pagination.md).
+
 Configuration keys: [`publish.telegram.*`](../configuration/publish/telegram.md).
