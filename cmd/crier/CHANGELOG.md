@@ -1,5 +1,22 @@
 # Changelog
 
+## v1.0.0-rc.10 (2026-09-02)
+
+### Fixes
+
+- the image cover stays home when the video leads ([0d58af5](https://github.com/yohimik/crier/commit/0d58af5c07fc1443f896e6e3ed9cf267fc01853e)) (by yohimik, Claude Fable 5)
+  The feed carousel ran video cover, image cover, changelog: the reel's
+  duplication lesson, learned a second time. With the anthem leading, the
+  feed pages the coverless document the stories already use; without it,
+  the image cover returns. An empty changelog beside an anthem posts the
+  clip alone rather than a carousel that repeats itself.
+
+### Authors
+
+- yohimik
+- Claude Fable 5
+
+
 ## v1.0.0-rc.9 (2026-09-02)
 
 ### Fixes
