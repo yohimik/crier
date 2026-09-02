@@ -47,11 +47,17 @@
   /* The cover carries its own badge, so it does not need the small one. It
      also skips the page counter: a release that fits on one page would
      otherwise announce itself as "1 / 1", which says nothing and looks like a
-     mistake. The domain stays. */
-  @page :first {
+     mistake. The domain stays.
+
+     Only when there is a cover. This suppression is about page one being the
+     cover, not about page one: a nocover document's first page is the first
+     changelog page, and stripping its badge and its counter is how rc.8's
+     updates stories came out with a counter on the last page and nowhere
+     else. The first updates story should say which release it is. */
+  {{ if not .nocover }}@page :first {
     @top-left { content: none }
     @bottom-right { content: none }
-  }
+  }{{ end }}
 
   /* No height here. A fixed body height clips whatever will not fit instead of
      flowing it onto the next page, which is the one thing this layout must
@@ -95,6 +101,18 @@
   }
 
   .prompt { font-size: 22px; color: #2f7f56 }
+
+  /* The version, for a document that has no cover to carry it.
+
+     The small badge in the page margin reads string(ver), and the only thing
+     that sets it is the big badge on the cover. Strip the cover and every page
+     loses the badge, which is how the updates stories came out unlabelled. So
+     a nocover document sets the string from something that draws nothing: no
+     height, no type, no space taken. */
+  .version-only {
+    string-set: ver content();
+    height: 0; font-size: 0; line-height: 0; margin: 0; padding: 0;
+  }
 
   /* The version badge: the one thing a thumbnail has to carry, and the source
      of the small one in the page margin. */
@@ -177,7 +195,7 @@
       <h2>INSTALL</h2>
       {{ range .install }}<div class="cmd"><span>$</span> {{ .command }}</div>{{ end }}
     </div>
-  </div>{{ end }}
+  </div>{{ end }}{{ if .nocover }}<div class="version-only">v{{ .version }}</div>{{ end }}
 
   {{ range .sections }}
   <div class="section{{ if eq .label "BREAKING" }} breaking{{ end }}">

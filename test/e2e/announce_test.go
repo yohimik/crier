@@ -5,6 +5,8 @@ package e2e
 import (
 	"encoding/json"
 	"fmt"
+	"image"
+	_ "image/png"
 	"net/http"
 	"net/http/httptest"
 	"net/url"
@@ -619,6 +621,142 @@ func TestAnnounceRendersBothShapes(t *testing.T) {
 				t.Errorf("%s page %d is %s %dx%d, want %dx%d",
 					tt.name, i+1, format, cfg.Width, cfg.Height, tt.w, tt.h)
 			}
+		}
+	}
+}
+
+// The page margin boxes, in pixels on a 1080 square card. The running header
+// draws the small version badge in the first and the page counter in the
+// second, on white paper, so "is anything drawn here" is a count of pixels
+// that are not white. Both rectangles sit clear of the near-black panel, so a
+// page with nothing in its margin counts exactly zero.
+var (
+	badgeBox   = image.Rect(55, 26, 250, 52)
+	counterBox = image.Rect(930, 1006, 1035, 1036)
+)
+
+// inked counts the pixels in a rectangle that are not the paper.
+func inked(t *testing.T, path string, box image.Rectangle) int {
+	t.Helper()
+	f, err := os.Open(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer func() { _ = f.Close() }()
+	img, _, err := image.Decode(f)
+	if err != nil {
+		t.Fatalf("decoding %s: %v", path, err)
+	}
+	n := 0
+	for y := box.Min.Y; y < box.Max.Y; y++ {
+		for x := box.Min.X; x < box.Max.X; x++ {
+			r, g, b, _ := img.At(x, y).RGBA()
+			if r>>8 < 200 || g>>8 < 200 || b>>8 < 200 {
+				n++
+			}
+		}
+	}
+	return n
+}
+
+// renderAnnounceCard renders the announcement card from a notes document and
+// returns the page files.
+func renderAnnounceCard(t *testing.T, bin, notes, out string) []string {
+	t.Helper()
+	root, err := repoRoot()
+	if err != nil {
+		t.Fatal(err)
+	}
+	cmd := exec.Command(bin, "render",
+		"--config", filepath.Join(root, "announce", "crier.yaml"),
+		"--render-data", "-", "--render-format", "png",
+		"--render-output", out, "--json")
+	cmd.Dir = root
+	cmd.Stdin = strings.NewReader(notes)
+	var stdout, stderr strings.Builder
+	cmd.Stdout = &stdout
+	cmd.Stderr = &stderr
+	if err := cmd.Run(); err != nil {
+		t.Fatalf("%v\n%s", err, stderr.String())
+	}
+	var rep struct {
+		Files []string `json:"files"`
+	}
+	if err := json.Unmarshal([]byte(stdout.String()), &rep); err != nil {
+		t.Fatalf("%v\n%s", err, stdout.String())
+	}
+	return rep.Files
+}
+
+// longNotes is a changelog that paginates, so a document has a page one and a
+// page after it.
+func longNotes(t *testing.T, extraEnv ...string) string {
+	t.Helper()
+	var features []string
+	for i := 1; i <= 14; i++ {
+		features = append(features,
+			fmt.Sprintf("feature number %d, described at the sort of length a real release note reaches", i))
+	}
+	env := append([]string{
+		"DISPAT_NEW_VERSION=9.9.9",
+		"DISPAT_FEATURES=" + strings.Join(features, "\n"),
+	}, extraEnv...)
+	out, stderr, code := runScript(t, "notes.sh", env)
+	if code != 0 {
+		t.Fatalf("notes.sh: %s", stderr)
+	}
+	return out
+}
+
+// TestAnnounceNumbersEveryPageOfANocoverDocument is rc.8's second defect.
+//
+// The first-page rule that hides the badge and the counter is about page one
+// being the cover, not about page one. The updates document has no cover, so
+// its first page is the first changelog page: stripping its margin left a
+// two-page story pair numbered only on the second, and the first story never
+// said which release it was.
+func TestAnnounceNumbersEveryPageOfANocoverDocument(t *testing.T) {
+	requireSh(t)
+	dir := t.TempDir()
+	bin := buildAnnounceBinary(t, dir)
+
+	pages := renderAnnounceCard(t, bin, longNotes(t, "ANNOUNCE_NO_COVER=1"),
+		filepath.Join(dir, "nocover.png"))
+	if len(pages) < 2 {
+		t.Fatalf("the nocover document laid out into %d pages; it should paginate", len(pages))
+	}
+	for i, p := range pages {
+		if got := inked(t, p, counterBox); got == 0 {
+			t.Errorf("nocover page %d carries no page counter", i+1)
+		}
+		if got := inked(t, p, badgeBox); got == 0 {
+			t.Errorf("nocover page %d carries no version badge; the first story has to say which release it is", i+1)
+		}
+	}
+}
+
+// TestAnnounceCoverKeepsItsCleanFirstPage is the other half: the suppression
+// still applies where it was meant to. The cover carries its own big badge and
+// a lone "1 / 1" on a one-page release would say nothing.
+func TestAnnounceCoverKeepsItsCleanFirstPage(t *testing.T) {
+	requireSh(t)
+	dir := t.TempDir()
+	bin := buildAnnounceBinary(t, dir)
+
+	pages := renderAnnounceCard(t, bin, longNotes(t), filepath.Join(dir, "cover.png"))
+	if len(pages) < 2 {
+		t.Fatalf("the card laid out into %d pages; it should paginate", len(pages))
+	}
+	if got := inked(t, pages[0], counterBox); got != 0 {
+		t.Errorf("the cover drew %d pixels of page counter; it should draw none", got)
+	}
+	if got := inked(t, pages[0], badgeBox); got != 0 {
+		t.Errorf("the cover drew %d pixels of the small badge; it has its own", got)
+	}
+	// Every page after it is numbered and labelled as before.
+	for i, p := range pages[1:] {
+		if inked(t, p, counterBox) == 0 || inked(t, p, badgeBox) == 0 {
+			t.Errorf("page %d lost its running header or footer", i+2)
 		}
 	}
 }
