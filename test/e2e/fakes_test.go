@@ -149,6 +149,17 @@ func (f *fakes) serve(w http.ResponseWriter, r *http.Request) {
 			})
 		}
 		writeJSON(w, map[string]any{"ok": true, "result": result})
+	// The audio message, which is its own message because the Bot API groups
+	// audio only with audio. Its id is distinct so a test can tell it apart
+	// from the post it follows.
+	case strings.Contains(path, "/sendAudio"):
+		writeJSON(w, map[string]any{
+			"ok": true,
+			"result": map[string]any{
+				"message_id": 3001,
+				"chat":       map[string]any{"id": 5, "username": "criertest"},
+			},
+		})
 	case strings.Contains(path, "/sendPhoto"), strings.Contains(path, "/sendVideo"),
 		strings.Contains(path, "/sendAnimation"):
 		writeJSON(w, map[string]any{
