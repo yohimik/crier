@@ -158,10 +158,12 @@ func Bindings(cfg *Config) map[string]Binding {
 		"publish.slack.channel":      bindString(&sl.Channel),
 		"publish.slack.caption":      bindString(&sl.Caption),
 
-		"publish.x.enabled":      bindBool(&x.Enabled),
-		"publish.x.api-base-url": bindString(&x.APIBaseURL),
-		"publish.x.token":        bindString(&x.Token),
-		"publish.x.caption":      bindString(&x.Caption),
+		"publish.x.enabled":       bindBool(&x.Enabled),
+		"publish.x.api-base-url":  bindString(&x.APIBaseURL),
+		"publish.x.token":         bindString(&x.Token),
+		"publish.x.caption":       bindString(&x.Caption),
+		"publish.x.poll-interval": bindString(&x.PollInterval),
+		"publish.x.poll-timeout":  bindString(&x.PollTimeout),
 
 		"publish.mastodon.enabled":       bindBool(&ma.Enabled),
 		"publish.mastodon.api-base-url":  bindString(&ma.APIBaseURL),

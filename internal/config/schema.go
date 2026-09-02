@@ -280,10 +280,12 @@ type Telegram struct {
 type X struct {
 	Layout
 
-	Enabled    bool
-	APIBaseURL string
-	Token      string
-	Caption    string
+	Enabled      bool
+	APIBaseURL   string
+	Token        string
+	Caption      string
+	PollInterval string
+	PollTimeout  string
 }
 
 // Mastodon configures the Mastodon publisher.

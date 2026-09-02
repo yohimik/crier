@@ -1,7 +1,9 @@
 package publish
 
 import (
+	"bytes"
 	"context"
+	"errors"
 	"fmt"
 	"net/http"
 	"strings"
@@ -103,7 +105,12 @@ func (m *Mastodon) Publish(ctx context.Context, in Input) (Result, error) {
 		// the belt to NoRetry's braces.
 		Header("Idempotency-Key", idempotencyKey(in)).
 		JSON(body)
-	if err := m.client.NoRetry().JSON(ctx, req, &status); err != nil {
+	err := retryNotReady(ctx, m.log,
+		config.Duration(m.cfg.PollInterval), config.Duration(m.cfg.PollTimeout),
+		"mastodon statuses", func() error {
+			return m.client.NoRetry().JSON(ctx, req, &status)
+		}, mastodonNotReady)
+	if err != nil {
 		return Result{}, err
 	}
 	return Result{ID: status.ID, URL: status.URL,
@@ -179,4 +186,18 @@ func (m *Mastodon) Ping(ctx context.Context) (Identity, error) {
 		return Identity{}, err
 	}
 	return Identity{ID: out.ID, Name: "@" + firstNonEmpty(out.Acct, out.Username)}, nil
+}
+
+// mastodonNotReady recognises the one status refusal that created nothing:
+// the instance raises it while validating the attachments, before any status
+// exists, with 422 and "Cannot attach files that have not finished
+// processing. Try again in a moment!". The message is localized per account,
+// so an instance answering in another language falls back to the never-repeat
+// rule — a missed retry is the safe direction to miss in.
+func mastodonNotReady(err error) bool {
+	var api *httpx.APIError
+	if !errors.As(err, &api) || api.Status != 422 {
+		return false
+	}
+	return bytes.Contains(api.Body, []byte("not finished processing"))
 }

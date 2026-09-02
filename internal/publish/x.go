@@ -1,7 +1,9 @@
 package publish
 
 import (
+	"bytes"
 	"context"
+	"errors"
 	"fmt"
 	"net/http"
 	"net/url"
@@ -114,8 +116,17 @@ func (x *X) Publish(ctx context.Context, in Input) (Result, error) {
 	req := httpx.NewRequest(http.MethodPost, x.cfg.APIBaseURL, "2/tweets").
 		Bearer(x.cfg.Token).
 		JSON(body)
-	// Posting the tweet is the irreversible step.
-	if err := x.client.NoRetry().JSON(ctx, req, &tweet); err != nil {
+	// Posting the tweet is the irreversible step. One refusal is asked
+	// again: X answers a not-yet-consistent media id with the same 400 it
+	// uses for a genuinely wrong one, no tweet created either way — so a
+	// permanent mistake costs the poll budget in retries and then surfaces
+	// unchanged.
+	err := retryNotReady(ctx, x.log,
+		config.Duration(x.cfg.PollInterval), config.Duration(x.cfg.PollTimeout),
+		"x tweets", func() error {
+			return x.client.NoRetry().JSON(ctx, req, &tweet)
+		}, func(err error) bool { return len(mediaIDs) > 0 && xMediaInvalid(err) })
+	if err != nil {
 		return Result{}, err
 	}
 	return Result{
@@ -294,4 +305,15 @@ func (x *X) Ping(ctx context.Context) (Identity, error) {
 		name = "@" + name
 	}
 	return Identity{ID: out.Data.ID, Name: firstNonEmpty(name, out.Data.Name)}, nil
+}
+
+// xMediaInvalid matches "Your media IDs are invalid.", which X answers both
+// for media that does not exist and for media it has not finished absorbing.
+// The 400 creates no tweet, which is what makes the bounded retry safe.
+func xMediaInvalid(err error) bool {
+	var api *httpx.APIError
+	if !errors.As(err, &api) || api.Status != 400 {
+		return false
+	}
+	return bytes.Contains(api.Body, []byte("Your media IDs are invalid"))
 }

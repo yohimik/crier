@@ -14,6 +14,8 @@ See [the X guide](../../publishing/x.md) for how to get these values.
 | `publish.x.height`<br>`CRIER_PUBLISH_X_HEIGHT`<br>`--publish-x-height` | int | — | render height for x; 0 inherits render.height |
 | `publish.x.max-attachments`<br>`CRIER_PUBLISH_X_MAX_ATTACHMENTS`<br>`--publish-x-max-attachments` | int | — | post at most this many pages to x at once; 0 uses the platform's own limit, which is also the ceiling |
 | `publish.x.overlay`<br>`CRIER_PUBLISH_X_OVERLAY`<br>`--publish-x-overlay` | list, path | — | template overlays applied for x only, after the global ones |
+| `publish.x.poll-interval`<br>`CRIER_PUBLISH_X_POLL_INTERVAL`<br>`--publish-x-poll-interval` | duration | `2s` | how often a not-ready tweet create is retried |
+| `publish.x.poll-timeout`<br>`CRIER_PUBLISH_X_POLL_TIMEOUT`<br>`--publish-x-poll-timeout` | duration | `30s` | how long to keep retrying a tweet whose media is not ready |
 | `publish.x.token`<br>`CRIER_PUBLISH_X_TOKEN`<br>`--publish-x-token` | string | — | X OAuth 2.0 user access token **Secret**: redacted by `crier config`. |
 | `publish.x.width`<br>`CRIER_PUBLISH_X_WIDTH`<br>`--publish-x-width` | int | — | render width for x; 0 inherits render.width |
 

@@ -37,6 +37,9 @@ func TestLinkedInReadsTheURNFromTheBody(t *testing.T) {
 	})
 	srv := fakeServer(t, func(w http.ResponseWriter, r *http.Request) {
 		switch {
+		case strings.Contains(r.URL.Path, "rest/images/"):
+			// The image status poll the upload now waits on.
+			_, _ = w.Write([]byte(`{"status":"AVAILABLE"}`))
 		case strings.HasSuffix(r.URL.Path, "rest/images"):
 			_, _ = w.Write([]byte(`{"value":{"uploadUrl":"` + upload.URL + `","image":"urn:li:image:1"}}`))
 		default:

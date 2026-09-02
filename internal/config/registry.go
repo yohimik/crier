@@ -225,6 +225,8 @@ var registry = []Descriptor{
 	{Key: "publish.x.api-base-url", Kind: KindString, Default: "https://api.x.com", Usage: "X API base URL"},
 	{Key: "publish.x.token", Kind: KindString, Usage: "X OAuth 2.0 user access token", Secret: true},
 	{Key: "publish.x.caption", Kind: KindString, Usage: "X specific post text"},
+	{Key: "publish.x.poll-interval", Kind: KindDuration, Default: "2s", Usage: "how often a not-ready tweet create is retried"},
+	{Key: "publish.x.poll-timeout", Kind: KindDuration, Default: "30s", Usage: "how long to keep retrying a tweet whose media is not ready"},
 
 	{Key: "publish.mastodon.enabled", Kind: KindBool, Usage: "publish to Mastodon"},
 	{Key: "publish.mastodon.api-base-url", Kind: KindString, Usage: "Mastodon instance base URL, e.g. https://mastodon.social"},

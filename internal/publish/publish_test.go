@@ -1017,6 +1017,9 @@ func TestLinkedInImageFlow(t *testing.T) {
 	srv := fakeServer(t, func(w http.ResponseWriter, r *http.Request) {
 		rec.record(r)
 		switch {
+		case strings.HasPrefix(r.URL.Path, "/rest/images/"):
+			// The image status poll the upload now waits on.
+			_, _ = w.Write([]byte(`{"status":"AVAILABLE"}`))
 		case r.URL.Path == "/rest/images":
 			_, _ = w.Write([]byte(`{"value":{"uploadUrl":"` + uploadURL + `","image":"urn:li:image:1"}}`))
 		case r.URL.Path == "/rest/posts":

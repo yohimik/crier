@@ -305,6 +305,10 @@ publish:
     max-attachments: 0
     # template overlays applied for x only, after the global ones
     overlay: []
+    # how often a not-ready tweet create is retried
+    poll-interval: "2s"
+    # how long to keep retrying a tweet whose media is not ready
+    poll-timeout: "30s"
     # X OAuth 2.0 user access token
     token: "<your-token>"
     # render width for x; 0 inherits render.width

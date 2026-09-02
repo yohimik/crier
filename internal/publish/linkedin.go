@@ -205,7 +205,39 @@ func (l *LinkedIn) uploadImage(ctx context.Context, a render.Artifact) (string, 
 	if err := l.client.Discard(ctx, put); err != nil {
 		return "", fmt.Errorf("uploading the image: %w", err)
 	}
+	if err := l.awaitImage(ctx, init.Value.Image); err != nil {
+		return "", err
+	}
 	return init.Value.Image, nil
+}
+
+// awaitImage waits until LinkedIn reports the image as available.
+//
+// The images documentation never says to wait, but the posts documentation
+// says what happens to those who do not: the post is accepted, sits in
+// PUBLISH_REQUESTED, and can end PUBLISH_FAILED with nothing visible and no
+// error on any call crier made. Waiting for AVAILABLE first, the way the
+// video flow already does, is the only place that failure can be caught.
+func (l *LinkedIn) awaitImage(ctx context.Context, urn string) error {
+	err := httpx.Poll(ctx, 2*time.Second, 2*time.Minute, func(ctx context.Context) (bool, error) {
+		var st liVideoStatus
+		if err := l.client.JSON(ctx, l.rest(http.MethodGet, "rest/images", urn), &st); err != nil {
+			return false, err
+		}
+		switch strings.ToUpper(st.Status) {
+		case "AVAILABLE":
+			return true, nil
+		case "PROCESSING_FAILED":
+			return false, fmt.Errorf("linkedin could not process the image")
+		default:
+			l.log.Debug().Str("status", st.Status).Msg("waiting for linkedin to process the image")
+			return false, nil
+		}
+	})
+	if err != nil {
+		return fmt.Errorf("waiting for the image: %w", err)
+	}
+	return nil
 }
 
 // uploadVideo runs the multi-part video flow.
