@@ -225,31 +225,20 @@ func (i *Instagram) container(ctx context.Context, form url.Values) (string, err
 // to wait a moment. The wait is bounded by the same poll budget the container
 // fetch uses.
 func (i *Instagram) publishContainer(ctx context.Context, id string) (Result, error) {
-	interval := config.Duration(i.cfg.PollInterval)
-	deadline := time.Now().Add(config.Duration(i.cfg.PollTimeout))
-
 	var published igPublished
-	for {
-		req := httpx.NewRequest(http.MethodPost, i.cfg.APIBaseURL, i.cfg.UserID, "media_publish").
-			Form(url.Values{"creation_id": {id}, "access_token": {i.cfg.Token}})
-		// Publishing is the irreversible step: a 5xx here may still have
-		// created the post, and repeating it would create a second one.
-		err := i.client.NoRetry().JSON(ctx, req, &published)
-		if err == nil {
-			break
-		}
-		if !igMediaNotReady(err) || time.Now().After(deadline) {
-			i.log.Warn().Str("container", id).
-				Msg("publishing the instagram container failed; it expires in 24 hours")
-			return Result{}, fmt.Errorf("publishing the container: %w", err)
-		}
-		i.log.Debug().Str("container", id).
-			Msg("the media is not ready to publish yet; asking again")
-		select {
-		case <-ctx.Done():
-			return Result{}, ctx.Err()
-		case <-time.After(interval):
-		}
+	err := retryNotReady(ctx, i.log,
+		config.Duration(i.cfg.PollInterval), config.Duration(i.cfg.PollTimeout),
+		"instagram media_publish", func() error {
+			req := httpx.NewRequest(http.MethodPost, i.cfg.APIBaseURL, i.cfg.UserID, "media_publish").
+				Form(url.Values{"creation_id": {id}, "access_token": {i.cfg.Token}})
+			// Publishing is the irreversible step: a 5xx here may still have
+			// created the post, and repeating it would create a second one.
+			return i.client.NoRetry().JSON(ctx, req, &published)
+		}, igMediaNotReady)
+	if err != nil {
+		i.log.Warn().Str("container", id).
+			Msg("publishing the instagram container failed; it expires in 24 hours")
+		return Result{}, fmt.Errorf("publishing the container: %w", err)
 	}
 	return Result{
 		ID:    published.ID,
