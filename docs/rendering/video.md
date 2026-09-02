@@ -8,20 +8,18 @@ render:
     duration: 3s
 ```
 
-The template is executed and laid out **once per frame**, and the frames are
-streamed straight into ffmpeg, so memory stays at one frame however long the
-clip is.
+The template is executed and laid out **once per frame**. These frames stream straight into ffmpeg. This keeps memory usage at one frame, no matter how long the clip is.
 
 ## ffmpeg
 
-ffmpeg does the encoding and is a prerequisite crier does not bundle:
+ffmpeg does the encoding. It is a prerequisite that crier does not bundle:
 
 ```sh
 brew install ffmpeg          # macOS
 sudo apt install ffmpeg      # Debian, Ubuntu
 ```
 
-Its absence is checked before the first frame is rendered:
+Crier checks if it is missing before rendering the first frame:
 
 ```
 crier: ffmpeg was not found on PATH; install it, or set render.video.ffmpeg-bin
@@ -41,13 +39,11 @@ crier: ffmpeg was not found on PATH; install it, or set render.video.ffmpeg-bin
 | `.Video.Time` | seconds from the start |
 | `.Video.Progress` | 0 to 1 across the clip |
 
-The [random helpers](../templates/pools.md) draw once for the whole clip rather
-than once per frame, so nothing flickers.
+The [random helpers](../templates/pools.md) draw once for the whole clip instead of once per frame. This means nothing flickers.
 
 ## How long
 
-`render.video.frames` is exact; without it the count is `duration × fps`. Both
-are capped, because a mistyped duration is a render that runs for hours.
+`render.video.frames` is exact. Without it, the count is `duration × fps`. Both are capped. The cap exists because a mistyped duration means a render that runs for hours.
 
 ## MP4 or GIF
 
@@ -62,8 +58,7 @@ render:
     duration: 2s
 ```
 
-Both come out of the same frame pipeline — the template is rendered once per
-frame and streamed into ffmpeg — and only the encoder arguments differ.
+Both come out of the same frame pipeline. The template is rendered once per frame and streamed into ffmpeg. Only the encoder arguments differ.
 
 A GIF gets a palette derived from its own frames:
 
@@ -71,20 +66,15 @@ A GIF gets a palette derived from its own frames:
 -vf "split[s0][s1];[s0]palettegen=stats_mode=diff[p];[s1][p]paletteuse=..." -loop 0
 ```
 
-The split is what lets one command both measure the clip and encode it.
-ffmpeg's default palette is a fixed 256-colour table, and a card with a
-gradient background comes out of that in visible bands.
+This split lets one command both measure the clip and encode it. The default ffmpeg palette is a fixed 256-colour table. A card with a gradient background comes out of that table in visible bands.
 
-A GIF has no audio track, so `render.video.audio` is ignored rather than
-refused, and the codec preset does not apply.
+A GIF has no audio track. The `render.video.audio` setting is ignored rather than refused, and the codec preset does not apply.
 
-Keep them short. A GIF is uncompressed between frames, so twelve frames a
-second for two seconds at 1080×1080 is already several megabytes — and X will
-not take one over 15MB.
+Keep them short. A GIF is uncompressed between frames. Twelve frames a second for two seconds at 1080×1080 is already several megabytes, and X will not take one over 15MB.
 
 ## Output
 
-`render.video.codec-preset` picks the encoder arguments:
+The `render.video.codec-preset` setting chooses the encoder arguments:
 
 | Preset | What it produces |
 | ------ | ---------------- |
@@ -93,21 +83,15 @@ not take one over 15MB.
 | `vp9` | `libvpx-vp9`, `yuv420p` |
 | `none` | nothing; `render.video.ffmpeg-args` supplies everything |
 
-`+faststart` puts the index at the front of the file. Instagram rejects a video
-without it and nothing else minds, which is why it is on by default.
+The `+faststart` flag puts the index at the front of the file. Instagram rejects a video without it. Nothing else minds. This is why it is on by default.
 
-`render.video.ffmpeg-args` is appended before the output file, and
-`render.video.audio` mixes in a track (`-c:a aac`, `-shortest`).
+The `render.video.ffmpeg-args` value is appended before the output file. The `render.video.audio` setting mixes in a track (`-c:a aac`, `-shortest`).
 
-An odd width or height gets a `scale=trunc(iw/2)*2:trunc(ih/2)*2` filter, since
-`yuv420p` subsamples chroma and has nowhere to put an odd column.
+An odd width or height gets a `scale=trunc(iw/2)*2:trunc(ih/2)*2` filter. This is because `yuv420p` subsamples chroma. It has nowhere to put an odd column.
 
 ## What it costs
 
-A layout pass per frame. Three seconds at thirty frames a second is ninety full
-renders — measured in tens of seconds for a simple card, minutes for a heavy
-one. Progress is logged at debug level every thirty frames, and the context is
-checked between frames, so Ctrl-C stops it.
+This requires a layout pass per frame. Three seconds at thirty frames a second is ninety full renders. This takes tens of seconds for a simple card, and minutes for a heavy one. Progress is logged at debug level every thirty frames. The context is checked between frames, so Ctrl-C stops it.
 
 ## Which platforms take which
 
@@ -119,35 +103,26 @@ checked between frames, so Ctrl-C stops it.
 | [X](../publishing/x.md) | yes | yes | chunked upload with `media_category=tweet_gif`, 15MB cap |
 | [Reddit](../publishing/reddit.md) | yes | yes | the lease flow with `image/gif`, submitted as an image |
 | [Slack](../publishing/slack.md) | yes | yes | a file like any other, played inline |
-| [Instagram](../publishing/instagram.md) | yes | **no** | — |
-| [Facebook](../publishing/facebook.md) | yes | **no** | — |
-| [TikTok](../publishing/tiktok.md) | yes | **no** | — |
-| [LinkedIn](../publishing/linkedin.md) | yes | **no** | — |
+| [Instagram](../publishing/instagram.md) | yes | **no** | none |
+| [Facebook](../publishing/facebook.md) | yes | **no** | none |
+| [TikTok](../publishing/tiktok.md) | yes | **no** | none |
+| [LinkedIn](../publishing/linkedin.md) | yes | **no** | none |
 
-A GIF aimed at one of the four is a configuration error, named and refused
-before anything is rendered:
+Sending a GIF to one of these four is a configuration error. The system names the error and refuses it before anything is rendered:
 
 ```
 crier: render.video.enabled is set but linkedin cannot post an animated GIF;
 disable it, or set render.video.format
 ```
 
-The four are not an oversight: their APIs have no animation path that does not
-mean "upload an MP4", and crier producing an MP4 while the configuration says
-`gif` would be worse than saying no.
+These four are not an oversight. Their APIs only support animations if you upload an MP4. If crier produced an MP4 while the configuration says `gif`, that would be worse than just saying no.
 
 ## Publishing a video
 
-Every platform crier ships can post video, and each has its own limits:
-Telegram 50MB, Discord 10MB on a free server, X 512MB and 140 seconds. crier
-checks the ones it knows before uploading, so a rejection arrives in a second
-rather than after the upload.
+Every platform crier ships can post video. Each has its own limits: Telegram allows 50MB, Discord allows 10MB on a free server, and X allows 512MB and 140 seconds. crier checks known limits before uploading. This means a rejection arrives in a second instead of after the upload.
 
-Reddit requires a poster image with a video; crier renders frame 0 as a JPEG
-and uploads it alongside, with no configuration. A GIF is submitted as an image
-rather than as a video, so it needs none.
+Reddit requires a poster image with a video. crier renders frame 0 as a JPEG and uploads it alongside. This requires no configuration. A GIF is submitted as an image instead of a video, so it needs no poster image.
 
-A platform that could not take video would be a configuration error found
-before anything is rendered.
+If a platform cannot take video, it is a configuration error. crier finds this error before rendering anything.
 
 Configuration keys: [`render.video.*`](../configuration/reference/render-video.md).

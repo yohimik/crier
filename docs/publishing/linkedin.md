@@ -2,8 +2,7 @@
 
 ## What you need
 
-An OAuth 2.0 access token with `w_member_social` (a person) or
-`w_organization_social` (a company page), and the author URN.
+You need an OAuth 2.0 access token and the author URN. The token must include `w_member_social` for a person or `w_organization_social` for a company page.
 
 ## Setting it up
 
@@ -19,23 +18,19 @@ publish:
 export CRIER_PUBLISH_LINKEDIN_TOKEN="…"
 ```
 
-`publish.linkedin.version` is the mandatory `LinkedIn-Version` header, a
-`YYYYMM` string. LinkedIn retires versions; when calls start failing with 426,
-this is the value to bump.
+`publish.linkedin.version` is the mandatory `LinkedIn-Version` header. It requires a `YYYYMM` string. LinkedIn retires old versions. When calls start failing with a 426 error, bump this value.
 
-crier sends `X-Restli-Protocol-Version: 2.0.0` on every call. Omitting either
-header gets a 426 that says nothing useful, which is why they are set in one
-place.
+crier sends `X-Restli-Protocol-Version: 2.0.0` on every call. If you omit either header, you get a 426 error that says nothing useful. This is why they are set in one place.
 
 ## Images
 
-1. `POST /rest/images?action=initializeUpload` with the owner URN.
+1. Send a `POST /rest/images?action=initializeUpload` request. Include the owner URN.
 2. `PUT` the bytes to the URL that comes back.
-3. `POST /rest/posts` referring to the image URN.
+3. Send a `POST /rest/posts` request. Refer to the image URN.
 
 ## Video
 
-Longer, and the ETags matter:
+Video uploads take longer. You must also track ETags carefully:
 
 1. `POST /rest/videos?action=initializeUpload` with the owner and the file size.
 2. `PUT` each 4MiB byte-range part, **keeping every response's ETag**.
@@ -43,14 +38,13 @@ Longer, and the ETags matter:
 4. Poll the video until its status is `AVAILABLE`.
 5. `POST /rest/posts`.
 
-A missing or reordered ETag produces a video that uploads and then never
-becomes available, so crier refuses a part that came back without one.
+If an ETag is missing or out of order, the video uploads but never becomes available. This is why crier refuses any part that comes back without an ETag.
 
-MP4 only, 3 seconds to 30 minutes.
+Files must be MP4 only. The duration must be 3 seconds to 30 minutes.
 
 ## What you get back
 
-The post URN, from the `x-restli-id` response header.
+You get the post URN. It comes from the `x-restli-id` response header.
 
 ## Check it
 
@@ -58,13 +52,10 @@ The post URN, from the `x-restli-id` response header.
 crier ping
 ```
 
-Nothing is posted: ping calls `GET /v2/userinfo` — see [the caveat](../operations/cli.md#linkedin-is-a-special-case), because a posting-only token cannot read a profile. See [the command line](../operations/cli.md#crier-ping).
+Nothing is posted: ping calls `GET /v2/userinfo`. See [the caveat](../operations/cli.md#linkedin-is-a-special-case) because a posting-only token cannot read a profile. See [the command line](../operations/cli.md#crier-ping).
 
 ## Animated GIFs
 
-**Not supported.** LinkedIn has no animation path that does not mean uploading an
-MP4, so `render.video.format: gif` with this platform enabled is a
-configuration error named before anything is rendered. Use
-`render.video.format: mp4` — see [video](../rendering/video.md).
+**Not supported.** LinkedIn requires an MP4 upload for animations. Setting `render.video.format: gif` with this platform enabled is a configuration error. This error is caught before anything is rendered. Use `render.video.format: mp4` instead. See [video](../rendering/video.md).
 
 Configuration keys: [`publish.linkedin.*`](../configuration/reference/publish-linkedin.md).

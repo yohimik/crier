@@ -1,7 +1,6 @@
 # The command line
 
-crier is one binary with a handful of commands. Publishing is what it does with
-no command at all, so the everyday invocation has no words in it:
+crier is one binary with a handful of commands. It publishes when you run it with no command at all. This means your everyday invocation has no words in it:
 
 ```sh
 cd my-project && crier
@@ -9,7 +8,7 @@ cd my-project && crier
 
 ## Dispatch
 
-The rule crier applies to its first argument:
+Here is the rule crier applies to its first argument:
 
 | First argument | What runs |
 | -------------- | --------- |
@@ -20,25 +19,21 @@ The rule crier applies to its first argument:
 | a known command word | that command |
 | an unknown bare word | a usage error, exit 2 |
 
-`--version` is special-cased ahead of the leading-dash rule: without that, it
-would be handed to `publish` as a flag `publish` has never heard of.
+`--version` is a special case. It is handled ahead of the leading-dash rule. Without this, it would be handed to `publish`. The `publish` command has never heard of this flag.
 
 ## Nothing is guessed
 
-crier fails closed, the way its configuration decoder does. There is no
-shorthand, no prefix matching, and no pass-through of arguments it did not
-expect:
+crier fails closed. Its configuration decoder works the same way. There is no shorthand. There is no prefix matching. It does not pass through arguments it does not expect:
 
 | What you typed | What happens |
 | -------------- | ------------ |
 | an unknown command word | exit 2, and the valid ones are listed |
 | an unknown flag, anywhere | exit 2, naming the flag |
-| a positional argument | exit 2 — no command takes one |
+| a positional argument | exit 2; no command takes one |
 | `--set` with a key that does not exist | exit 1, suggesting the nearest key |
 | an unknown key in a config file | exit 1, naming its full path |
 
-The reason is `--dry-runn`. Guessing turns that into a real post to every
-enabled platform; refusing turns it into a message.
+The reason is `--dry-runn`. Guessing would turn that into a real post to every enabled platform. Refusing turns it into a message.
 
 ## Commands
 
@@ -52,9 +47,7 @@ enabled platform; refusing turns it into a message.
 | `crier config` | the resolved configuration, secrets redacted |
 | `crier self-update` | replace this binary with the newest release |
 
-Results go to standard output and logs to standard error, so a result can be
-piped while the logs stay readable. The
-[exit code](./exit-codes.md) says what happened.
+Results go to standard output and logs go to standard error. This lets you pipe a result while the logs stay readable. The [exit code](./exit-codes.md) tells you what happened.
 
 ## Global flags
 
@@ -65,15 +58,11 @@ piped while the logs stay readable. The
 | `--help` | the top-level usage |
 | `--set key=value` | set any configuration key by its dotted name; repeatable |
 
-Every configuration key is also a flag on the commands that read configuration
-— `--render-width`, `--publish-telegram-chat-id`, and so on. See
-[configuration](../configuration/README.md), and `crier render -h` for the
-list.
+Every configuration key is also a flag on the commands that read configuration: `--render-width`, `--publish-telegram-chat-id`, and so on. See [configuration](../configuration/README.md) and `crier render -h` for the list.
 
 ## `crier init`
 
-Writes a configuration file. It is the first thing to run in a new directory,
-and the only command that does not need a configuration to already exist.
+This command writes a configuration file. Run it first in a new directory. It is the only command that works without an existing configuration.
 
 ```sh
 crier init                 # a short commented crier.yaml, ready to edit
@@ -88,18 +77,11 @@ crier init --format toml   # crier.toml instead
 | `--output` | `crier.<format>` here | write somewhere else |
 | `--force` | off | overwrite a file that is already there |
 
-Without `--force`, an existing file is left alone and the command exits 1: a
-config is something somebody wrote by hand, and a generator that overwrites it
-is a generator nobody runs twice.
+Without `--force`, the command leaves an existing file alone and exits 1. A config is something somebody writes by hand. A generator that overwrites it is a generator nobody runs twice.
 
-The starter names a template and a data file, sets a size, and stubs one
-platform with `enabled: false`, so nothing posts by accident. The path it wrote
-goes to standard output; the next steps go to standard error.
+The starter names a template and a data file. It sets a size and stubs one platform with `enabled: false` so nothing posts by accident. The written path goes to standard output. The next steps go to standard error.
 
-`--full` is the same content as
-[`crier.example.yaml`](../../crier.example.yaml) in the repository — both are
-generated from the same walk over the registry, from inside the binary, so what
-`init` writes cannot drift from what crier reads.
+The `--full` output has the same content as [`crier.example.yaml`](../../crier.example.yaml) in the repository. Both are generated from the same walk over the registry from inside the binary. This means what `init` writes cannot drift from what crier reads.
 
 ### What to do next
 
@@ -111,7 +93,7 @@ crier               # post it
 
 ## `crier ping`
 
-Asks every enabled platform who the credentials belong to, and posts nothing.
+This command asks every enabled platform who the credentials belong to. It posts nothing.
 
 ```sh
 crier ping
@@ -125,9 +107,7 @@ telegram   ok      @crier_bot (42)      88
 stage:s3   ok      bucket media at s3.example.com  63
 ```
 
-It is the answer to "is this set up right" that is not "post something and
-see". Every call it makes is a read against the cheapest identity endpoint the
-platform offers:
+This answers "is this set up right" without making you post a test message. Every call it makes is a read against the cheapest identity endpoint the platform offers:
 
 | Platform | What it calls |
 | -------- | ------------- |
@@ -141,63 +121,41 @@ platform offers:
 | LinkedIn | `GET /v2/userinfo` |
 | Reddit | a token grant, then `GET /api/v1/me` |
 
-When staging holds a credential — `stage.mode: s3` — the bucket is checked too,
-with a HEAD. The other modes have nothing to check: `none` does nothing, `url`
-is a string you vouched for, and `server` binds a socket rather than holding a
-key, so they get no row rather than a row saying "ok".
+When staging holds a credential, such as `stage.mode: s3`, the bucket is checked too. It uses a HEAD request for this. The other modes have nothing to check. The `none` mode does nothing. The `url` mode is a string you vouched for. The `server` mode binds a socket instead of holding a key. These modes get no row in the output, rather than a row saying "ok".
 
-There is no `--dry-run`. ping *is* the safe check, and a dry ping would check
-nothing at all.
+There is no `--dry-run`. The ping command *is* the safe check. A dry ping would check nothing at all.
 
 ### Exit codes
 
 | Code | Meaning |
 | ---- | ------- |
 | 0 | every credential was accepted |
-| 4 | some were, some were not — the table names which |
+| 4 | some were, some were not; the table names which |
 | 5 | none were |
 | 1 | nothing is enabled, or the configuration is wrong |
 
 ### LinkedIn is a special case
 
-Posting needs `w_member_social`; every endpoint that could name the account
-needs something else — `/v2/me` needs `r_liteprofile`, `/v2/userinfo` needs
-`openid` and `profile`. So a perfectly good posting token may be unable to say
-who it belongs to.
+Posting needs the `w_member_social` scope. Every endpoint that can name the account needs something else. The `/v2/me` endpoint needs `r_liteprofile`. The `/v2/userinfo` endpoint needs `openid` and `profile`. Because of this, a perfectly good posting token might not be able to say who it belongs to.
 
-crier tells the two refusals apart. A 401 means the token is not valid and the
-row fails. A 403 means the token is valid and merely cannot read a profile: the
-row passes, shows the configured `author-urn`, and notes that adding the
-`openid` and `profile` scopes would let ping report the name as well.
+crier tells the two refusals apart. A 401 means the token is not valid, and the row fails. A 403 means the token is valid but cannot read a profile. When this happens, the row passes and shows the configured `author-urn`. It also notes that adding the `openid` and `profile` scopes would let ping report the name as well.
 
 ## `crier render`
 
-Renders and writes a file, and never touches the network. It is the loop to
-work in while a template is taking shape. See
-[rendering](../rendering/README.md).
+This command renders and writes a file. It never touches the network. This is the loop to work in while a template takes shape. See [rendering](../rendering/README.md).
 
 ## `crier publish`
 
-The default. Renders once per distinct shape, stages the file when a platform
-needs a URL to fetch, and fans out. `--dry-run` does everything except the
-requests that would post. See [publishing](../publishing/README.md).
+This is the default. It renders once per distinct shape. It stages the file when a platform needs a URL to fetch, and it fans out. Using `--dry-run` does everything except the requests that would post. See [publishing](../publishing/README.md).
 
-It can also skip the rendering entirely: `--publish-input card.png` posts a
-file that already exists, and `render.video.frames-input` encodes frames made
-elsewhere. See [flows](../publishing/flows.md).
+You can also skip the rendering entirely. Using `--publish-input card.png` posts a file that already exists. Using `render.video.frames-input` encodes frames made elsewhere. See [flows](../publishing/flows.md).
 
 ## `crier self-update`
 
-Replaces this binary with one downloaded from a crier release, verified against
-GitHub's digest and run once before anything is moved. `--rollback` puts back
-what the last update replaced. See
-[installing](./install.md#keeping-it-up-to-date).
+This command replaces your current binary with one downloaded from a crier release. It verifies the download against GitHub's digest. It also runs the new binary once before anything is moved. Use `--rollback` to put back what the last update replaced. See [installing](./install.md#keeping-it-up-to-date).
 
 ## `crier platforms` and `crier config`
 
-`platforms` answers "why did nothing post": it lists every platform, whether it
-is enabled, and whether what it needs is set.
+The `platforms` command answers "why did nothing post". It lists every platform. It tells you whether each one is enabled and whether what it needs is set.
 
-`config` answers "which value won": it prints the resolved configuration with
-the file it came from, secrets redacted. `--all` includes the keys left at
-their defaults, and `--json` makes it machine-readable.
+The `config` command answers "which value won". It prints the resolved configuration and the file it came from. It redacts secrets. Add `--all` to include the keys left at their defaults. Add `--json` to make it machine-readable.

@@ -1,7 +1,6 @@
 # Exit codes
 
-Each code names a category a script can branch on, rather than a particular
-failure.
+Each code names a category rather than a particular failure. This lets your script branch on the category.
 
 | Code | Name | When |
 | ---- | ---- | ---- |
@@ -12,6 +11,7 @@ failure.
 | 4 | partial publish failure | some platforms took the post and others did not |
 | 5 | publish failure | no platform took the post |
 | 6 | staging error | the file could not be made reachable: an S3 upload failed, a tunnel never reported a URL, the listener could not start |
+
 
 ## Branching on them
 
@@ -25,16 +25,10 @@ case $? in
 esac
 ```
 
-The distinction that matters most is **4 against 5**. A 4 means some platforms
-already have the post: re-running the whole thing would double-post to those.
-A 5 means nothing went out and re-running is safe.
+The most important distinction is **4 against 5**. A 4 means some platforms already have the post. Re-running the whole thing would double-post to those. A 5 means nothing went out. This means re-running is safe.
 
-`crier ping` reuses the same three codes for the same reason: 0 when every
-credential was accepted, 4 when some were and some were not, 5 when none were.
+`crier ping` reuses the same three codes for the same reason. A 0 means every credential was accepted. A 4 means some were accepted and some were not. A 5 means none were accepted.
 
 ## Why a failure is a 1 rather than a 5
 
-Everything crier can find out before sending anything is a configuration error:
-a missing token, a caption that will not render, a video routed at a platform
-that cannot take one, an Instagram post with no staging. Those cost no uploads
-and are worth failing early.
+Everything crier finds before sending anything is a configuration error. Examples include a missing token, a caption that will not render, a video routed at a platform that cannot take one, or an Instagram post with no staging. These errors cost no uploads. They are worth failing early.

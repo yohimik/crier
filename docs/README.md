@@ -1,8 +1,6 @@
 # crier documentation
 
-crier renders an HTML template to an image or a video and publishes it to ten
-social platforms. Start with the [quickstart](../README.md); this is the
-reference.
+crier renders an HTML template to an image or a video. It publishes this to ten social platforms. Start with the [quickstart](../README.md). This is the reference.
 
 ## Configuration
 

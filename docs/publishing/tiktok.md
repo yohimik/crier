@@ -2,13 +2,9 @@
 
 ## What you need
 
-A TikTok developer app with the Content Posting API, and an access token with
-`video.publish` (and `video.upload` for photos).
+You need a TikTok developer app with the Content Posting API. You also need an access token with `video.publish`. Include `video.upload` for photos.
 
-**The app has to pass audit** before it can post publicly. Until it does, every
-post is restricted to `SELF_ONLY`, which is why that is crier's default: an
-unaudited app posting `PUBLIC_TO_EVERYONE` fails, and defaulting to the
-restrictive value fails safely instead.
+**The app has to pass audit** before it can post publicly. Until it does, every post is restricted to `SELF_ONLY`. This is why `SELF_ONLY` is crier's default. An unaudited app posting `PUBLIC_TO_EVERYONE` fails. Defaulting to the restrictive value fails safely instead.
 
 ## Setting it up
 
@@ -26,27 +22,21 @@ export CRIER_PUBLISH_TIKTOK_TOKEN="…"
 
 ## Photos are pulled, video is pushed
 
-A **photo** post uses `PULL_FROM_URL`: TikTok fetches the image, so this
-platform needs [staging](../staging/README.md).
+A **photo** post uses `PULL_FROM_URL`. TikTok fetches the image, so this platform needs [staging](../staging/README.md).
 
-A **video** is uploaded in chunks. `PULL_FROM_URL` for video requires a domain
-verified with TikTok, which most people setting crier up will not have, so
-crier always uses `FILE_UPLOAD`:
+A **video** is uploaded in chunks. The `PULL_FROM_URL` method for video requires a domain verified with TikTok. Most people setting up crier will not have this. As a result, crier always uses `FILE_UPLOAD`:
 
-- chunks between 5MB and 64MB, sequential, with a `Content-Range` header;
-- a remainder smaller than 5MB rides along with the last chunk rather than
-  becoming a short one TikTok would reject;
-- a file under 5MB goes as a single chunk.
+- Upload sequential chunks between 5MB and 64MB. Include a `Content-Range` header.
+- Combine any remainder smaller than 5MB with the last chunk. This prevents TikTok from rejecting a short chunk.
+- Upload any file under 5MB as a single chunk.
 
-Then `status/fetch` is polled until `PUBLISH_COMPLETE`.
+Then, poll `status/fetch` until you get `PUBLISH_COMPLETE`.
 
-Limits: 10 minutes, 4GB.
+The limits are 10 minutes and 4GB.
 
 ## Errors that arrive as a 200
 
-TikTok answers `200 OK` with an error object inside. crier reads it and reports
-the code, the message and the log id — which is what their support will ask
-for.
+TikTok answers `200 OK` with an error object inside. crier reads it and reports the code, the message and the log id. This is what their support will ask for.
 
 ## Check it
 
@@ -54,13 +44,10 @@ for.
 crier ping
 ```
 
-Nothing is posted: ping calls `creator_info/query/`, which is also the call the posting scope has to allow. See [the command line](../operations/cli.md#crier-ping).
+Nothing is posted. Ping calls `creator_info/query/`. The posting scope must also allow this call. See [the command line](../operations/cli.md#crier-ping).
 
 ## Animated GIFs
 
-**Not supported.** TikTok has no animation path that does not mean uploading an
-MP4, so `render.video.format: gif` with this platform enabled is a
-configuration error named before anything is rendered. Use
-`render.video.format: mp4` — see [video](../rendering/video.md).
+**Not supported.** TikTok only supports MP4 for animations. If you enable this platform and set `render.video.format: gif`, you will get a configuration error before rendering starts. Use `render.video.format: mp4` instead. See [video](../rendering/video.md).
 
 Configuration keys: [`publish.tiktok.*`](../configuration/reference/publish-tiktok.md).

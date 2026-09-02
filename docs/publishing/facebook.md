@@ -1,13 +1,12 @@
 # Facebook
 
-Posts to a Page. Unlike Instagram it accepts an upload, so it works with no
-staging at all.
+This posts to a Page. Unlike Instagram, it accepts an upload. It works with no staging at all.
 
 ## What you need
 
 - A Facebook Page.
 - A Meta app with `pages_manage_posts` and `pages_read_engagement`.
-- A **Page** access token, not a user token.
+- A **Page** access token. Do not use a user token.
 
 ## Setting it up
 
@@ -26,23 +25,17 @@ export CRIER_PUBLISH_FACEBOOK_TOKEN="…"
 
 ## Photos, and stories
 
-A photo post is one `POST /{page-id}/photos` with the file as `source` and the
-caption as `message`.
+A photo post requires a single call to `POST /{page-id}/photos`. You send the file as `source` and the caption as `message`.
 
-A story is two calls: the photo is uploaded with `published=false`, and the id
-that comes back is posted to `/{page-id}/photo_stories`. Only the second is
-irreversible, so only the second skips retries.
+A story requires two calls. First, upload the photo with `published=false`. You will receive an id. Post this id to `/{page-id}/photo_stories`. Only the second call is irreversible. This means only the second call skips retries.
 
 ## `use-url`
 
-With `publish.facebook.use-url`, crier sends the staged URL rather than the
-bytes — useful when the file is already on a CDN and re-uploading it is waste.
-It makes the platform need staging, which it otherwise does not.
+With `publish.facebook.use-url`, crier sends the staged URL instead of the bytes. This is useful when the file is already on a CDN and re-uploading it is a waste. This setting makes the platform need staging. Otherwise, it does not.
 
 ## Video
 
-`POST /{page-id}/videos` with `source` (or `file_url`) and the caption as
-`description`. Up to 1GB and 20 minutes.
+You can upload a video using `POST /{page-id}/videos`. Pass the video in the `source` or `file_url` field. Send the caption as the `description`. The video can be up to 1GB and 20 minutes long.
 
 ## Check it
 
@@ -50,13 +43,10 @@ It makes the platform need staging, which it otherwise does not.
 crier ping
 ```
 
-Nothing is posted: ping reads the Page with `GET /{page-id}?fields=id,name`. See [the command line](../operations/cli.md#crier-ping).
+It posts nothing. The ping command reads the Page with `GET /{page-id}?fields=id,name`. See [the command line](../operations/cli.md#crier-ping).
 
 ## Animated GIFs
 
-**Not supported.** Facebook has no animation path that does not mean uploading an
-MP4, so `render.video.format: gif` with this platform enabled is a
-configuration error named before anything is rendered. Use
-`render.video.format: mp4` — see [video](../rendering/video.md).
+**Not supported.** Facebook only supports MP4 files for animations. Setting `render.video.format: gif` with this platform enabled causes a configuration error before anything is rendered. Use `render.video.format: mp4`. See [video](../rendering/video.md).
 
 Configuration keys: [`publish.facebook.*`](../configuration/reference/publish-facebook.md).

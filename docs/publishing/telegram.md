@@ -1,14 +1,12 @@
 # Telegram
 
-The simplest of the nine: one multipart request, no container, no polling, and
-it takes the bytes rather than a URL.
+This is the simplest of the nine. It requires one multipart request. There is no container and no polling. It takes the bytes rather than a URL.
 
 ## Setting it up
 
-1. Message [@BotFather](https://t.me/BotFather), `/newbot`, and keep the token.
+1. Message [@BotFather](https://t.me/BotFather). Send `/newbot` and keep the token.
 2. Add the bot to the channel or group as an administrator.
-3. The chat id is `@channelusername` for a public channel, or the numeric id
-   for anything else — `@userinfobot` will tell you.
+3. The chat id is `@channelusername` for a public channel. It is the numeric id for anything else. The `@userinfobot` will tell you this id.
 
 ```yaml
 publish:
@@ -28,16 +26,15 @@ export CRIER_PUBLISH_TELEGRAM_TOKEN="123456:ABC-DEF…"
 | Photo | 10MB |
 | Any file | 50MB |
 
-crier checks both before uploading.
+crier checks both limits before uploading.
 
 ## Video
 
-`sendVideo` with `supports_streaming=true`. Nothing to configure.
+Use `sendVideo` with `supports_streaming=true`. There is nothing to configure.
 
 ## What you get back
 
-The message id, and a `https://t.me/<channel>/<id>` link when the chat has a
-username.
+You get the message id. If the chat has a username, you also get a `https://t.me/<channel>/<id>` link.
 
 ## Check it
 
@@ -45,12 +42,12 @@ username.
 crier ping
 ```
 
-Nothing is posted: ping calls `getMe`. See [the command line](../operations/cli.md#crier-ping).
+Nothing is posted. The ping command calls `getMe`. See [the command line](../operations/cli.md#crier-ping).
 
 ## Animated GIFs
 
-A GIF goes out through `sendAnimation` rather than `sendVideo`. `sendVideo` accepts one and then shows it as a still, which is a bug that only appears on the feed.
+Send a GIF using `sendAnimation` instead of `sendVideo`. The `sendVideo` method accepts a GIF but shows it as a still image. This bug only appears on the feed.
 
-Set `render.video.format: gif` — see [video](../rendering/video.md).
+Set `render.video.format: gif`. See [video](../rendering/video.md).
 
 Configuration keys: [`publish.telegram.*`](../configuration/reference/publish-telegram.md).

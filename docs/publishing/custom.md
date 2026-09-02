@@ -1,8 +1,6 @@
 # Custom platforms
 
-Anything with a shell and an HTTP client can be a crier platform. A custom
-platform is a shell command: crier renders the image, tells the command where
-it is and what to say, and the command does the posting.
+Anything with a shell and an HTTP client can be a crier platform. A custom platform is a shell command. First, crier renders the image. Next, it tells the command where the image is and what to say. Finally, the command does the posting.
 
 ```yaml
 publish:
@@ -18,11 +16,7 @@ publish:
         echo "id=$(jq -r .id /tmp/reply.json)" >> "$CRIER_OUTPUT"
 ```
 
-`my-webhook` is a name you choose. It is a peer of the ten built-in
-platforms, not a lesser thing: it takes part in the fan-out, gets its own
-[overlay and size](../templates/overlays.md), gets its
-[caption templated](../templates/captions.md), appears in `crier ping` and in a
-`--dry-run` listing, and its failure is a partial failure like any other.
+`my-webhook` is a name you choose. It is a peer of the ten built-in platforms, not a lesser thing. It takes part in the fan-out. It gets its own [overlay and size](../templates/overlays.md). It gets its [caption templated](../templates/captions.md). It appears in `crier ping` and in a `--dry-run` listing. Its failure is a partial failure like any other.
 
 ## The contract
 
@@ -38,22 +32,17 @@ crier runs `sh -c <command>` and reads the result out of a file.
 | `CRIER_ARTIFACT_FORMAT` | `png` or `jpeg`; empty for a video |
 | `CRIER_ARTIFACT_TYPE` | the MIME type |
 | `CRIER_CAPTION` | the rendered post text |
-| `CRIER_URL` | where the file was staged — **only** when `needs-url` is on |
+| `CRIER_URL` | where the file was staged, **only** when `needs-url` is on |
 | `CRIER_POSTER` | a still image for a video, when there is one |
 | `CRIER_OUTPUT` | a file to append the result to |
 
-`CRIER_URL` is absent rather than empty when `needs-url` is off, so a script
-can tell "no URL was needed" from "staging produced nothing".
+When `needs-url` is off, `CRIER_URL` is absent rather than empty. This lets a script tell "no URL was needed" from "staging produced nothing".
 
-Everything in `env:` is set too, after crier's own variables — so a token lives
-in the configuration or the environment rather than inside the command string.
-The whole process environment is inherited, so `$HOME`, `$PATH` and anything
-your CI exports are all there.
+Everything in `env:` is set too, right after crier's own variables. This means a token lives in the configuration or the environment rather than inside the command string. The whole process environment is inherited. Variables like `$HOME`, `$PATH`, and anything your CI exports are all there.
 
 ### What the command answers with
 
-**Exit 0 means published.** That is the whole requirement. A script that only
-exits 0 is a valid publisher.
+**Exit 0 means published.** That is the whole requirement. A script that only exits 0 is a valid publisher.
 
 To report more, append `key=value` lines to `$CRIER_OUTPUT`:
 
@@ -68,42 +57,36 @@ echo "link=https://example.com/p/1234567" >> "$CRIER_OUTPUT"
 | `link` (or `url`) | the post URL in the report |
 | anything else | the report's `extra` object |
 
-Append rather than overwrite: the file exists before the command starts, and a
-script can add to it as it goes.
+Append rather than overwrite. The file exists before the command starts. A script can add to it as it goes.
 
-**A non-zero exit is a failure.** The last of the command's output goes into
-the error, so a script that prints why it failed gets that reported. Both
-streams are logged live at debug level.
+**A non-zero exit is a failure.** The last of the command's output goes into the error. A script that prints why it failed gets that reported. Both streams are logged live at debug level.
 
 ## Keys
 
 | Key | Default | What it does |
 | --- | ------- | ------------ |
 | `enabled` | `false` | publish through this platform |
-| `command` | — | the shell command; required when enabled |
-| `ping-command` | — | what `crier ping` runs instead |
-| `caption` | — | this platform's caption, overriding `publish.caption` |
+| `command` | none | the shell command; required when enabled |
+| `ping-command` | none | what `crier ping` runs instead |
+| `caption` | none | this platform's caption, overriding `publish.caption` |
 | `kinds` | `image` | what the command accepts: `image`, `video`, `gif`, or any combination |
 | `format` | `png` | preferred image format |
 | `needs-url` | `false` | stage the file and pass `CRIER_URL` |
 | `timeout` | `2m` | how long the command may run before it is killed |
-| `overlay` | — | extra template overlays, as for a built-in |
-| `width`, `height` | — | render size for this platform |
-| `env` | — | extra environment variables, keys kept as written |
+| `overlay` | none | extra template overlays, as for a built-in |
+| `width`, `height` | none | render size for this platform |
+| `env` | none | extra environment variables, keys kept as written |
+
 
 ## Names
 
-A name is lower-case letters, digits and dashes, and may not be one of the nine
-built-ins.
+A name consists of lower-case letters, digits and dashes. It cannot be one of the nine built-ins.
 
-The rule exists because a name has to survive the round trip through an
-environment variable: `publish.custom.my-hook.command` is
-`CRIER_PUBLISH_CUSTOM_MY_HOOK_COMMAND`, and `my_hook` would be the same
-variable and a different platform.
+This rule exists because a name must survive a round trip through an environment variable. For example, `publish.custom.my-hook.command` becomes `CRIER_PUBLISH_CUSTOM_MY_HOOK_COMMAND`. Using `my_hook` would result in the same variable and a different platform.
 
 ## Setting it three ways
 
-Like every other key, in a file, in the environment, or as a flag:
+You can set this like every other key: in a file, in the environment, or as a flag:
 
 ```yaml
 publish:
@@ -123,17 +106,11 @@ crier --set publish.custom.my-hook.enabled=true \
       --set publish.custom.my-hook.command='curl ...'
 ```
 
-`--set` exists because a flag cannot be registered for a name crier has never
-heard of. It works for every other key too — see
-[configuration](../configuration/README.md).
+`--set` exists because a flag cannot be registered for a name crier has never heard of. It works for every other key too. See [configuration](../configuration/README.md).
 
-Any of the three can introduce a platform: a name found in the environment or
-in a `--set` is as real as one written in the file, which is what makes a
-CI-only platform possible.
+Any of the three can introduce a platform. A name found in the environment or in a `--set` is as real as one written in the file. This makes a CI-only platform possible.
 
-The keys **under** a name are still closed. A typo in `commnad` is refused
-naming its full path, exactly as it would be anywhere else in the
-configuration.
+The keys **under** a name are still closed. A typo in `commnad` is refused. The error names its full path, exactly as it would anywhere else in the configuration.
 
 ## Checking it without posting
 
@@ -141,9 +118,7 @@ configuration.
 crier ping
 ```
 
-A custom platform with no `ping-command` reports that there is nothing to check
-rather than running `command`, which would publish. Give it a read-only call
-and it reports like the built-ins do:
+A custom platform without a `ping-command` reports that there is nothing to check. It does not run `command` because that would publish the post. Give it a read-only call, and it reports just like the built-ins do:
 
 ```yaml
       ping-command: |
@@ -152,20 +127,14 @@ and it reports like the built-ins do:
         echo "name=$(jq -r .name /tmp/me.json)" >> "$CRIER_OUTPUT"
 ```
 
-`id` and `name` become the account column of the ping report.
+The `id` and `name` become the account column of the ping report.
 
 ## Windows
 
-The command runs under `sh`, on every platform, so one configuration works
-everywhere. On Windows that means `sh.exe` has to be on `PATH` — Git for
-Windows or WSL provides one. Without it, an enabled custom platform is a
-configuration error that says so, rather than a "file not found" halfway
-through a publish.
+The command runs under `sh` on every platform. This means one configuration works everywhere. On Windows, `sh.exe` has to be on `PATH`. Git for Windows or WSL provides one. Without it, an enabled custom platform is a configuration error that says so. This avoids a "file not found" halfway through a publish.
 
 ## A complete example
 
-[`examples/custom-platform/`](../../examples/custom-platform/) is a working
-project: a template, a config, and a script that posts to a webhook with
-`curl`.
+[`examples/custom-platform/`](../../examples/custom-platform/) is a working project. It includes a template, a config, and a script. The script posts to a webhook with `curl`.
 
-Configuration keys: [`publish.custom.*`](../configuration/reference/publish-custom.md).
+You can find the configuration keys at [`publish.custom.*`](../configuration/reference/publish-custom.md).

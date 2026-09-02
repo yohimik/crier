@@ -1,8 +1,6 @@
 # Text overflow
 
-Data is data: a title that fits today is twice as long tomorrow. Every recipe
-here is verified by a test in `internal/render/overflow_test.go`, so what is
-written here is what the renderer does.
+Data is data. A title that fits today might be twice as long tomorrow. Every recipe here is verified by a test in `internal/render/overflow_test.go`. This means the renderer does exactly what is written here.
 
 ## One line, with an ellipsis
 
@@ -14,13 +12,11 @@ written here is what the renderer does.
 }
 ```
 
-`white-space: nowrap` stops the wrap, `overflow: hidden` stops the spill, and
-`text-overflow: ellipsis` marks the cut. All three are needed.
+You need all three properties. `white-space: nowrap` stops the text from wrapping. `overflow: hidden` stops the spill. `text-overflow: ellipsis` marks the cut.
 
 ## Several lines, with an ellipsis
 
-The CSS Overflow Module's line clamp — the one to reach for on a body of text,
-because it stops at a line count rather than slicing a line in half.
+The CSS Overflow Module's line clamp is the one to reach for on a body of text. It stops at a line count rather than slicing a line in half.
 
 ```css
 .blurb {
@@ -34,15 +30,13 @@ because it stops at a line count rather than slicing a line in half.
 
 ## Break words longer than the box
 
-A URL, a hash, a German compound noun. Without this they are laid out as one
-unbreakable run and leave the box sideways.
+Consider a URL, a hash, or a German compound noun. Without this, they are laid out as one unbreakable run and spill out of the box sideways.
 
 ```css
 .body { overflow: hidden; overflow-wrap: break-word }
 ```
 
-`word-break: break-all` is also honoured and breaks more aggressively —
-anywhere, rather than only where a word would otherwise overflow.
+`word-break: break-all` is also honoured. It breaks text more aggressively: anywhere on the line, rather than only where a word would otherwise overflow.
 
 ## Just cut it
 
@@ -50,8 +44,7 @@ anywhere, rather than only where a word would otherwise overflow.
 .fixed { overflow: hidden }
 ```
 
-`overflow: hidden` clips in both directions, which is why it is the base of
-every recipe above.
+`overflow: hidden` clips in both directions. This is why it is the base of every recipe above.
 
 ## Not supported
 
@@ -61,9 +54,9 @@ every recipe above.
 | `text-overflow: ellipsis` on a wrapping block | It needs `white-space: nowrap`. For several lines, use the clamp. |
 | `line-clamp` as a shorthand | Write the three longhands; they are what the tests cover. |
 
+
 ## The real defence
 
-Give the box a size, pick a recipe, and let a long value be cut politely rather
-than break the layout. [`examples/business-promo`](../../examples/business-promo/)
-carries a deliberately over-long blurb for exactly this reason — see its
-[`template.html`](../../examples/business-promo/template.html).
+Give the box a size and pick a recipe. Let long values truncate cleanly instead of breaking your layout.
+
+[`examples/business-promo`](../../examples/business-promo/) uses a deliberately over-long blurb for this exact reason. See its [`template.html`](../../examples/business-promo/template.html).

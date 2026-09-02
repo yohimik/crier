@@ -1,11 +1,10 @@
 # Template pools and randomisation
 
-A post that looks the same every week stops being read. crier can vary the
-layout and the details, and still reproduce any run exactly.
+People stop reading a post if it looks the same every week. You can use crier to vary the layout and the details. It will still reproduce any run exactly.
 
 ## A pool of layouts
 
-Set `render.pool` instead of `render.template` and crier picks one per run:
+Set `render.pool` instead of `render.template`. Crier will then pick one layout per run:
 
 ```yaml
 render:
@@ -18,13 +17,11 @@ render:
 INF picked a template from the pool template=template-panel.html pool=2
 ```
 
-The pick is made **once** per run, so every platform variant and every video
-frame uses the same layout.
+Crier makes this choice **once** per run. This means every platform variant and every video frame uses the same layout.
 
 ## Random values inside a template
 
-These are available in HTML templates **and** in [caption
-templates](./captions.md):
+You can use these in HTML templates **and** in [caption templates](./captions.md):
 
 | Function | Example | Result |
 | -------- | ------- | ------ |
@@ -42,12 +39,11 @@ templates](./captions.md):
 }
 ```
 
-Assign to a variable when the same value is needed twice: calling `randChoice`
-again draws again.
+Assign the result to a variable if you need the same value twice. Calling `randChoice` again draws a new value.
 
 ## The seed
 
-Every run draws from one seeded source, and the seed is **always** logged:
+Every run draws from one seeded source. The seed is **always** logged:
 
 ```
 INF template randomisation seed seed=20260901
@@ -59,23 +55,17 @@ Pass it back to reproduce the run:
 crier render --render-seed 20260901
 ```
 
-Pin it in the configuration when a committed preview has to stay stable:
+Pin it in the configuration to keep a committed preview stable:
 
 ```yaml
 render:
   seed: 20260901     # 0, the default, draws a new one each run
 ```
 
-One seed covers the pool pick, every random function, every platform variant
-and every video frame — so a clip does not flicker, and two platforms do not
-disagree about the accent colour.
+One seed covers the pool pick, every random function, every platform variant and every video frame. This means a clip does not flicker, and two platforms do not disagree about the accent colour.
 
 ## Worked example
 
-[`examples/social-quote`](../../examples/social-quote/) has a pool of two
-layouts and a random accent, with the seed pinned in
-[`crier.yaml`](../../examples/social-quote/crier.yaml) so its committed preview
-is reproducible.
+Take a look at [`examples/social-quote`](../../examples/social-quote/). It has a pool of two layouts and a random accent. The seed is pinned in [`crier.yaml`](../../examples/social-quote/crier.yaml). This makes its committed preview reproducible.
 
-Configuration keys: [`render.pool` and
-`render.seed`](../configuration/reference/render.md).
+Configuration keys: [`render.pool` and `render.seed`](../configuration/reference/render.md).

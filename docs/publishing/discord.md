@@ -1,11 +1,10 @@
 # Discord
 
-An incoming webhook. The URL **is** the credential — anyone holding it can post
-to that channel — which is why it is the secret rather than a token beside one.
+This is an incoming webhook. The URL **is** the credential. Anyone holding it can post to that channel. This is why the URL is the secret, rather than a token beside it.
 
 ## Setting it up
 
-1. Channel → Edit Channel → Integrations → Webhooks → New Webhook.
+1. Go to Channel, click Edit Channel, select Integrations, choose Webhooks, and click New Webhook.
 2. Copy the URL.
 
 ```sh
@@ -21,12 +20,11 @@ publish:
 
 ## Limits
 
-10MB per attachment on a free server; a boosted server allows more. crier warns
-at the free-tier limit rather than treating it as absolute.
+A free server allows 10MB per attachment. A boosted server allows more. crier warns you at the free-tier limit instead of treating it as absolute.
 
 ## Mentions
 
-A caption is posted as the message content, so role and user mentions work:
+The caption is posted as the message content. This means role and user mentions work:
 
 ```yaml
 publish:
@@ -36,8 +34,7 @@ publish:
 
 ## What you get back
 
-The message id and its channel, because crier appends `?wait=true` — without it
-Discord answers 204 and says nothing.
+You get the message id and its channel. This is because crier appends `?wait=true`. Without it, Discord answers 204 and says nothing.
 
 ## Check it
 
@@ -45,12 +42,12 @@ Discord answers 204 and says nothing.
 crier ping
 ```
 
-Nothing is posted: ping reads the webhook back with a `GET` on its URL. See [the command line](../operations/cli.md#crier-ping).
+This does not post anything. Instead, ping reads the webhook back with a `GET` request on its URL. See [the command line](../operations/cli.md#crier-ping).
 
 ## Animated GIFs
 
-A GIF is attached exactly as it is; Discord animates it inline.
+The GIF is attached exactly as it is. Discord animates it inline.
 
-Set `render.video.format: gif` — see [video](../rendering/video.md).
+Set `render.video.format: gif`. See [video](../rendering/video.md).
 
 Configuration keys: [`publish.discord.*`](../configuration/reference/publish-discord.md).
