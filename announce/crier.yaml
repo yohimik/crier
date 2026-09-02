@@ -40,8 +40,8 @@ publish:
     THIS IS RENDERED AND POSTED FROM GITHUB ACTIONS (DATA COMING FROM COMMIT MESSAGES) 
     crier v{{ .version }} is out.
 
-    Render an HTML template to an image or a video and publish it to ten social
-    platforms with one command.
+    Render an HTML template to an image or a video and publish it to twelve
+    social platforms with one command.
 
     {{ range .install }}{{ if eq .label "curl" }}{{ .command }}{{ end }}{{ end }}
     
@@ -79,3 +79,43 @@ publish:
     # --publish-instagram-story also drops the carousel: stories have none, so
     # the pages become one story each, posted in order, each one live before
     # the next is created.
+
+  linkedin:
+    # Off in the file: announce.sh turns it on for its own pass with
+    # --publish-linkedin-enabled=true, and turns Instagram off for that pass,
+    # so each platform's post is its own step with its own failure. The token
+    # and the author URN come from the environment
+    # (CRIER_PUBLISH_LINKEDIN_TOKEN, CRIER_PUBLISH_LINKEDIN_AUTHOR_URN).
+    #
+    # LinkedIn takes the bytes directly, so this pass needs no tunnel and no
+    # staging. A post takes one video or up to twenty images, never both, so
+    # the anthem clip carries this commentary and the changelog pages follow
+    # as a multi-image album with a short caption of their own, set on the
+    # command line. With no ffmpeg to make the clip, the whole card goes out
+    # as one album instead, cover first.
+    enabled: false
+    # A commentary of its own rather than the shared caption: the Instagram
+    # caption is written for a feed of pictures, and this one is written for
+    # the people who would actually run the thing. It leads with the part
+    # worth stopping for: nobody wrote this post.
+    caption: >-
+      This post wrote itself. 🤖
+
+      crier v{{ .version }} shipped a few minutes ago, and everything you see
+      here was made by the release run itself: GitHub Actions read the
+      changelog out of the conventional commits, rendered these cards from an
+      HTML template with crier's own pure-Go engine (no browser anywhere in
+      the pipeline), and published them before the run finished.
+
+      No screenshots. No design tool. No human in the loop. The binary being
+      announced is the binary doing the announcing.
+
+      If your release notes deserve better than a wall of text, one command
+      renders an HTML template into images or video and posts it across your
+      social platforms: github.com/yohimik/crier
+
+      {{ range .install }}{{ if eq .label "curl" }}{{ .command }}{{ end }}{{ end }}
+
+      #buildinpublic #golang #opensource #devtools #automation #githubactions
+      #cicd #devops #releasenotes #continuousdelivery #developertools
+      #changelog #opensourcesoftware #shipit

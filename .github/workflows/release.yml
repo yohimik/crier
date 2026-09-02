@@ -78,6 +78,10 @@ jobs:
       CRIER_PUBLISH_INSTAGRAM_TOKEN: ${{ secrets.CRIER_PUBLISH_INSTAGRAM_TOKEN }}
       CRIER_PUBLISH_INSTAGRAM_USER_ID: ${{ secrets.CRIER_PUBLISH_INSTAGRAM_USER_ID }}
       NGROK_AUTHTOKEN: ${{ secrets.NGROK_AUTHTOKEN }}
+      # The LinkedIn pass: the same card as one multi-image post. The URN
+      # secret keeps its own name and is mapped onto crier's key here.
+      CRIER_PUBLISH_LINKEDIN_TOKEN: ${{ secrets.CRIER_PUBLISH_LINKEDIN_TOKEN }}
+      CRIER_PUBLISH_LINKEDIN_AUTHOR_URN: ${{ secrets.LINKEDIN_URN }}
     steps:
       - uses: actions/checkout@v4
         with:

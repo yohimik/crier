@@ -336,10 +336,49 @@ func TestAnnouncePostsFeedThenStory(t *testing.T) {
 	srv := httptest.NewServer(mux)
 	t.Cleanup(srv.Close)
 
+	liImages := 0
 	mux.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
 		body := readBody(r)
 		requests = append(requests, recordedCall{Path: r.URL.Path, Body: body})
 		switch {
+		// The LinkedIn half of the fake: an upload slot per image, a status
+		// poll that is always AVAILABLE, and the post itself. The image urns
+		// count up so the multi-image order is checkable.
+		case strings.HasPrefix(r.URL.Path, "/li/rest/images/"):
+			_, _ = w.Write([]byte(`{"status":"AVAILABLE"}`))
+		case strings.HasPrefix(r.URL.Path, "/li/rest/images"):
+			liImages++
+			_, _ = w.Write([]byte(`{"value":{"uploadUrl":"` + srv.URL +
+				`/li-upload/` + strconv.Itoa(liImages) +
+				`","image":"urn:li:image:` + strconv.Itoa(liImages) + `"}}`))
+		case strings.HasPrefix(r.URL.Path, "/li-upload/"):
+			w.WriteHeader(http.StatusCreated)
+		// The video half: an upload slot sized to the file, the part PUT, the
+		// finalize, and a status poll that is always AVAILABLE.
+		case strings.HasPrefix(r.URL.Path, "/li/rest/videos/"):
+			_, _ = w.Write([]byte(`{"status":"AVAILABLE"}`))
+		case strings.HasPrefix(r.URL.Path, "/li/rest/videos"):
+			if r.URL.Query().Get("action") != "initializeUpload" {
+				w.WriteHeader(http.StatusOK)
+				return
+			}
+			var init struct {
+				Req struct {
+					Size int64 `json:"fileSizeBytes"`
+				} `json:"initializeUploadRequest"`
+			}
+			if err := json.Unmarshal([]byte(body), &init); err != nil || init.Req.Size < 1 {
+				w.WriteHeader(http.StatusBadRequest)
+				return
+			}
+			_, _ = w.Write([]byte(fmt.Sprintf(`{"value":{"video":"urn:li:video:1",`+
+				`"uploadToken":"tk","uploadInstructions":[{"uploadUrl":"%s/li-video-part-0",`+
+				`"firstByte":0,"lastByte":%d}]}}`, srv.URL, init.Req.Size-1)))
+		case strings.HasPrefix(r.URL.Path, "/li-video-part-"):
+			w.Header().Set("ETag", `"etag-0"`)
+		case strings.HasPrefix(r.URL.Path, "/li/rest/posts"):
+			w.Header().Set("x-restli-id", "urn:li:share:99")
+			w.WriteHeader(http.StatusCreated)
 		case strings.HasSuffix(r.URL.Path, "/media"):
 			if !igContainerIsWellFormed(w, body) {
 				return
@@ -367,6 +406,11 @@ func TestAnnouncePostsFeedThenStory(t *testing.T) {
 		"CRIER_PUBLISH_INSTAGRAM_API_BASE_URL=" + srv.URL,
 		"CRIER_PUBLISH_INSTAGRAM_POLL_INTERVAL=1ms",
 		"CRIER_PUBLISH_INSTAGRAM_POLL_TIMEOUT=5s",
+		// The LinkedIn pass posts the full card as one multi-image post; its
+		// secrets being set is what turns the pass on.
+		"CRIER_PUBLISH_LINKEDIN_TOKEN=li-token",
+		"CRIER_PUBLISH_LINKEDIN_AUTHOR_URN=urn:li:person:e2e",
+		"CRIER_PUBLISH_LINKEDIN_API_BASE_URL=" + srv.URL + "/li",
 		// No tunnel: a test has no public URL and needs none. This is the
 		// documented escape hatch, exercised here rather than only described.
 		"CRIER_STAGE_MODE=url",
@@ -528,6 +572,88 @@ func TestAnnouncePostsFeedThenStory(t *testing.T) {
 		if n := strings.Count(stderr, "rendering the anthem"); n != 1 {
 			t.Errorf("the anthem was rendered %d times, want once: %s", n, stderr)
 		}
+	}
+
+	// The LinkedIn pass. With ffmpeg the cover with its soundtrack is the
+	// announcement — a video post carrying the commentary — and the changelog
+	// pages follow as a multi-image album. Without ffmpeg the whole card goes
+	// out as one album, cover first: one image more than the Instagram pages.
+	type liPost struct {
+		Commentary string `json:"commentary"`
+		Content    struct {
+			Media struct {
+				ID string `json:"id"`
+			} `json:"media"`
+			MultiImage struct {
+				Images []struct {
+					ID string `json:"id"`
+				} `json:"images"`
+			} `json:"multiImage"`
+		} `json:"content"`
+	}
+	var liPosts []liPost
+	for _, r := range requests {
+		if !strings.HasPrefix(r.Path, "/li/rest/posts") {
+			continue
+		}
+		var p liPost
+		if err := json.Unmarshal([]byte(r.Body), &p); err != nil {
+			t.Fatalf("a linkedin post is not JSON: %v", err)
+		}
+		liPosts = append(liPosts, p)
+	}
+	checkImages := func(images []struct {
+		ID string `json:"id"`
+	}, want int) {
+		t.Helper()
+		if len(images) != want {
+			t.Errorf("the linkedin album carries %d images, want %d", len(images), want)
+		}
+		for i, img := range images {
+			if want := "urn:li:image:" + strconv.Itoa(i+1); img.ID != want {
+				t.Errorf("linkedin image %d is %q, want %q; the pages must post in order",
+					i, img.ID, want)
+			}
+		}
+	}
+	if _, err := exec.LookPath("ffmpeg"); err == nil {
+		if len(liPosts) != 2 {
+			t.Fatalf("made %d linkedin posts, want the anthem and the album", len(liPosts))
+		}
+		if got := liPosts[0].Content.Media.ID; got != "urn:li:video:1" {
+			t.Errorf("the linkedin announcement carries media %q, want the anthem video", got)
+		}
+		// The commentary is LinkedIn's own — the automation story and the
+		// hashtags — not the shared Instagram caption.
+		for _, want := range []string{"wrote itself", "9.9.9", "#githubactions", "install.sh"} {
+			if !strings.Contains(liPosts[0].Commentary, want) {
+				t.Errorf("the linkedin commentary does not carry %q: %q", want, liPosts[0].Commentary)
+			}
+		}
+		// The album is the changelog without the cover, which would only
+		// repeat what the clip just played.
+		checkImages(liPosts[1].Content.MultiImage.Images, len(pageChildren))
+		for _, want := range []string{"page by page", "9.9.9"} {
+			if !strings.Contains(liPosts[1].Commentary, want) {
+				t.Errorf("the album caption does not carry %q: %q", want, liPosts[1].Commentary)
+			}
+		}
+		if !strings.Contains(stderr, "posted the linkedin changelog") {
+			t.Errorf("the album pass should be logged: %s", stderr)
+		}
+	} else {
+		if len(liPosts) != 1 {
+			t.Fatalf("made %d linkedin posts, want one album", len(liPosts))
+		}
+		checkImages(liPosts[0].Content.MultiImage.Images, len(pageChildren)+1)
+		for _, want := range []string{"wrote itself", "9.9.9", "#githubactions", "install.sh"} {
+			if !strings.Contains(liPosts[0].Commentary, want) {
+				t.Errorf("the linkedin commentary does not carry %q: %q", want, liPosts[0].Commentary)
+			}
+		}
+	}
+	if !strings.Contains(stderr, "posted the linkedin post") {
+		t.Errorf("the linkedin pass should be logged: %s", stderr)
 	}
 }
 

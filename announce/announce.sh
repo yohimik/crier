@@ -5,9 +5,11 @@
 # reason not to post is a message and an exit 0, never a failed release. A
 # missing secret must not turn a good release into a red build.
 #
-# One card and one clip per release, posted three ways: the feed carousel at
-# 1080x1080, the anthem as a story, then the changelog pages as stories fitted
-# into 1080x1920.
+# One card and one clip per release, posted four ways: the feed carousel at
+# 1080x1080, the anthem as a story, the changelog pages as stories fitted
+# into 1080x1920, and the release on LinkedIn when that platform's secrets
+# are set — the anthem clip as the announcement, the changelog pages as a
+# multi-image album behind it.
 #
 # The clip is rendered first, once, and used twice. It opens the feed carousel
 # as its lead video and it opens the story reel as the first story. Both
@@ -251,9 +253,41 @@ else
 	post_updates || failures=$((failures + 1))
 fi
 
+# --- linkedin -----------------------------------------------------------------
+#
+# The same release, posted where the changelog's readers work. LinkedIn takes
+# the bytes directly, so this pass wants no tunnel and no staging.
+#
+# The cover with its soundtrack is the announcement: LinkedIn takes one video
+# or many images in a post, never both, so the anthem carries the commentary
+# and the changelog follows as an album of its own — the pages without the
+# cover, which would only repeat what the clip just played. With no anthem to
+# lead, the whole card goes out as one multi-image post, cover first.
+#
+# Its own pass rather than a platform enabled beside Instagram, because the
+# two want different documents and different captions: announce/crier.yaml
+# carries a commentary written for people who read release notes for a living.
+linkedin_post() {
+	if [ -z "${CRIER_PUBLISH_LINKEDIN_TOKEN:-}" ] || [ -z "${CRIER_PUBLISH_LINKEDIN_AUTHOR_URN:-}" ]; then
+		log "no CRIER_PUBLISH_LINKEDIN_TOKEN or CRIER_PUBLISH_LINKEDIN_AUTHOR_URN; the release goes out without the linkedin post"
+		return 0
+	fi
+	set -- --publish-instagram-enabled=false --publish-linkedin-enabled=true
+	if [ -z "$anthem_mp4" ]; then
+		post "linkedin post" "$data" "$@"
+		return $?
+	fi
+	post "linkedin post" "$data" "$@" --publish-input "$anthem_mp4" || return 1
+	[ "$has_changelog" = 1 ] || return 0
+	post "linkedin changelog" "$updates" "$@" \
+		--publish-linkedin-caption 'The whole changelog for crier v{{ .version }}, page by page, rendered and posted by the release itself. github.com/yohimik/crier #changelog #golang #buildinpublic #releasenotes'
+}
+linkedin_post || failures=$((failures + 1))
+
 if [ "$failures" -gt 0 ]; then
-	# Four things can go wrong now rather than three: the anthem is rendered
-	# once and then posted twice, so its render is a step of its own.
+	# Five things can go wrong now rather than three: the anthem render is a
+	# step of its own since the clip posts twice, and linkedin is a pass of
+	# its own since it wants the cover the feed carousel dropped.
 	log "$failures of the announcement's steps did not go out; the release itself is unaffected"
 fi
 exit 0
