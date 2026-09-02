@@ -116,7 +116,7 @@ github:
     ```
 
     ```sh
-    dispat install yohimik/crier --asset 'crier-{os}-{arch}'
+    dispat install yohimik/crier
     ```
 
 scripts:

@@ -225,7 +225,9 @@ func TestAnnounceNotesEscapesAndPins(t *testing.T) {
 	if !strings.Contains(byLabel["go"], "@v1.0.0-rc.1") {
 		t.Errorf("go = %q", byLabel["go"])
 	}
-	if !strings.Contains(byLabel["dispat"], "--asset 'crier-{os}-{arch}'") {
+	// Bare since dispat 1.7: crier's assets carry the conventional name the
+	// installer looks for, so the card teaches the short spelling.
+	if byLabel["dispat"] != "dispat install yohimik/crier" {
 		t.Errorf("dispat = %q", byLabel["dispat"])
 	}
 }

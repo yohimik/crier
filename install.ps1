@@ -58,7 +58,7 @@ if (-not $Arch) {
 }
 
 # The asset naming is dispat's selfupdate convention, which is what lets
-# `dispat install yohimik/crier --asset 'crier-{os}-{arch}'` find it too.
+# `dispat install yohimik/crier` find it too.
 $asset = "crier-windows-$Arch.exe"
 
 # Both spellings are accepted because the releases page shows the tag and the

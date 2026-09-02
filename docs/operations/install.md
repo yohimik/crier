@@ -36,10 +36,14 @@ Options, as flags or as environment variables:
 ## dispat
 
 ```sh
-dispat install yohimik/crier --asset 'crier-{os}-{arch}'
+dispat install yohimik/crier
 ```
 
-The `--asset` pattern is **required**: a crier release carries six binaries, and
+crier publishes its binaries under the name dispat's installer looks for when
+no `--asset` is given — the repository's name and the platform, `.exe` on
+Windows — so the bare invocation resolves on its own with dispat 1.7 or
+newer. An older dispat needs the pattern spelled out
+(`--asset 'crier-{os}-{arch}'`), and
 a bare `dispat install` only resolves when a release has exactly one.
 
 Before the first stable release, add `--prerelease` — the release candidates
@@ -195,7 +199,7 @@ at once:
 
 - `install.sh` and `install.ps1`, which build the name from the detected
   platform;
-- `dispat install yohimik/crier --asset 'crier-{os}-{arch}'`;
+- `dispat install yohimik/crier`;
 - `crier self-update`, whose `AssetName` mirrors the same rule;
 - the `Dockerfile`'s cross-compile loop, which is what produces them.
 

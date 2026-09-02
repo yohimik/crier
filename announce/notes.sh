@@ -93,7 +93,7 @@ printf '"sections":[%s],' "$sections"
 printf '"install":['
 printf '{"label":"curl","command":"curl -fsSL https://raw.githubusercontent.com/yohimik/crier/v%s/install.sh | CRIER_VERSION=%s sh"},' \
 	"$esc_version" "$esc_version"
-printf '{"label":"dispat","command":"dispat install yohimik/crier --asset '"'"'crier-{os}-{arch}'"'"'"},'
+printf '{"label":"dispat","command":"dispat install yohimik/crier"},'
 printf '{"label":"go","command":"go install github.com/yohimik/crier/cmd/crier@v%s"}' "$esc_version"
 printf ']}'
 printf '\n'

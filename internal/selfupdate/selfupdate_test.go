@@ -25,7 +25,7 @@ func testLogger(t *testing.T) zerolog.Logger {
 
 // TestAssetNameIsTheContract guards the string four other things depend on:
 // the Dockerfile's cross-compile loop, install.sh, install.ps1 and
-// `dispat install --asset 'crier-{os}-{arch}'`. Changing it breaks all four.
+// `dispat install`. Changing it breaks all four.
 func TestAssetNameIsTheContract(t *testing.T) {
 	for _, tt := range []struct{ goos, goarch, want string }{
 		{"linux", "amd64", "crier-linux-amd64"},

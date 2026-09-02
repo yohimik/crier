@@ -129,15 +129,16 @@ jobs:
       - uses: actions/checkout@v4
       - name: Set up dispat
         uses: yohimik/dispat@v1
-      # A crier release carries six binaries, so the asset has to be named: a
-      # bare `dispat install` only resolves when a release has exactly one.
-      # `--as crier-via-dispat` keeps this install apart from the script
-      # installs below, so each route is proven on its own.
+      # Bare, no --asset: the binaries carry the conventional name a bare
+      # `dispat install` looks for (dispat 1.7), and this step is where that
+      # spelling — the one the README teaches — is proven. `--as
+      # crier-via-dispat` keeps this install apart from the script installs
+      # below, so each route is proven on its own.
       - name: Install crier with dispat
         shell: bash
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: dispat install yohimik/crier --asset 'crier-{os}-{arch}' --release "${{ needs.release.outputs.version }}" --as crier-via-dispat --bin-dir ./dispat-bin
+        run: dispat install yohimik/crier --release "${{ needs.release.outputs.version }}" --as crier-via-dispat --bin-dir ./dispat-bin
       - name: The dispat install runs
         shell: bash
         run: |

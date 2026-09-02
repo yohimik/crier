@@ -152,7 +152,7 @@ if [ -z "$ARCH" ]; then
 fi
 
 # The asset naming is dispat's selfupdate convention, which is what lets
-# `dispat install yohimik/crier --asset 'crier-{os}-{arch}'` find it too.
+# `dispat install yohimik/crier` find it too.
 ASSET="crier-${OS}-${ARCH}"
 if [ "$OS" = "windows" ]; then
 	ASSET="${ASSET}.exe"

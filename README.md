@@ -52,17 +52,19 @@ choose the directory with `CRIER_BIN_DIR`.
 ### dispat install
 
 ```sh
-dispat install yohimik/crier --asset 'crier-{os}-{arch}'
+dispat install yohimik/crier
 ```
 
-`--asset` is **required**: a crier release carries six binaries, and a bare
-`dispat install` only resolves when a release has exactly one.
+crier's releases name their binaries the way dispat's installer looks for
+them — the repository's name and the platform — so the bare invocation
+resolves on its own (dispat 1.7 or newer; an older dispat needs
+`--asset 'crier-{os}-{arch}'`).
 
 Before the first stable release, add `--prerelease` — the release candidates
 are prereleases, and `dispat install` skips those by default:
 
 ```sh
-dispat install yohimik/crier --asset 'crier-{os}-{arch}' --prerelease
+dispat install yohimik/crier --prerelease
 ```
 
 ### GitHub Actions

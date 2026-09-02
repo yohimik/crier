@@ -128,8 +128,7 @@ func Executable() (string, error) {
 // AssetName is what a release calls the binary for a platform.
 //
 // It mirrors the Dockerfile's cross-compile loop, which is the other half of
-// this contract — and install.sh, install.ps1 and `dispat install --asset
-// 'crier-{os}-{arch}'` are three more halves of the same one. Renaming an
+// this contract — and install.sh, install.ps1 and `dispat install` are three more halves of the same one. Renaming an
 // asset breaks all four at once.
 func AssetName(goos, goarch string) string {
 	name := "crier-" + goos + "-" + goarch

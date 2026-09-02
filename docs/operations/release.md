@@ -164,7 +164,7 @@ A prerelease, and the tools treat it as one:
 - **`dispat install` needs `--prerelease`**:
 
   ```sh
-  dispat install yohimik/crier --asset 'crier-{os}-{arch}' --prerelease
+  dispat install yohimik/crier --prerelease
   ```
 
 - **`crier self-update` needs it too**, for the same reason:
@@ -185,10 +185,10 @@ crier-linux-amd64    crier-darwin-amd64    crier-windows-amd64.exe
 crier-linux-arm64    crier-darwin-arm64    crier-windows-arm64.exe
 ```
 
-The names are a contract: `install.sh`, `install.ps1` and `dispat install
---asset 'crier-{os}-{arch}'` all resolve exactly these. No archives and no
-checksum file — GitHub publishes a sha256 digest per asset, and all three
-verify against it.
+The names are a contract: `install.sh`, `install.ps1` and a bare
+`dispat install` — which looks for the repository's name and the platform —
+all resolve exactly these. No archives and no checksum file — GitHub
+publishes a sha256 digest per asset, and all three verify against it.
 
 They are built by the root `Dockerfile`'s `export` target, which descends from
 the `test` target: what lands in `dist/` is six binaries that were validated,

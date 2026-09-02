@@ -9,8 +9,8 @@
 # that merely compiled.
 #
 # The assets are bare, uncompressed binaries named crier-{goos}-{goarch}, which
-# is dispat's own selfupdate convention: `dispat install yohimik/crier --asset
-# 'crier-{os}-{arch}'`, install.sh and install.ps1 all resolve exactly these
+# is dispat's own selfupdate convention: `dispat install yohimik/crier, install.sh
+# and install.ps1 all resolve exactly these
 # names. No archives and no checksum file — GitHub reports a sha256 digest per
 # asset, and that is what all three verify against.
 set -eu

@@ -9,8 +9,8 @@
 # never six that merely compiled.
 #
 # One binary per mainstream platform. The names — crier-{goos}-{goarch}[.exe] —
-# are a contract: install.sh, install.ps1 and `dispat install --asset
-# 'crier-{os}-{arch}'` all resolve exactly these, so they must not change.
+# are a contract: install.sh, install.ps1 and a bare `dispat install` all
+# resolve exactly these, so they must not change.
 #
 # Everything runs here rather than on the runner, so a CI job needs Docker and
 # dispat and no Go toolchain of its own. Cross-compilation is Go's own from one
