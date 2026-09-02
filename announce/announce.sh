@@ -5,16 +5,18 @@
 # reason not to post is a message and an exit 0, never a failed release. A
 # missing secret must not turn a good release into a red build.
 #
-# One card and one clip per release, posted four ways: the feed carousel at
+# One card and two clips per release, posted four ways: the feed carousel at
 # 1080x1080, the anthem as a story, the changelog pages as stories fitted
 # into 1080x1920, and the release on LinkedIn when that platform's secrets
-# are set — the anthem clip as the announcement, the changelog pages as a
-# multi-image album behind it.
+# are set — one video post that plays the anthem over the cover and then
+# leafs through the changelog pages, because a LinkedIn post takes one video
+# or many images and never both, and one post was the requirement.
 #
-# The clip is rendered first, once, and used twice. It opens the feed carousel
+# The anthem clip is rendered once and used twice: it opens the feed carousel
 # as its lead video and it opens the story reel as the first story. Both
 # surfaces want the same sixteen seconds, and encoding them separately would
-# spend a minute of a release producing a file crier already has.
+# spend a minute of a release producing a file crier already has. The reel
+# shares its frames: the same pages, paced across the same soundtrack.
 #
 # The card paginates. A release with a long changelog lays out into several
 # pages, and each pass turns those into what its surface takes: the feed pass
@@ -94,9 +96,11 @@ frames_dir=""
 cover_data=""
 updates_data=""
 anthem_dir=""
-# anthem_mp4 is the rendered clip, once it exists. Empty means there is none,
-# which is what every pass checks rather than assuming a file is there.
+# anthem_mp4 is the rendered clip, once it exists, and reel_mp4 the linkedin
+# variant that leafs through the pages. Empty means there is none, which is
+# what every pass checks rather than assuming a file is there.
 anthem_mp4=""
+reel_mp4=""
 trap 'rm -rf "$data" "$frames_dir" "$cover_data" "$updates_data" "$anthem_dir"' EXIT
 sh "$here/notes.sh" >"$data"
 
@@ -166,37 +170,91 @@ render_anthem() {
 	frames_dir=$(mktemp -d)
 	cover_data=$(mktemp)
 	anthem_dir=$(mktemp -d)
-	frames=$frames_dir
 	cover=$cover_data
 	DISPAT_BREAKING_CHANGES='' DISPAT_FEATURES='' DISPAT_FIXES='' \
 		sh "$here/notes.sh" >"$cover"
+	# One render of the whole card. Page one is the cover the anthem holds —
+	# identical to a cover-only render, since a page's layout does not depend
+	# on the pages after it — and the pages behind it are what the linkedin
+	# reel leafs through.
+	pages=$frames_dir/pages
+	mkdir "$pages"
 	if ! "$crier" render --config "$here/crier.yaml" --render-data - \
 		--render-seed "$seed" \
 		--render-format png --render-background '#ffffff' \
-		--render-output "$frames/cover.png" <"$cover"; then
-		log "the cover did not render; the release goes out without the anthem"
+		--render-output "$pages/page.png" <"$data"; then
+		log "the card did not render; the release goes out without the anthem"
 		return 1
 	fi
+	front=$pages/page-1.png
+	[ -f "$front" ] || front=$pages/page.png
+
+	# encode turns a frames directory into a clip. The soundtrack is not a
+	# flag: render.video.audio-pool in crier.yaml and the run's seed choose
+	# it, the same pick on every invocation of this release.
+	encode() {
+		"$crier" render --config "$here/crier.yaml" --render-data - \
+			--render-seed "$seed" \
+			--render-video-enabled=true \
+			--render-video-fps 24 \
+			--render-video-frames-input "$1" \
+			--render-background '#ffffff' \
+			--render-output "$2" <"$cover"
+	}
+
+	frames=$frames_dir/anthem-frames
+	mkdir "$frames"
 	i=0
 	while [ "$i" -lt 384 ]; do
 		i=$((i + 1))
-		cp "$frames/cover.png" "$frames/$(printf 'f%03d' "$i").png"
+		cp "$front" "$frames/$(printf 'f%03d' "$i").png"
 	done
-	rm -f "$frames/cover.png"
-
 	log "rendering the anthem"
-	if ! "$crier" render --config "$here/crier.yaml" --render-data - \
-		--render-seed "$seed" \
-		--render-video-enabled=true \
-		--render-video-fps 24 \
-		--render-video-frames-input "$frames" \
-		--render-background '#ffffff' \
-		--render-output "$anthem_dir/anthem.mp4" <"$cover"; then
+	if ! encode "$frames" "$anthem_dir/anthem.mp4"; then
 		log "the anthem did not render; the release goes out without it"
 		return 1
 	fi
 	anthem_mp4=$anthem_dir/anthem.mp4
 	log "rendered the anthem to $anthem_mp4"
+
+	# The linkedin reel: the cover holds while the fanfare settles in, then
+	# the changelog pages take the rest of the sixteen seconds in reading
+	# order. 384 frames at 24fps is the length of every anthem, so the page
+	# time divides what the cover does not keep; pages-max bounds the count,
+	# which keeps every page on screen for at least a second.
+	npages=$(find "$pages" -name '*.png' | wc -l | tr -d ' ')
+	if [ "$npages" -le 1 ]; then
+		reel_mp4=$anthem_mp4
+		return 0
+	fi
+	rest=$((npages - 1))
+	page_frames=$((240 / rest))
+	[ "$page_frames" -le 120 ] || page_frames=120
+	cover_frames=$((384 - page_frames * rest))
+	reel=$frames_dir/reel-frames
+	mkdir "$reel"
+	i=0
+	n=1
+	while [ "$n" -le "$npages" ]; do
+		src=$pages/page-$n.png
+		count=$page_frames
+		[ "$n" -ne 1 ] || count=$cover_frames
+		j=0
+		while [ "$j" -lt "$count" ]; do
+			j=$((j + 1))
+			i=$((i + 1))
+			cp "$src" "$reel/$(printf 'f%03d' "$i").png"
+		done
+		n=$((n + 1))
+	done
+	log "rendering the linkedin reel"
+	if ! encode "$reel" "$anthem_dir/reel.mp4"; then
+		log "the reel did not render; linkedin gets the anthem alone"
+		reel_mp4=$anthem_mp4
+		return 1
+	fi
+	reel_mp4=$anthem_dir/reel.mp4
+	log "rendered the reel to $reel_mp4"
 	return 0
 }
 
@@ -282,11 +340,12 @@ fi
 # The same release, posted where the changelog's readers work. LinkedIn takes
 # the bytes directly, so this pass wants no tunnel and no staging.
 #
-# The cover with its soundtrack is the announcement: LinkedIn takes one video
-# or many images in a post, never both, so the anthem carries the commentary
-# and the changelog follows as an album of its own — the pages without the
-# cover, which would only repeat what the clip just played. With no anthem to
-# lead, the whole card goes out as one multi-image post, cover first.
+# One post, everything in it. A LinkedIn post takes one video or many images
+# and never both — content.multiImage is documented images-only — so the one
+# post that can carry the whole release is the reel: the cover holding under
+# the fanfare, then the changelog pages in reading order, sixteen seconds for
+# all of it. With no ffmpeg to make a clip, the whole card goes out as one
+# multi-image album instead, cover first.
 #
 # Its own pass rather than a platform enabled beside Instagram, because the
 # two want different documents and different captions: announce/crier.yaml
@@ -297,13 +356,13 @@ linkedin_post() {
 		return 0
 	fi
 	set -- --publish-instagram-enabled=false --publish-linkedin-enabled=true
-	if [ -z "$anthem_mp4" ]; then
+	if [ -z "$reel_mp4" ]; then
 		post "linkedin post" "$data" "$@"
 		return $?
 	fi
-	if ! post "linkedin post" "$data" "$@" --publish-input "$anthem_mp4"; then
+	if ! post "linkedin post" "$data" "$@" --publish-input "$reel_mp4"; then
 		# A member token posts text and images, but the video API is a
-		# partner product (LinkedIn's Community Management API) that most
+		# partner product (LinkedIn's Community Management API) that some
 		# tokens do not carry: rc.11's clip was refused with 403
 		# ACCESS_DENIED partnerApiVideosExternal, and the album chained
 		# behind it never ran, so nothing landed at all. The release still
@@ -313,16 +372,13 @@ linkedin_post() {
 		post "linkedin album" "$data" "$@"
 		return $?
 	fi
-	[ "$has_changelog" = 1 ] || return 0
-	post "linkedin changelog" "$updates" "$@" \
-		--publish-linkedin-caption 'The whole changelog for crier v{{ .version }}, page by page, rendered and posted by the release itself. github.com/yohimik/crier #changelog #golang #buildinpublic #releasenotes'
 }
 linkedin_post || failures=$((failures + 1))
 
 if [ "$failures" -gt 0 ]; then
-	# Five things can go wrong now rather than three: the anthem render is a
-	# step of its own since the clip posts twice, and linkedin is a pass of
-	# its own since it wants the cover the feed carousel dropped.
+	# Five things can go wrong now rather than three: the clips render is a
+	# step of its own since the anthem posts twice and the reel once, and
+	# linkedin is a pass of its own with a document of its own.
 	log "$failures of the announcement's steps did not go out; the release itself is unaffected"
 fi
 exit 0

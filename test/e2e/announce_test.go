@@ -646,11 +646,18 @@ func TestAnnouncePostsFeedThenStory(t *testing.T) {
 		}
 	}
 	if _, err := exec.LookPath("ffmpeg"); err == nil {
-		if len(liPosts) != 2 {
-			t.Fatalf("made %d linkedin posts, want the anthem and the album", len(liPosts))
+		// One post, everything in it: a LinkedIn post takes one video or
+		// many images and never both, so the release travels as the reel —
+		// the cover under the fanfare, then the changelog pages — and there
+		// is no second post to check.
+		if len(liPosts) != 1 {
+			t.Fatalf("made %d linkedin posts, want the one reel", len(liPosts))
 		}
 		if got := liPosts[0].Content.Media.ID; got != "urn:li:video:1" {
-			t.Errorf("the linkedin announcement carries media %q, want the anthem video", got)
+			t.Errorf("the linkedin announcement carries media %q, want the reel video", got)
+		}
+		if n := len(liPosts[0].Content.MultiImage.Images); n != 0 {
+			t.Errorf("the reel post carries %d images; a post is one video or many images, never both", n)
 		}
 		// The commentary is LinkedIn's own — the automation story and the
 		// hashtags — not the shared Instagram caption.
@@ -659,16 +666,10 @@ func TestAnnouncePostsFeedThenStory(t *testing.T) {
 				t.Errorf("the linkedin commentary does not carry %q: %q", want, liPosts[0].Commentary)
 			}
 		}
-		// The album is the changelog without the cover, which would only
-		// repeat what the clip just played.
-		checkImages(liPosts[1].Content.MultiImage.Images, len(pageChildren))
-		for _, want := range []string{"page by page", "9.9.9"} {
-			if !strings.Contains(liPosts[1].Commentary, want) {
-				t.Errorf("the album caption does not carry %q: %q", want, liPosts[1].Commentary)
-			}
-		}
-		if !strings.Contains(stderr, "posted the linkedin changelog") {
-			t.Errorf("the album pass should be logged: %s", stderr)
+		// The reel is its own encode, leafing through every page; the card
+		// paginated, so this run had one to make.
+		if !strings.Contains(stderr, "rendering the linkedin reel") {
+			t.Errorf("the reel render should be logged: %s", stderr)
 		}
 	} else {
 		if len(liPosts) != 1 {

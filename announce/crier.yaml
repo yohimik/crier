@@ -117,11 +117,11 @@ publish:
     # (CRIER_PUBLISH_LINKEDIN_TOKEN, CRIER_PUBLISH_LINKEDIN_AUTHOR_URN).
     #
     # LinkedIn takes the bytes directly, so this pass needs no tunnel and no
-    # staging. A post takes one video or up to twenty images, never both, so
-    # the anthem clip carries this commentary and the changelog pages follow
-    # as a multi-image album with a short caption of their own, set on the
-    # command line. With no ffmpeg to make the clip, the whole card goes out
-    # as one album instead, cover first.
+    # staging. A post takes one video or up to twenty images, never both —
+    # content.multiImage is documented images-only — so the one post that can
+    # carry the whole release is the reel: the cover holding under the
+    # fanfare, then the changelog pages in reading order. With no ffmpeg to
+    # make it, the whole card goes out as one album instead, cover first.
     enabled: false
     # A commentary of its own rather than the shared caption: the Instagram
     # caption is written for a feed of pictures, and this one is written for
