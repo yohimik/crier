@@ -1,5 +1,35 @@
 # Changelog
 
+## v1.0.0-rc.7 (2026-09-02)
+
+### Features
+
+- a fourth probe that stands in for the release notes nobody plans: written in one breath, trailing detail after detail, the kind of subject that a reviewer asks to be split and the author promises to split next time and never does ([253da0d](https://github.com/yohimik/crier/commit/253da0d90b1f61490911ca4041cd7fd08c5dc58a)) (by yohimik, Claude Fable 5)
+
+- a probe whose subject describes, at deliberate and unhurried length, the way a paginated release card lets every one of these words survive onto the page where a single-line card would have cut them at the first ellipsis ([5acbc6d](https://github.com/yohimik/crier/commit/5acbc6d47099e91a34d467c613a7dfb2f55d80b3)) (by yohimik, Claude Fable 5)
+  A dogfooding probe: this subject and its siblings exist so the next
+  release candidate's card shows long entries wrapping to their full three
+  lines and pushing one another across page after page.
+
+### Fixes
+
+- a third probe, short ([372329b](https://github.com/yohimik/crier/commit/372329b2804a51889c62b1235dd260f19a64236c)) (by yohimik, Claude Fable 5)
+
+- a second probe, briefer than the first but still comfortably past the width of one card line, so the wrapped entries alternate with the short ones on the pages ([3d18235](https://github.com/yohimik/crier/commit/3d18235e1e27b8c3e4be1767383d1d8a84f4d43a)) (by yohimik, Claude Fable 5)
+
+- a long entry wraps instead of losing its ending ([dd5445e](https://github.com/yohimik/crier/commit/dd5445ed9a5cc744b47a37b675fc187f3806eb9b)) (by yohimik, Claude Fable 5)
+  One line per entry was the single-page card's economy. A paginated card
+  can afford the truth: up to three lines each, then the multi-line clamp,
+  and an unbroken run breaks anywhere rather than escaping. A long entry
+  costing three lines is what pushes its neighbours onto the next page,
+  which is the point of having pages.
+
+### Authors
+
+- yohimik
+- Claude Fable 5
+
+
 ## v1.0.0-rc.6 (2026-09-02)
 
 ### Fixes
