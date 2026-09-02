@@ -264,6 +264,51 @@ func TestAnnounceNotesEscapesAndPins(t *testing.T) {
 	}
 }
 
+// TestAnnounceNotesMarksAGraduation: rc to stable is the crossing the card
+// dresses up for, and dispat hands the stage both channels so the script can
+// tell. The candidates count is the old counter plus one, because the train
+// starts at rc.0. An ordinary release carries neither field.
+func TestAnnounceNotesMarksAGraduation(t *testing.T) {
+	requireSh(t)
+
+	out, _, code := runScript(t, "notes.sh", []string{
+		"DISPAT_NEW_VERSION=1.0.0",
+		"DISPAT_OLD_VERSION=1.0.0-rc.17",
+		"DISPAT_OLD_CHANNEL=rc",
+		"DISPAT_CHANNEL=stable",
+	})
+	if code != 0 {
+		t.Fatalf("code=%d", code)
+	}
+	var doc struct {
+		Graduated  bool `json:"graduated"`
+		Candidates int  `json:"candidates"`
+	}
+	if err := json.Unmarshal([]byte(out), &doc); err != nil {
+		t.Fatalf("not JSON: %v\n%s", err, out)
+	}
+	if !doc.Graduated || doc.Candidates != 18 {
+		t.Errorf("graduated=%v candidates=%d, want true and 18", doc.Graduated, doc.Candidates)
+	}
+
+	out, _, code = runScript(t, "notes.sh", []string{
+		"DISPAT_NEW_VERSION=1.0.1",
+		"DISPAT_OLD_VERSION=1.0.0",
+		"DISPAT_OLD_CHANNEL=stable",
+		"DISPAT_CHANNEL=stable",
+	})
+	if code != 0 {
+		t.Fatalf("code=%d", code)
+	}
+	doc.Graduated, doc.Candidates = false, 0
+	if err := json.Unmarshal([]byte(out), &doc); err != nil {
+		t.Fatalf("not JSON: %v\n%s", err, out)
+	}
+	if doc.Graduated || doc.Candidates != 0 {
+		t.Errorf("an ordinary release carries the graduation fields: %+v", doc)
+	}
+}
+
 // TestAnnounceSkipsWithoutSecrets is the property that matters most: dispat's
 // announce stage only warns, and a missing secret must never fail a release.
 func TestAnnounceSkipsWithoutSecrets(t *testing.T) {
@@ -1202,6 +1247,11 @@ func TestAnnounceLinkedInFallsBackToAnAlbum(t *testing.T) {
 	_, stderr, code := runScript(t, "announce.sh", []string{
 		"DISPAT_NEW_VERSION=9.9.9",
 		"DISPAT_FEATURES=one small feature",
+		// This run is also the graduation run: rc to stable, with the
+		// caption dressing up accordingly.
+		"DISPAT_OLD_VERSION=9.9.9-rc.17",
+		"DISPAT_OLD_CHANNEL=rc",
+		"DISPAT_CHANNEL=stable",
 		"CRIER_PUBLISH_INSTAGRAM_TOKEN=ig-token",
 		"CRIER_PUBLISH_INSTAGRAM_USER_ID=ig-user",
 		"CRIER_PUBLISH_INSTAGRAM_API_BASE_URL=" + srv.URL,
@@ -1238,7 +1288,8 @@ func TestAnnounceLinkedInFallsBackToAnAlbum(t *testing.T) {
 	if len(album.Content.MultiImage.Images) != 2 {
 		t.Errorf("the album carries %d images, want the cover and one page", len(album.Content.MultiImage.Images))
 	}
-	for _, want := range []string{"part of the release", "9.9.9", "one small feature"} {
+	for _, want := range []string{"part of the release", "9.9.9", "one small feature",
+		"graduated to stable", "18 release candidates later", "not unsubscribing"} {
 		if !strings.Contains(album.Commentary, want) {
 			t.Errorf("the album commentary does not carry %q: %q", want, album.Commentary)
 		}

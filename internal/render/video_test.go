@@ -262,6 +262,29 @@ func TestFFmpegArgsAudio(t *testing.T) {
 	}
 }
 
+// TestFFmpegArgsAudioLoop: a slideshow can outlast its soundtrack, and
+// -shortest would cut the video at the audio's end. The loop repeats the
+// track and -shortest then ends the loop with the video instead — and
+// -stream_loop has to stand before the input it applies to, or ffmpeg
+// reads it as an option for the output.
+func TestFFmpegArgsAudioLoop(t *testing.T) {
+	joined := strings.Join(FFmpegArgs(VideoOptions{
+		Output: "o.mp4", Width: 10, Height: 10, Audio: "a.mp3", AudioLoop: true,
+	}), " ")
+	if !strings.Contains(joined, "-stream_loop -1 -i a.mp3") {
+		t.Errorf("the loop must precede its input: %q", joined)
+	}
+	if !strings.Contains(joined, "-shortest") {
+		t.Errorf("the loop still ends with the video: %q", joined)
+	}
+	plain := strings.Join(FFmpegArgs(VideoOptions{
+		Output: "o.mp4", Width: 10, Height: 10, Audio: "a.mp3",
+	}), " ")
+	if strings.Contains(plain, "-stream_loop") {
+		t.Errorf("no loop unless asked: %q", plain)
+	}
+}
+
 func TestFFmpegArgsPresets(t *testing.T) {
 	for preset, want := range map[string]string{
 		"h264": "libx264",

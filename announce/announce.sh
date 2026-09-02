@@ -194,13 +194,17 @@ render_anthem() {
 	# flag: render.video.audio-pool in crier.yaml and the run's seed choose
 	# it, the same pick on every invocation of this release.
 	encode() {
+		in=$1
+		out=$2
+		shift 2
 		"$crier" render --config "$here/crier.yaml" --render-data - \
 			--render-seed "$seed" \
 			--render-video-enabled=true \
 			--render-video-fps 24 \
-			--render-video-frames-input "$1" \
+			--render-video-frames-input "$in" \
 			--render-background '#ffffff' \
-			--render-output "$2" <"$cover"
+			"$@" \
+			--render-output "$out" <"$cover"
 	}
 
 	frames=$frames_dir/anthem-frames
@@ -219,19 +223,17 @@ render_anthem() {
 	log "rendered the anthem to $anthem_mp4"
 
 	# The linkedin reel: the cover holds while the fanfare settles in, then
-	# the changelog pages take the rest of the sixteen seconds in reading
-	# order. 384 frames at 24fps is the length of every anthem, so the page
-	# time divides what the cover does not keep; pages-max bounds the count,
-	# which keeps every page on screen for at least a second.
+	# the changelog pages follow at reading pace — six seconds of cover and
+	# four a page, however many pages there are. The reel outgrows the
+	# sixteen-second anthem as soon as the changelog does, so its encode
+	# loops the soundtrack for as long as the slides run.
 	npages=$(find "$pages" -name '*.png' | wc -l | tr -d ' ')
 	if [ "$npages" -le 1 ]; then
 		reel_mp4=$anthem_mp4
 		return 0
 	fi
-	rest=$((npages - 1))
-	page_frames=$((240 / rest))
-	[ "$page_frames" -le 120 ] || page_frames=120
-	cover_frames=$((384 - page_frames * rest))
+	page_frames=96
+	cover_frames=144
 	reel=$frames_dir/reel-frames
 	mkdir "$reel"
 	i=0
@@ -249,7 +251,7 @@ render_anthem() {
 		n=$((n + 1))
 	done
 	log "rendering the linkedin reel"
-	if ! encode "$reel" "$anthem_dir/reel.mp4"; then
+	if ! encode "$reel" "$anthem_dir/reel.mp4" --render-video-audio-loop=true; then
 		log "the reel did not render; linkedin gets the anthem alone"
 		reel_mp4=$anthem_mp4
 		return 1

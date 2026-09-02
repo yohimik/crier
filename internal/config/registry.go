@@ -195,6 +195,7 @@ var registry = []Descriptor{
 	{Key: "render.video.codec-preset", Kind: KindString, Default: "h264", Usage: "output codec preset: h264, h265, vp9 or none to rely on ffmpeg-args alone"},
 	{Key: "render.video.audio", Kind: KindString, Path: true, Usage: "audio file mixed into the video"},
 	{Key: "render.video.audio-pool", Kind: KindStrings, Path: true, Usage: "a pool of audio files; one is chosen at random per run"},
+	{Key: "render.video.audio-loop", Kind: KindBool, Usage: "repeat the audio for as long as the video runs"},
 
 	{Key: "http.timeout", Kind: KindDuration, Default: "60s", Usage: "per-request HTTP timeout for calls that carry no media"},
 	{Key: "http.upload-timeout", Kind: KindDuration, Default: "10m", Usage: "per-request HTTP timeout for a request carrying media; covers the whole upload"},

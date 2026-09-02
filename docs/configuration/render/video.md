@@ -7,6 +7,7 @@ Rendering an animated template into an MP4. ffmpeg does the encoding and is a pr
 | Key | Type | Default | Description |
 | --- | ---- | ------- | ----------- |
 | `render.video.audio`<br>`CRIER_RENDER_VIDEO_AUDIO`<br>`--render-video-audio` | string, path | — | audio file mixed into the video |
+| `render.video.audio-loop`<br>`CRIER_RENDER_VIDEO_AUDIO_LOOP`<br>`--render-video-audio-loop` | bool | — | repeat the audio for as long as the video runs |
 | `render.video.audio-pool`<br>`CRIER_RENDER_VIDEO_AUDIO_POOL`<br>`--render-video-audio-pool` | list, path | — | a pool of audio files; one is chosen at random per run |
 | `render.video.codec-preset`<br>`CRIER_RENDER_VIDEO_CODEC_PRESET`<br>`--render-video-codec-preset` | string | `h264` | output codec preset: h264, h265, vp9 or none to rely on ffmpeg-args alone |
 | `render.video.duration`<br>`CRIER_RENDER_VIDEO_DURATION`<br>`--render-video-duration` | duration | `3s` | video length; ignored when render.video.frames is set |

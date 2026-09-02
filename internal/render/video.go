@@ -50,6 +50,11 @@ type VideoOptions struct {
 	ExtraArgs []string
 	// Audio is an optional audio file mixed in.
 	Audio string
+	// AudioLoop repeats the audio for as long as the video runs. A clip
+	// longer than its soundtrack is otherwise cut short by -shortest, which
+	// is the wrong answer for a slideshow that outlasts a sixteen-second
+	// fanfare.
+	AudioLoop bool
 	// Env replaces ffmpeg's environment when non-nil.
 	Env []string
 	// Background is what a transparent pixel is flattened onto. Video has no
@@ -422,6 +427,11 @@ func FFmpegArgs(o VideoOptions) []string {
 		return append(args, o.Output)
 	}
 	if o.Audio != "" {
+		if o.AudioLoop {
+			// Before the input it applies to: -stream_loop is an input
+			// option, and -shortest below ends the loop with the video.
+			args = append(args, "-stream_loop", "-1")
+		}
 		args = append(args, "-i", o.Audio)
 	}
 	args = append(args, presetArgs(o.Preset)...)

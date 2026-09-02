@@ -539,6 +539,8 @@ render:
   video:
     # audio file mixed into the video
     audio: ""
+    # repeat the audio for as long as the video runs
+    audio-loop: false
     # a pool of audio files; one is chosen at random per run
     audio-pool: []
     # output codec preset: h264, h265, vp9 or none to rely on ffmpeg-args alone

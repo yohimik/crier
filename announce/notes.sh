@@ -84,6 +84,25 @@ printf '{'
 # ANNOUNCE_NO_COVER strips the cover from the render: the story pass posts
 # the changelog pages alone, because the cover story is the anthem video.
 [ -z "${ANNOUNCE_NO_COVER:-}" ] || printf '"nocover":true,'
+# A graduation is distinguishable from an ordinary release: dispat hands the
+# stage both channels, and rc to stable is the crossing this card dresses up
+# for. The candidates count comes from the old version's counter, plus one
+# because the train starts at rc.0. dispat's changelog collects the whole
+# train into this release's sections, so the graduation card already gathers
+# everything the candidates said one by one.
+# Always present rather than only when true: the caption templates run with
+# missingkey=error, and a key that only exists on graduation day would fail
+# every ordinary release.
+if [ "${DISPAT_OLD_CHANNEL:-}" = "rc" ] && [ "${DISPAT_CHANNEL:-}" = "stable" ]; then
+	printf '"graduated":true,'
+	counter=${DISPAT_OLD_VERSION##*rc.}
+	case $counter in
+	'' | *[!0-9]*) printf '"candidates":0,' ;;
+	*) printf '"candidates":%d,' "$((counter + 1))" ;;
+	esac
+else
+	printf '"graduated":false,'
+fi
 printf '"version":"%s",' "$esc_version"
 printf '"sections":[%s],' "$sections"
 printf '"install":['

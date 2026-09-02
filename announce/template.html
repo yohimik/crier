@@ -191,12 +191,20 @@
   }
   .install .cmd + .cmd { margin-top: 2px }
   .install .cmd span { color: #2f7f56 }
-</style>
+
+    .grad {
+      margin: 18px 0 0;
+      font-size: 26px;
+      font-weight: bold;
+      color: #7ef0b2; letter-spacing: 4px;
+    }
+  </style>
 </head>
 <body>
   {{ if not .nocover }}<div class="cover">
     <div class="prompt">$ dispat release</div>
     <div class="badge">v{{ .version }}</div>
+    {{ if .graduated }}<div class="grad">STABLE &middot; {{ .candidates }} RELEASE CANDIDATES LATER</div>{{ end }}
 
     <div class="lede">
       Render an HTML template to an image or a video and publish it to fourteen

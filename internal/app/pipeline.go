@@ -724,6 +724,7 @@ func (p *Pipeline) fromFrames(ctx context.Context, v Variant) (Artifacts, error)
 		FitFilter:  fitFilter,
 		ExtraArgs:  vid.FFmpegArgs,
 		Audio:      p.audio,
+		AudioLoop:  vid.AudioLoop,
 		Background: bg,
 		Logger:     p.log,
 	}, reader.at)
@@ -920,6 +921,7 @@ func (p *Pipeline) renderVideo(ctx context.Context, v Variant, data any) (*rende
 		FitFilter:  fitFilter,
 		ExtraArgs:  vid.FFmpegArgs,
 		Audio:      p.audio,
+		AudioLoop:  vid.AudioLoop,
 		Background: bg,
 		Logger:     p.log,
 	}, func(ctx context.Context, i int) (*image.RGBA, error) {

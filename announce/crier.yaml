@@ -67,7 +67,8 @@ publish:
   # is staged, because Instagram fetches every one of them.
   caption: >-
     THIS IS RENDERED AND POSTED FROM GITHUB ACTIONS (DATA COMING FROM COMMIT MESSAGES) 
-    crier v{{ .version }} is out.
+    {{ if .graduated }}crier v{{ .version }} graduated to stable, {{ .candidates }} release
+    candidates later. Thanks for not unsubscribing during the dogfooding.{{ else }}crier v{{ .version }} is out.{{ end }}
 
     Render an HTML template to an image or a video and publish it to fourteen
     social platforms with one command.
@@ -137,7 +138,7 @@ publish:
     # A literal block rather than a folded one: the changelog list needs its
     # line breaks kept exactly as written.
     caption: |-
-      crier v{{ .version }} is out. This post is part of the release: a GitHub Actions job read the changelog from the commit history, rendered the card with crier's own Go HTML engine, cut the clip, and published it here before the workflow finished. Nobody wrote or scheduled it by hand.
+      {{ if .graduated }}crier v{{ .version }} graduated to stable, {{ .candidates }} release candidates later. Thanks for not unsubscribing during the dogfooding.{{ else }}crier v{{ .version }} is out.{{ end }} This post is part of the release: a GitHub Actions job read the changelog from the commit history, rendered the card with crier's own Go HTML engine, cut the clip, and published it here before the workflow finished. Nobody wrote or scheduled it by hand.
       {{ if .sections }}
       What changed:{{ range .sections }}
       {{ .label }}:{{ range .items }}

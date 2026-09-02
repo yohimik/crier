@@ -74,6 +74,7 @@ type Video struct {
 	FFmpegArgs  []string
 	CodecPreset string
 	Audio       string
+	AudioLoop   bool
 	// AudioPool is a set of audio files, one of which is chosen per run from
 	// the run's seeded source. It is Render.Pool's sibling and behaves the
 	// same way: empty leaves Audio alone, and a non-empty pool decides the
