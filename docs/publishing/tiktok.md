@@ -52,4 +52,8 @@ Nothing is posted. Ping calls `creator_info/query/`. The posting scope must also
 
 A photo post takes up to thirty-five images; it was always a list of URLs, so several pages are more entries in the same request. See [pagination and carousels](../rendering/pagination.md).
 
+## Music
+
+Set `publish.tiktok.auto-add-music: true` and TikTok puts a recommended track under a photo post. It names no track, because no API anywhere does. TikTok chooses, and the account can change it later inside the app. There is no way to attach an audio file here, and no way to name a song from the Commercial Music Library. See [music](./music.md).
+
 Configuration keys: [`publish.tiktok.*`](../configuration/publish/tiktok.md).

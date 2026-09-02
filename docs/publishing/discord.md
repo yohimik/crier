@@ -52,4 +52,8 @@ Set `render.video.format: gif`. See [video](../rendering/video.md).
 
 A message carries up to ten files. See [pagination and carousels](../rendering/pagination.md).
 
+## Music
+
+Set `publish.music-file` and the track becomes another attachment in the same message, which Discord plays inline. It takes one of the ten slots, so a run with music posts at most nine pages per message. See [music](./music.md).
+
 Configuration keys: [`publish.discord.*`](../configuration/publish/discord.md).

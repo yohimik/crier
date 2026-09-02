@@ -99,6 +99,10 @@ You can set `publish.<platform>.fit` to `cover`, `contain` or `stretch`. This is
 
 Six of the ten platforms accept them: Telegram, Discord, Mastodon, X, Reddit and Slack. Instagram, Facebook, TikTok and LinkedIn do not. A `gif` aimed at one of them is refused before anything is rendered. You can find the table and how each of the five wants it in [video](../rendering/video.md#which-platforms-take-which).
 
+## A track with the post
+
+Discord, Slack and Telegram accept an audio file, and TikTok can add a track it picks itself. No API anywhere takes the id of a licensed song, so there is no key for one. See [music](./music.md).
+
 ## A platform crier does not have
 
 Any shell command can be one. `publish.custom.<name>` defines a script-backed platform. It is a peer of the nine above. It has the same fan-out, same overlays, and same caption templating. It also has the same `crier ping`. See [custom platforms](./custom.md).

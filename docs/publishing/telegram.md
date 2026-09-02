@@ -52,4 +52,8 @@ Set `render.video.format: gif`. See [video](../rendering/video.md).
 
 Several images go as one album through `sendMediaGroup`, up to ten, with the caption on the first. A single image still goes through `sendPhoto`, because a media group has a minimum of two. See [pagination and carousels](../rendering/pagination.md).
 
+## Music
+
+Set `publish.music-file` and the track goes out as a `sendAudio` message immediately after the post, in the same chat, which clients render as a player under the album. It has to be its own message: the Bot API groups audio only with other audio, so a track cannot join an album of pictures. That message failing is a warning, not a failed post. See [music](./music.md).
+
 Configuration keys: [`publish.telegram.*`](../configuration/publish/telegram.md).

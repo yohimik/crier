@@ -14,6 +14,7 @@ crier finds the configuration by walking up from where you are. It works the way
 - **HTML and CSS you already know.** Use gradients, web fonts, SVG, and blend modes. They are laid out by a pure-Go engine and painted by a rasterizer written for it. There is no headless browser.
 - **One layout, many shapes.** Use template overlays and per-platform sizes. One card becomes a story and a banner without a second template.
 - **Configuration that composes.** Set every value in a file, an environment variable, or a flag. The file is found by walking up from where you are, the way git finds a repository.
+- **A track with the post.** Attach [an audio file you have the rights to](./docs/publishing/music.md) at Discord, Slack and Telegram, or let TikTok pick one. No API anywhere names a licensed track, and the page says so rather than leaving you to search.
 - **A single static binary.** Built with `CGO_ENABLED=0` for six platforms. There is nothing to install alongside it.
 
 ## Install

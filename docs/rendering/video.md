@@ -85,7 +85,7 @@ The `render.video.codec-preset` setting chooses the encoder arguments:
 
 The `+faststart` flag puts the index at the front of the file. Instagram rejects a video without it. Nothing else minds. This is why it is on by default.
 
-The `render.video.ffmpeg-args` value is appended before the output file. The `render.video.audio` setting mixes in a track (`-c:a aac`, `-shortest`).
+The `render.video.ffmpeg-args` value is appended before the output file. The `render.video.audio` setting mixes in a track (`-c:a aac`, `-shortest`). That track ends up inside the file, so every platform gets it. This is not the same as [attaching an audio file to a post](../publishing/music.md), which three platforms accept and the rest do not.
 
 An odd width or height gets a `scale=trunc(iw/2)*2:trunc(ih/2)*2` filter. This is because `yuv420p` subsamples chroma. It has nowhere to put an odd column.
 

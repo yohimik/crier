@@ -80,4 +80,8 @@ Nothing is posted. Ping calls `auth.test`, which needs no scope at all. That is 
 
 Up to ten files are shared in one call, which is what makes them one message. See [pagination and carousels](../rendering/pagination.md).
 
+## Music
+
+Set `publish.music-file` and the track is uploaded like any other file and shared in the same call, so it lands in the same message with a player. It takes one of the ten slots. See [music](./music.md).
+
 Configuration keys: [`publish.slack.*`](../configuration/publish/slack.md).
