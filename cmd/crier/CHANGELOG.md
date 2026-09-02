@@ -228,7 +228,7 @@
   over 64MB; a group allocates its own box rather than a full page, which for a
   caption overlay on a story page is 1.2MB rather than 8.3MB, per group, per
   frame; a width without a height is refused instead of silently emitting no
-  @page at all; the graphic stack pops on a defer so a panic cannot corrupt it; a
+  `@page` at all; the graphic stack pops on a defer so a panic cannot corrupt it; a
   bow-tie is no longer mistaken for a rectangular clip; the gradient quad is
   built on its own path; and an unrecognised blend mode warns instead of
   silently drawing normally.
