@@ -589,3 +589,64 @@ func buildAnnounceBinary(t *testing.T, dir string) string {
 	}
 	return out
 }
+
+// TestSmokeHostileChangelog: real release notes carry what people wrote —
+// an unbroken run of the widest glyph there is, one-character subjects, and
+// more entries than any card should show. The card has to ellipsise the
+// monsters, keep the pages within the cap, and post the lot.
+func TestSmokeHostileChangelog(t *testing.T) {
+	requireSh(t)
+	dir := t.TempDir()
+
+	published := 0
+	var srv *httptest.Server
+	srv = httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch {
+		case strings.HasSuffix(r.URL.Path, "/ig-user/media"):
+			_, _ = w.Write([]byte(`{"id":"c1"}`))
+		case strings.HasSuffix(r.URL.Path, "/c1"):
+			_, _ = w.Write([]byte(`{"status_code":"FINISHED"}`))
+		case strings.HasSuffix(r.URL.Path, "/ig-user/media_publish"):
+			published++
+			_, _ = w.Write([]byte(`{"id":"p1"}`))
+		case strings.HasSuffix(r.URL.Path, "/p1"):
+			_, _ = w.Write([]byte(`{"permalink":"https://www.instagram.com/p/x/"}`))
+		case strings.HasPrefix(r.URL.Path, "/staged/"):
+			_, _ = w.Write([]byte("JPEGDATA"))
+		default:
+			w.WriteHeader(http.StatusNotFound)
+		}
+	}))
+	t.Cleanup(srv.Close)
+
+	long := strings.Repeat("W", 300)
+	var features []string
+	features = append(features, long, "w")
+	for i := 0; i < 30; i++ {
+		features = append(features, fmt.Sprintf("feature number %d, of a perfectly ordinary length", i))
+	}
+
+	_, stderr, code := runScript(t, "announce.sh", []string{
+		"DISPAT_NEW_VERSION=9.9.9",
+		"DISPAT_BREAKING_CHANGES=" + long,
+		"DISPAT_FEATURES=" + strings.Join(features, "\n"),
+		"DISPAT_FIXES=a\nb\nc",
+		"CRIER_PUBLISH_INSTAGRAM_TOKEN=ig-token",
+		"CRIER_PUBLISH_INSTAGRAM_USER_ID=ig-user",
+		"CRIER_PUBLISH_INSTAGRAM_API_BASE_URL=" + srv.URL,
+		"CRIER_PUBLISH_INSTAGRAM_POLL_INTERVAL=1ms",
+		"CRIER_PUBLISH_INSTAGRAM_POLL_TIMEOUT=5s",
+		"CRIER_STAGE_MODE=url",
+		"CRIER_STAGE_URL=" + srv.URL + "/staged/card.jpg",
+		"ANNOUNCE_CRIER_BIN=" + buildAnnounceBinary(t, dir),
+	})
+	if code != 0 {
+		t.Fatalf("code=%d stderr=%s", code, stderr)
+	}
+	if published == 0 {
+		t.Fatal("nothing was published")
+	}
+	if strings.Contains(stderr, "pages-max") || strings.Contains(stderr, "will not allocate") {
+		t.Fatalf("the hostile changelog broke the render:\n%s", stderr)
+	}
+}

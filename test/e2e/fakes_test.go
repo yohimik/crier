@@ -221,6 +221,9 @@ func (f *fakes) serve(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusCreated)
 
 	// --- linkedin -------------------------------------------------------
+	case strings.HasPrefix(path, "/linkedin/rest/images/"):
+		// The image status poll the upload waits on before posting.
+		writeJSON(w, map[string]any{"status": "AVAILABLE"})
 	case strings.HasPrefix(path, "/linkedin/rest/images"):
 		writeJSON(w, map[string]any{"value": map[string]any{
 			"uploadUrl": f.uploadHost + "/linkedin-upload",
