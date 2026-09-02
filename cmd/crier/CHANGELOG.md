@@ -1,5 +1,73 @@
 # Changelog
 
+## v1.0.0-rc.9 (2026-09-02)
+
+### Fixes
+
+- a fitted platform reshapes the file it was handed ([453b273](https://github.com/yohimik/crier/commit/453b2732e1315ba07cb1cb4092dd3fd5ed1b1c7f)) (by yohimik, Claude Fable 5)
+  rc.8's anthem story was the square anthem.mp4 published with the story
+  frame's flags. Publish-only mode passed the file through as it arrived,
+  so the flags did nothing and Instagram padded the square to 9:16 on its
+  own servers, in black rather than in the card's colour.
+
+  Passing a file through is right for a format preference and wrong for a
+  fit. A fit says what shape the platform is to receive; ignoring it hands
+  the decision to the platform, which crops or pads without saying where
+  the cut fell. So a platform that set one now gets the file reshaped: an
+  image is resampled, a clip is re-encoded through the same filter a
+  rendered clip is fitted with. The audio stream is copied rather than
+  encoded again, because on this clip the soundtrack is the point.
+
+  Those modes had one shared variant, on the grounds that overlays and
+  render sizes are instructions to a renderer that is not running. A fit is
+  not one of those, so they now group by frame alone: platforms that asked
+  for nothing still share the file as it arrived, and two that asked for
+  the same frame share one re-encode.
+
+  The same gap in the frames-input path is closed with it, since the
+  machinery was already there and unused: an encoded frames run and its
+  poster are fitted like a rendered clip, so --render-variant previews the
+  shape the platform will get.
+
+- number every page of a coverless card ([8c9269d](https://github.com/yohimik/crier/commit/8c9269d3d0b5e9ad29874c15f85acd2db3ed1356)) (by yohimik, Claude Fable 5)
+  The first-page rule that hides the small badge and the page counter is
+  about page one being the cover, not about page one. The updates document
+  has no cover, so its first page is the first changelog page, and the rule
+  stripped its margin: rc.8's two-page story pair was numbered on the
+  second page and nowhere else, and the first story never said which
+  release it was.
+
+  It is now emitted only when there is a cover. A coverless document also
+  needs a source for the version string, since the only thing that sets it
+  is the big badge the cover carries, so one is drawn with no height and no
+  type: the small badge would otherwise be blank on every page rather than
+  on the first.
+
+  Both halves have a test. The rendered pages are read back and the two
+  margin boxes are counted for ink, so a coverless page one has a badge and
+  a counter, and a cover page one still has neither.
+
+- instagram wants media_type on a video carousel child ([e6a7bad](https://github.com/yohimik/crier/commit/e6a7badcb301de4ed704edf127fc8356e2531252)) (by yohimik, Claude Fable 5)
+  rc.8's feed post failed with 400 IGApiException code 100, "The parameter
+  image_url is required" (fbtrace A0MpoozUBsHxq-KQTcd9gcG). Without a
+  media_type the API presumes the child is an image and asks for the
+  parameter an image child would have.
+
+  The reference lists CAROUSEL, REELS and STORIES for that parameter and
+  omits VIDEO entirely, which is what the previous change read as an
+  instruction to leave it out. The endpoint disagrees, and the endpoint is
+  what posts. Behaviour wins; the docs now say so and cite the trace.
+
+  Both Instagram fakes refuse a video child that omits it, answering with
+  the message Meta answered with. Removing the parameter now fails the
+  suite instead of passing it and failing a release.
+
+### Authors
+
+- yohimik
+- Claude Fable 5
+
+
 ## v1.0.0-rc.8 (2026-09-02)
 
 ### Features
