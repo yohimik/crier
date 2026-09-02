@@ -347,6 +347,13 @@ func TestAnnouncePostsFeedThenStory(t *testing.T) {
 		// poll that is always AVAILABLE, and the post itself. The image urns
 		// count up so the multi-image order is checkable.
 		case strings.HasPrefix(r.URL.Path, "/li/rest/images/"):
+			// Rest.li wants the URN's colons percent-encoded in the path and
+			// answers a raw colon with this 400, which is how rc.13 died.
+			if !strings.Contains(r.URL.EscapedPath(), "%3A") {
+				w.WriteHeader(http.StatusBadRequest)
+				_, _ = w.Write([]byte(`{"status":400,"code":"ILLEGAL_ARGUMENT","message":"Syntax exception in path variables"}`))
+				return
+			}
 			_, _ = w.Write([]byte(`{"status":"AVAILABLE"}`))
 		case strings.HasPrefix(r.URL.Path, "/li/rest/images"):
 			liImages++
@@ -358,6 +365,11 @@ func TestAnnouncePostsFeedThenStory(t *testing.T) {
 		// The video half: an upload slot sized to the file, the part PUT, the
 		// finalize, and a status poll that is always AVAILABLE.
 		case strings.HasPrefix(r.URL.Path, "/li/rest/videos/"):
+			if !strings.Contains(r.URL.EscapedPath(), "%3A") {
+				w.WriteHeader(http.StatusBadRequest)
+				_, _ = w.Write([]byte(`{"status":400,"code":"ILLEGAL_ARGUMENT","message":"Syntax exception in path variables"}`))
+				return
+			}
 			_, _ = w.Write([]byte(`{"status":"AVAILABLE"}`))
 		case strings.HasPrefix(r.URL.Path, "/li/rest/videos"):
 			if r.URL.Query().Get("action") != "initializeUpload" {
@@ -1147,6 +1159,13 @@ func TestAnnounceLinkedInFallsBackToAnAlbum(t *testing.T) {
 			_, _ = w.Write([]byte(`{"status":403,"serviceErrorCode":100,"code":"ACCESS_DENIED",` +
 				`"message":"Not enough permissions to access: partnerApiVideosExternal"}`))
 		case strings.HasPrefix(r.URL.Path, "/li/rest/images/"):
+			// Rest.li wants the URN's colons percent-encoded in the path and
+			// answers a raw colon with this 400, which is how rc.13 died.
+			if !strings.Contains(r.URL.EscapedPath(), "%3A") {
+				w.WriteHeader(http.StatusBadRequest)
+				_, _ = w.Write([]byte(`{"status":400,"code":"ILLEGAL_ARGUMENT","message":"Syntax exception in path variables"}`))
+				return
+			}
 			_, _ = w.Write([]byte(`{"status":"AVAILABLE"}`))
 		case strings.HasPrefix(r.URL.Path, "/li/rest/images"):
 			liImages++

@@ -1018,7 +1018,15 @@ func TestLinkedInImageFlow(t *testing.T) {
 		rec.record(r)
 		switch {
 		case strings.HasPrefix(r.URL.Path, "/rest/images/"):
-			// The image status poll the upload now waits on.
+			// The image status poll the upload now waits on. Rest.li wants
+			// the URN's colons percent-encoded in the path and answers a raw
+			// colon with this 400 — rc.13 died on it in production, so the
+			// fake refuses it the way LinkedIn does.
+			if !strings.Contains(r.URL.EscapedPath(), "%3A") {
+				w.WriteHeader(http.StatusBadRequest)
+				_, _ = w.Write([]byte(`{"status":400,"code":"ILLEGAL_ARGUMENT","message":"Syntax exception in path variables"}`))
+				return
+			}
 			_, _ = w.Write([]byte(`{"status":"AVAILABLE"}`))
 		case r.URL.Path == "/rest/images":
 			_, _ = w.Write([]byte(`{"value":{"uploadUrl":"` + uploadURL + `","image":"urn:li:image:1"}}`))
@@ -1067,6 +1075,12 @@ func TestLinkedInVideoFlowKeepsETagOrder(t *testing.T) {
 			finalizeBody = req.Body
 			w.WriteHeader(http.StatusOK)
 		case strings.HasPrefix(r.URL.Path, "/rest/videos/"):
+			// Encoded colons or Rest.li's 400, the same as the image poll.
+			if !strings.Contains(r.URL.EscapedPath(), "%3A") {
+				w.WriteHeader(http.StatusBadRequest)
+				_, _ = w.Write([]byte(`{"status":400,"code":"ILLEGAL_ARGUMENT","message":"Syntax exception in path variables"}`))
+				return
+			}
 			_, _ = w.Write([]byte(`{"status":"AVAILABLE"}`))
 		case r.URL.Path == "/rest/posts":
 			w.Header().Set("x-restli-id", "urn:li:share:1")

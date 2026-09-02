@@ -258,7 +258,15 @@ func (f *fakes) serve(w http.ResponseWriter, r *http.Request) {
 
 	// --- linkedin -------------------------------------------------------
 	case strings.HasPrefix(path, "/linkedin/rest/images/"):
-		// The image status poll the upload waits on before posting.
+		// The image status poll the upload waits on before posting. Rest.li
+		// wants the URN's colons percent-encoded in the path and answers a
+		// raw colon with this 400 — rc.13 died on it in production, so the
+		// fake refuses it the way LinkedIn does.
+		if !strings.Contains(r.URL.EscapedPath(), "%3A") {
+			w.WriteHeader(http.StatusBadRequest)
+			writeJSON(w, map[string]any{"status": 400, "code": "ILLEGAL_ARGUMENT", "message": "Syntax exception in path variables"})
+			return
+		}
 		writeJSON(w, map[string]any{"status": "AVAILABLE"})
 	case strings.HasPrefix(path, "/linkedin/rest/images"):
 		writeJSON(w, map[string]any{"value": map[string]any{
@@ -278,6 +286,14 @@ func (f *fakes) serve(w http.ResponseWriter, r *http.Request) {
 		case "finalizeUpload":
 			w.WriteHeader(http.StatusOK)
 		default:
+			// The video status poll: encoded colons or Rest.li's 400, the
+			// same as the image poll.
+			if strings.HasPrefix(path, "/linkedin/rest/videos/") &&
+				!strings.Contains(r.URL.EscapedPath(), "%3A") {
+				w.WriteHeader(http.StatusBadRequest)
+				writeJSON(w, map[string]any{"status": 400, "code": "ILLEGAL_ARGUMENT", "message": "Syntax exception in path variables"})
+				return
+			}
 			writeJSON(w, map[string]any{"status": "AVAILABLE"})
 		}
 	case strings.HasPrefix(path, "/linkedin-upload"):

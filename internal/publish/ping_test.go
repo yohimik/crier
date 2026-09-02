@@ -179,7 +179,12 @@ func TestLinkedInPingReadsUserinfo(t *testing.T) {
 // a working LinkedIn configuration that it is broken; calling a 401 a working
 // one would be worse.
 func TestLinkedInPingSeparatesForbiddenFromUnauthorized(t *testing.T) {
-	forbidden := fakeServer(t, func(w http.ResponseWriter, _ *http.Request) {
+	// A posting-only token: userinfo is forbidden, an upload slot is not.
+	forbidden := fakeServer(t, func(w http.ResponseWriter, r *http.Request) {
+		if strings.HasPrefix(r.URL.Path, "/rest/images") {
+			_, _ = w.Write([]byte(`{"value":{"uploadUrl":"https://upload.example/slot","image":"urn:li:image:probe"}}`))
+			return
+		}
 		w.WriteHeader(http.StatusForbidden)
 		_, _ = w.Write([]byte(`{"message":"Not enough permissions"}`))
 	})
@@ -196,6 +201,35 @@ func TestLinkedInPingSeparatesForbiddenFromUnauthorized(t *testing.T) {
 	})
 	if _, err := onlyPublisher(t, linkedinConfig(unauthorized.URL)).Ping(context.Background()); err == nil {
 		t.Error("a 401 is a broken token and has to fail")
+	}
+}
+
+// TestLinkedInPingProbesUploadPermission is rc.12's lesson written down. The
+// token answered userinfo happily and every upload was refused with 403
+// partnerApiImagesExternal, so ping blessed a release that could not
+// announce. Ping now asks for an upload slot the way a post would, and a
+// token that cannot upload fails the ping rather than the announcement.
+func TestLinkedInPingProbesUploadPermission(t *testing.T) {
+	var probed bool
+	srv := fakeServer(t, func(w http.ResponseWriter, r *http.Request) {
+		if strings.HasPrefix(r.URL.Path, "/rest/images") {
+			probed = true
+			w.WriteHeader(http.StatusForbidden)
+			_, _ = w.Write([]byte(`{"status":403,"serviceErrorCode":100,"code":"ACCESS_DENIED",` +
+				`"message":"Not enough permissions to access: partnerApiImagesExternal.ACTION-initializeUpload"}`))
+			return
+		}
+		_, _ = w.Write([]byte(`{"sub":"782bb","name":"A Member"}`))
+	})
+	_, err := onlyPublisher(t, linkedinConfig(srv.URL)).Ping(context.Background())
+	if err == nil {
+		t.Fatal("an identity without upload permission has to fail the ping")
+	}
+	if !probed {
+		t.Fatal("ping never asked for an upload slot")
+	}
+	if !strings.Contains(err.Error(), "cannot upload media") {
+		t.Errorf("the error should say what is missing: %v", err)
 	}
 }
 

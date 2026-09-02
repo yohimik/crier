@@ -68,6 +68,13 @@ func (l *LinkedIn) Needs() Needs {
 }
 
 // rest starts a request with the headers LinkedIn insists on.
+// encodeURN percent-encodes a URN for a path segment. Rest.li answers a raw
+// colon in the path with 400 "Syntax exception in path variables" — rc.13's
+// clip and album both died on exactly that, after every upload had already
+// succeeded — so the colons travel as %3A, the way every path example in
+// LinkedIn's own docs spells them. The joiner keeps segments as given.
+func encodeURN(urn string) string { return strings.ReplaceAll(urn, ":", "%3A") }
+
 func (l *LinkedIn) rest(method string, segments ...string) *httpx.Builder {
 	return httpx.NewRequest(method, l.cfg.APIBaseURL, segments...).
 		Bearer(l.cfg.Token).
@@ -221,7 +228,7 @@ func (l *LinkedIn) uploadImage(ctx context.Context, a render.Artifact) (string, 
 func (l *LinkedIn) awaitImage(ctx context.Context, urn string) error {
 	err := httpx.Poll(ctx, 2*time.Second, 2*time.Minute, func(ctx context.Context) (bool, error) {
 		var st liVideoStatus
-		if err := l.client.JSON(ctx, l.rest(http.MethodGet, "rest/images", urn), &st); err != nil {
+		if err := l.client.JSON(ctx, l.rest(http.MethodGet, "rest/images", encodeURN(urn)), &st); err != nil {
 			return false, err
 		}
 		switch strings.ToUpper(st.Status) {
@@ -310,7 +317,7 @@ func (l *LinkedIn) uploadVideo(ctx context.Context, a render.Artifact) (string, 
 func (l *LinkedIn) awaitVideo(ctx context.Context, urn string) error {
 	err := httpx.Poll(ctx, 3*time.Second, 10*time.Minute, func(ctx context.Context) (bool, error) {
 		var st liVideoStatus
-		if err := l.client.JSON(ctx, l.rest(http.MethodGet, "rest/videos", urn), &st); err != nil {
+		if err := l.client.JSON(ctx, l.rest(http.MethodGet, "rest/videos", encodeURN(urn)), &st); err != nil {
 			return false, err
 		}
 		switch strings.ToUpper(st.Status) {
@@ -355,17 +362,33 @@ func (l *LinkedIn) Ping(ctx context.Context) (Identity, error) {
 		Bearer(l.cfg.Token).
 		Header("X-Restli-Protocol-Version", RestliVersion)
 	err := l.client.JSON(ctx, req, &out)
-	if err == nil {
-		return Identity{ID: firstNonEmpty(out.Sub, l.cfg.AuthorURN), Name: out.Name}, nil
-	}
-
-	var apiErr *httpx.APIError
-	if errors.As(err, &apiErr) && apiErr.Status == http.StatusForbidden {
-		return Identity{
+	id := Identity{ID: firstNonEmpty(out.Sub, l.cfg.AuthorURN), Name: out.Name}
+	if err != nil {
+		var apiErr *httpx.APIError
+		if !errors.As(err, &apiErr) || apiErr.Status != http.StatusForbidden {
+			return Identity{}, err
+		}
+		id = Identity{
 			ID: l.cfg.AuthorURN,
 			Note: "the token can post but cannot read a profile; " +
 				"add the openid and profile scopes for crier ping to name the account",
-		}, nil
+		}
 	}
-	return Identity{}, err
+
+	// The identity endpoint proves the token parses, not that it can post:
+	// rc.12's token answered userinfo happily and every upload was refused
+	// with 403 partnerApiImagesExternal, so ping said ok about a release
+	// that could not announce. The probe asks for an upload slot exactly
+	// the way a post would and abandons it — nothing is uploaded, nothing
+	// becomes visible, and LinkedIn expires the lease on its own.
+	var lease liImageInit
+	probe := l.rest(http.MethodPost, "rest/images").
+		Query("action", "initializeUpload").
+		JSON(map[string]any{
+			"initializeUploadRequest": map[string]any{"owner": l.cfg.AuthorURN},
+		})
+	if err := l.client.NoRetry().JSON(ctx, probe, &lease); err != nil {
+		return Identity{}, fmt.Errorf("the token cannot upload media, so a post would fail: %w", err)
+	}
+	return id, nil
 }
