@@ -85,18 +85,28 @@ func TestRenderCaptionDoesNotHTMLEscape(t *testing.T) {
 }
 
 func TestCaptionDataShapes(t *testing.T) {
-	if m := captionData(nil, "p").(map[string]any); m[PlatformKey] != "p" || len(m) != 1 {
+	one := OnePost()
+	// The paging keys are always bound, so a caption that mentions them reads
+	// sensibly whether or not anything paginated.
+	if m := captionData(nil, "p", one).(map[string]any); m[PlatformKey] != "p" ||
+		m[PostKey] != 1 || m[PostsKey] != 1 || m[PageKey] != 1 || m[PagesKey] != 1 || len(m) != 5 {
 		t.Errorf("nil: %v", m)
 	}
-	if m := captionData(map[string]any{"a": 1}, "p").(map[string]any); m["a"] != 1 || m[PlatformKey] != "p" {
+	if m := captionData(map[string]any{"a": 1}, "p", one).(map[string]any); m["a"] != 1 || m[PlatformKey] != "p" {
 		t.Errorf("object: %v", m)
 	}
-	if m := captionData("scalar", "p").(map[string]any); m[DataKey] != "scalar" || m[PlatformKey] != "p" {
+	if m := captionData("scalar", "p", one).(map[string]any); m[DataKey] != "scalar" || m[PlatformKey] != "p" {
 		t.Errorf("scalar: %v", m)
+	}
+	// a paged post binds its own numbers
+	at := Paging{Post: 2, Posts: 3, Page: 5, Pages: 12}
+	if m := captionData(nil, "p", at).(map[string]any); m[PostKey] != 2 || m[PostsKey] != 3 ||
+		m[PageKey] != 5 || m[PagesKey] != 12 {
+		t.Errorf("paged: %v", m)
 	}
 	// merging must not write into the caller's document
 	src := map[string]any{"a": 1}
-	_ = captionData(src, "p")
+	_ = captionData(src, "p", one)
 	if _, leaked := src[PlatformKey]; leaked {
 		t.Error("captionData wrote into the caller's map")
 	}

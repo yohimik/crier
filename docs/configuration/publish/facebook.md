@@ -12,6 +12,7 @@ See [the Facebook guide](../../publishing/facebook.md) for how to get these valu
 | `publish.facebook.fit`<br>`CRIER_PUBLISH_FACEBOOK_FIT`<br>`--publish-facebook-fit` | string | `none` | how the render is made to match facebook's frame: none, cover, contain or stretch; anything but none needs width and height |
 | `publish.facebook.fit-background`<br>`CRIER_PUBLISH_FACEBOOK_FIT_BACKGROUND`<br>`--publish-facebook-fit-background` | string | `#ffffff` | hex colour behind a contain letterbox for facebook, and what transparency is flattened onto |
 | `publish.facebook.height`<br>`CRIER_PUBLISH_FACEBOOK_HEIGHT`<br>`--publish-facebook-height` | int | — | render height for facebook; 0 inherits render.height |
+| `publish.facebook.max-attachments`<br>`CRIER_PUBLISH_FACEBOOK_MAX_ATTACHMENTS`<br>`--publish-facebook-max-attachments` | int | — | post at most this many pages to facebook at once; 0 uses the platform's own limit, which is also the ceiling |
 | `publish.facebook.overlay`<br>`CRIER_PUBLISH_FACEBOOK_OVERLAY`<br>`--publish-facebook-overlay` | list, path | — | template overlays applied for facebook only, after the global ones |
 | `publish.facebook.page-id`<br>`CRIER_PUBLISH_FACEBOOK_PAGE_ID`<br>`--publish-facebook-page-id` | string | — | Facebook Page id |
 | `publish.facebook.story`<br>`CRIER_PUBLISH_FACEBOOK_STORY`<br>`--publish-facebook-story` | bool | — | publish as a Page story instead of a photo post |

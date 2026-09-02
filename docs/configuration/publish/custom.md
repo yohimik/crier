@@ -21,6 +21,7 @@ are written with `<name>` standing in for it. See
 | `publish.custom.<name>.height`<br>`CRIER_PUBLISH_CUSTOM_<NAME>_HEIGHT`<br>`--set publish.custom.<name>.height` | int | — | render height for this platform |
 | `publish.custom.<name>.fit`<br>`CRIER_PUBLISH_CUSTOM_<NAME>_FIT`<br>`--set publish.custom.<name>.fit` | string | `none` | how the render is made to match this platform's frame: none, cover, contain or stretch |
 | `publish.custom.<name>.fit-background`<br>`CRIER_PUBLISH_CUSTOM_<NAME>_FIT_BACKGROUND`<br>`--set publish.custom.<name>.fit-background` | string | `#ffffff` | hex colour behind a contain letterbox, and what transparency is flattened onto |
+| `publish.custom.<name>.max-attachments`<br>`CRIER_PUBLISH_CUSTOM_<NAME>_MAX_ATTACHMENTS`<br>`--set publish.custom.<name>.max-attachments` | int | — | post at most this many pages at once; 0 posts one page per run of the command |
 | `publish.custom.<name>.env.<VAR>` | string | — | extra environment variables for the command |
 
 A name is lower-case letters, digits and dashes, and may not be one of the

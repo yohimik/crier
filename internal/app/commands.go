@@ -195,15 +195,23 @@ type VariantReport struct {
 	Height    int      `json:"height"`
 	Files     []string `json:"files"`
 	URL       string   `json:"url,omitempty"`
+	// Pages is how many pages the document laid out into.
+	Pages int `json:"pages,omitempty"`
 }
 
-// PlannedPublisher is one line of a dry run.
+// PlannedPublisher is one line of a dry run: one post, not one platform, so a
+// page list that becomes three posts prints three lines.
 type PlannedPublisher struct {
 	Platform string `json:"platform"`
 	Variant  string `json:"variant"`
 	File     string `json:"file"`
 	NeedsURL bool   `json:"needsUrl"`
 	Caption  string `json:"caption"`
+	// Post and Posts are this post's place in the platform's sequence.
+	Post  int `json:"post,omitempty"`
+	Posts int `json:"posts,omitempty"`
+	// Files is how many pages this one post carries.
+	Files int `json:"files,omitempty"`
 }
 
 func (a App) runPublish(ctx context.Context, args []string) error {
@@ -379,7 +387,7 @@ func (a App) runPublish(ctx context.Context, args []string) error {
 			}
 		}
 
-		vr := VariantReport{Name: v.Name(), Platforms: v.Platforms, URL: arts.URL()}
+		vr := VariantReport{Name: v.Name(), Platforms: v.Platforms, URL: arts.URL(), Pages: len(arts.Pages)}
 		for _, art := range sortedArtifacts(arts) {
 			vr.Files = append(vr.Files, art.Path)
 			vr.Width, vr.Height = art.Width, art.Height
@@ -387,29 +395,21 @@ func (a App) runPublish(ctx context.Context, args []string) error {
 		report.Variants = append(report.Variants, vr)
 
 		for _, pub := range group {
-			art, err := arts.Primary(pub.Needs())
-			if err != nil {
-				return failf(ExitConfig, "%s: %v", pub.Name(), err)
-			}
-			caption, err := CaptionFor(p.Engine(), cfg, pub.Name(), data)
+			posts, err := PostsFor(p.Engine(), cfg, pub, arts, data)
 			if err != nil {
 				return err
 			}
-			in := publish.Input{
-				Artifact:  art,
-				URL:       arts.URL(),
-				Caption:   caption,
-				Poster:    arts.Poster,
-				PosterURL: arts.PosterURL,
-			}
 			if cfg.Publish.DryRun {
-				report.Plan = append(report.Plan, PlannedPublisher{
-					Platform: pub.Name(), Variant: v.Name(), File: art.Path,
-					NeedsURL: pub.Needs().URL, Caption: caption,
-				})
+				for _, in := range posts {
+					report.Plan = append(report.Plan, PlannedPublisher{
+						Platform: pub.Name(), Variant: v.Name(), File: in.Artifact.Path,
+						NeedsURL: pub.Needs().URL, Caption: in.Caption,
+						Post: in.Post, Posts: in.Posts, Files: in.Files(),
+					})
+				}
 				continue
 			}
-			jobs = append(jobs, publish.Job{Publisher: pub, Input: in})
+			jobs = append(jobs, publish.Job{Publisher: pub, Posts: posts})
 		}
 	}
 

@@ -11,6 +11,10 @@ import (
 type textField struct {
 	Key string
 	Ptr *string
+	// Caption marks the field a post's body is written in. Those are rendered
+	// once per post rather than once per run, because a paged run binds that
+	// post's own numbers into them.
+	Caption bool
 }
 
 // textFields are the post-text values of one platform.
@@ -23,50 +27,51 @@ func textFields(cfg *config.Config, platform string) []textField {
 	p := &cfg.Publish
 	switch platform {
 	case "instagram":
-		return []textField{{"publish.instagram.caption", &p.Instagram.Caption}}
+		return []textField{{"publish.instagram.caption", &p.Instagram.Caption, true}}
 	case "facebook":
-		return []textField{{"publish.facebook.caption", &p.Facebook.Caption}}
+		return []textField{{"publish.facebook.caption", &p.Facebook.Caption, true}}
 	case "tiktok":
 		return []textField{
-			{"publish.tiktok.caption", &p.TikTok.Caption},
-			{"publish.tiktok.title", &p.TikTok.Title},
+			{"publish.tiktok.caption", &p.TikTok.Caption, true},
+			{"publish.tiktok.title", &p.TikTok.Title, false},
 		}
 	case "telegram":
-		return []textField{{"publish.telegram.caption", &p.Telegram.Caption}}
+		return []textField{{"publish.telegram.caption", &p.Telegram.Caption, true}}
 	case "x":
-		return []textField{{"publish.x.caption", &p.X.Caption}}
+		return []textField{{"publish.x.caption", &p.X.Caption, true}}
 	case "slack":
-		return []textField{{"publish.slack.caption", &p.Slack.Caption}}
+		return []textField{{"publish.slack.caption", &p.Slack.Caption, true}}
 	case "mastodon":
 		return []textField{
-			{"publish.mastodon.caption", &p.Mastodon.Caption},
-			{"publish.mastodon.alt-text", &p.Mastodon.AltText},
+			{"publish.mastodon.caption", &p.Mastodon.Caption, true},
+			{"publish.mastodon.alt-text", &p.Mastodon.AltText, false},
 		}
 	case "discord":
-		return []textField{{"publish.discord.caption", &p.Discord.Caption}}
+		return []textField{{"publish.discord.caption", &p.Discord.Caption, true}}
 	case "linkedin":
-		return []textField{{"publish.linkedin.caption", &p.LinkedIn.Caption}}
+		return []textField{{"publish.linkedin.caption", &p.LinkedIn.Caption, true}}
 	case "reddit":
 		return []textField{
-			{"publish.reddit.caption", &p.Reddit.Caption},
-			{"publish.reddit.title", &p.Reddit.Title},
+			{"publish.reddit.caption", &p.Reddit.Caption, true},
+			{"publish.reddit.title", &p.Reddit.Title, false},
 		}
 	default:
 		// A custom platform has one text, and it is a caption like any other.
 		if c := config.CustomOf(p, platform); c != nil {
-			return []textField{{config.CustomPrefix + "." + platform + ".caption", &c.Caption}}
+			return []textField{{config.CustomPrefix + "." + platform + ".caption", &c.Caption, true}}
 		}
 		return nil
 	}
 }
 
-// captionOf is a platform's own caption, already rendered.
+// captionOf is a platform's own caption template, before it is rendered.
 func captionOf(cfg *config.Config, platform string) string {
-	fields := textFields(cfg, platform)
-	if len(fields) == 0 {
-		return ""
+	for _, f := range textFields(cfg, platform) {
+		if f.Caption {
+			return *f.Ptr
+		}
 	}
-	return *fields[0].Ptr
+	return ""
 }
 
 // ResolveTexts renders every platform's post text as a template, in place.
@@ -78,6 +83,10 @@ func captionOf(cfg *config.Config, platform string) string {
 func ResolveTexts(engine *template.Engine, cfg *config.Config, data any) error {
 	for _, name := range publish.Enabled(cfg) {
 		for _, f := range textFields(cfg, name) {
+			if f.Caption {
+				// A caption is rendered per post instead, by Captions.
+				continue
+			}
 			out, err := engine.RenderCaption(*f.Ptr, data, name)
 			if err != nil {
 				return failf(ExitRender, "%s: %v", f.Key, err)
@@ -91,12 +100,21 @@ func ResolveTexts(engine *template.Engine, cfg *config.Config, data any) error {
 // CaptionFor is the text one platform posts with: its own caption when it has
 // one, and the shared publish.caption otherwise.
 func CaptionFor(engine *template.Engine, cfg *config.Config, platform string, data any) (string, error) {
-	if own := captionOf(cfg, platform); own != "" {
-		return own, nil
+	return CaptionAt(engine, cfg, platform, data, template.OnePost())
+}
+
+// CaptionAt is CaptionFor for one post of a paged run, with that post's own
+// numbers bound so a caption can write "2 of 3".
+func CaptionAt(engine *template.Engine, cfg *config.Config, platform string, data any,
+	at template.Paging,
+) (string, error) {
+	tmpl, key := captionOf(cfg, platform), "publish."+platform+".caption"
+	if tmpl == "" {
+		tmpl, key = cfg.Publish.Caption, "publish.caption"
 	}
-	out, err := engine.RenderCaption(cfg.Publish.Caption, data, platform)
+	out, err := engine.RenderCaptionAt(tmpl, data, platform, at)
 	if err != nil {
-		return "", failf(ExitRender, "publish.caption: %v", err)
+		return "", failf(ExitRender, "%s: %v", key, err)
 	}
 	return out, nil
 }

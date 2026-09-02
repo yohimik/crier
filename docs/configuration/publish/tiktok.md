@@ -12,6 +12,7 @@ See [the TikTok guide](../../publishing/tiktok.md) for how to get these values.
 | `publish.tiktok.fit`<br>`CRIER_PUBLISH_TIKTOK_FIT`<br>`--publish-tiktok-fit` | string | `none` | how the render is made to match tiktok's frame: none, cover, contain or stretch; anything but none needs width and height |
 | `publish.tiktok.fit-background`<br>`CRIER_PUBLISH_TIKTOK_FIT_BACKGROUND`<br>`--publish-tiktok-fit-background` | string | `#ffffff` | hex colour behind a contain letterbox for tiktok, and what transparency is flattened onto |
 | `publish.tiktok.height`<br>`CRIER_PUBLISH_TIKTOK_HEIGHT`<br>`--publish-tiktok-height` | int | — | render height for tiktok; 0 inherits render.height |
+| `publish.tiktok.max-attachments`<br>`CRIER_PUBLISH_TIKTOK_MAX_ATTACHMENTS`<br>`--publish-tiktok-max-attachments` | int | — | post at most this many pages to tiktok at once; 0 uses the platform's own limit, which is also the ceiling |
 | `publish.tiktok.overlay`<br>`CRIER_PUBLISH_TIKTOK_OVERLAY`<br>`--publish-tiktok-overlay` | list, path | — | template overlays applied for tiktok only, after the global ones |
 | `publish.tiktok.poll-interval`<br>`CRIER_PUBLISH_TIKTOK_POLL_INTERVAL`<br>`--publish-tiktok-poll-interval` | duration | `2s` | how often the publish status is polled |
 | `publish.tiktok.poll-timeout`<br>`CRIER_PUBLISH_TIKTOK_POLL_TIMEOUT`<br>`--publish-tiktok-poll-timeout` | duration | `2m` | how long to wait for TikTok to finish the upload |

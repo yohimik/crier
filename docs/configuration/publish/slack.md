@@ -13,6 +13,7 @@ See [the Slack guide](../../publishing/slack.md) for how to get these values.
 | `publish.slack.fit`<br>`CRIER_PUBLISH_SLACK_FIT`<br>`--publish-slack-fit` | string | `none` | how the render is made to match slack's frame: none, cover, contain or stretch; anything but none needs width and height |
 | `publish.slack.fit-background`<br>`CRIER_PUBLISH_SLACK_FIT_BACKGROUND`<br>`--publish-slack-fit-background` | string | `#ffffff` | hex colour behind a contain letterbox for slack, and what transparency is flattened onto |
 | `publish.slack.height`<br>`CRIER_PUBLISH_SLACK_HEIGHT`<br>`--publish-slack-height` | int | — | render height for slack; 0 inherits render.height |
+| `publish.slack.max-attachments`<br>`CRIER_PUBLISH_SLACK_MAX_ATTACHMENTS`<br>`--publish-slack-max-attachments` | int | — | post at most this many pages to slack at once; 0 uses the platform's own limit, which is also the ceiling |
 | `publish.slack.overlay`<br>`CRIER_PUBLISH_SLACK_OVERLAY`<br>`--publish-slack-overlay` | list, path | — | template overlays applied for slack only, after the global ones |
 | `publish.slack.token`<br>`CRIER_PUBLISH_SLACK_TOKEN`<br>`--publish-slack-token` | string | — | Slack bot token (xoxb-…) with files:write and chat:write **Secret**: redacted by `crier config`. |
 | `publish.slack.width`<br>`CRIER_PUBLISH_SLACK_WIDTH`<br>`--publish-slack-width` | int | — | render width for slack; 0 inherits render.width |

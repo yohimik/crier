@@ -698,8 +698,15 @@ func TestResolveTextsRendersEveryField(t *testing.T) {
 	if cfg.Publish.Reddit.Title != "2.0 on reddit" {
 		t.Errorf("title = %q", cfg.Publish.Reddit.Title)
 	}
-	if cfg.Publish.Reddit.Caption != "see 2.0" {
-		t.Errorf("caption = %q", cfg.Publish.Reddit.Caption)
+	// The caption is deliberately left alone: it is rendered once per post
+	// instead, so a paged run can bind that post's own numbers into it.
+	if cfg.Publish.Reddit.Caption != "see {{ .version }}" {
+		t.Errorf("caption = %q, want the template kept for per-post rendering",
+			cfg.Publish.Reddit.Caption)
+	}
+	got, err := CaptionAt(template.New(), &cfg, "reddit", data, template.OnePost())
+	if err != nil || got != "see 2.0" {
+		t.Errorf("CaptionAt = %q, %v", got, err)
 	}
 	if cfg.Publish.Mastodon.AltText != "a card for mastodon" {
 		t.Errorf("alt text = %q", cfg.Publish.Mastodon.AltText)

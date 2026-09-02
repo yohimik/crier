@@ -13,6 +13,7 @@ See [the Telegram guide](../../publishing/telegram.md) for how to get these valu
 | `publish.telegram.fit`<br>`CRIER_PUBLISH_TELEGRAM_FIT`<br>`--publish-telegram-fit` | string | `none` | how the render is made to match telegram's frame: none, cover, contain or stretch; anything but none needs width and height |
 | `publish.telegram.fit-background`<br>`CRIER_PUBLISH_TELEGRAM_FIT_BACKGROUND`<br>`--publish-telegram-fit-background` | string | `#ffffff` | hex colour behind a contain letterbox for telegram, and what transparency is flattened onto |
 | `publish.telegram.height`<br>`CRIER_PUBLISH_TELEGRAM_HEIGHT`<br>`--publish-telegram-height` | int | — | render height for telegram; 0 inherits render.height |
+| `publish.telegram.max-attachments`<br>`CRIER_PUBLISH_TELEGRAM_MAX_ATTACHMENTS`<br>`--publish-telegram-max-attachments` | int | — | post at most this many pages to telegram at once; 0 uses the platform's own limit, which is also the ceiling |
 | `publish.telegram.overlay`<br>`CRIER_PUBLISH_TELEGRAM_OVERLAY`<br>`--publish-telegram-overlay` | list, path | — | template overlays applied for telegram only, after the global ones |
 | `publish.telegram.token`<br>`CRIER_PUBLISH_TELEGRAM_TOKEN`<br>`--publish-telegram-token` | string | — | Telegram bot token **Secret**: redacted by `crier config`. |
 | `publish.telegram.width`<br>`CRIER_PUBLISH_TELEGRAM_WIDTH`<br>`--publish-telegram-width` | int | — | render width for telegram; 0 inherits render.width |

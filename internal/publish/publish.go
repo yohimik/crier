@@ -38,6 +38,22 @@ type Needs struct {
 	Formats []config.Format
 	// Kinds are the artifact kinds the platform can post.
 	Kinds []render.Kind
+	// MaxAttachments is how many files the platform takes in one post: a
+	// carousel of ten at Instagram, four at X, one wherever a post is one
+	// picture. Zero means one.
+	//
+	// It is a cap, not a target. A page list longer than it becomes several
+	// posts in a row rather than a truncated one.
+	MaxAttachments int
+}
+
+// Capacity is MaxAttachments with the zero value read as one, which is what
+// every platform was before carousels existed.
+func (n Needs) Capacity() int {
+	if n.MaxAttachments < 1 {
+		return 1
+	}
+	return n.MaxAttachments
 }
 
 // Accepts reports whether the publisher can post an artifact of this kind.
@@ -61,11 +77,27 @@ func (n Needs) Prefers(available map[config.Format]render.Artifact) (render.Arti
 }
 
 // Input is one post.
+//
+// A post carries one file or several. Artifact and URL are the first of them,
+// which is the whole of the post for a platform that takes one file and the
+// cover of a carousel for a platform that takes more.
 type Input struct {
-	// Artifact is the file to publish.
+	// Artifact is the first file to publish.
 	Artifact render.Artifact
-	// URL is where the artifact can be fetched, set when Needs.URL.
+	// URL is where that artifact can be fetched, set when Needs.URL.
 	URL string
+	// Artifacts is every file this post carries, in page order. It always has
+	// at least one entry and its first is Artifact.
+	Artifacts []render.Artifact
+	// URLs is where each of those can be fetched, in the same order, set when
+	// Needs.URL.
+	URLs []string
+	// Post and Posts are this post's place in the sequence, counting from one.
+	// A page list that fits in one post is post 1 of 1.
+	Post, Posts int
+	// Page is the first page this post carries and Pages is the run's total
+	// page count, both counting from one.
+	Page, Pages int
 	// Caption is the already-rendered post text.
 	Caption string
 	// Poster is a still image that goes with a video, for the platforms that
@@ -338,10 +370,61 @@ func ping(ctx context.Context, p Publisher, log zerolog.Logger) (out Outcome) {
 	return out
 }
 
-// Job is one publisher and the input it was given.
+// Files is how many files this post carries.
+func (in Input) Files() int {
+	if len(in.Artifacts) == 0 {
+		return 1
+	}
+	return len(in.Artifacts)
+}
+
+// Sequence is every file this post carries, in page order.
+//
+// A publisher written before carousels reads Artifact and gets the first file.
+// One that takes several reads this and gets them all, and gets a one-entry
+// list on an ordinary post, so there is no second code path to keep working.
+func (in Input) Sequence() []render.Artifact {
+	if len(in.Artifacts) == 0 {
+		return []render.Artifact{in.Artifact}
+	}
+	return in.Artifacts
+}
+
+// SequenceURLs is Sequence's other half, for the platforms that fetch.
+func (in Input) SequenceURLs() []string {
+	if len(in.URLs) == 0 {
+		if in.URL == "" {
+			return nil
+		}
+		return []string{in.URL}
+	}
+	return in.URLs
+}
+
+// Job is one publisher and the posts it was given, in page order.
+//
+// More than one post means the run's page list was longer than the platform
+// takes in one go. They are published in order, and one that fails stops the
+// rest: a gap in the middle of a sequence is worse than a short sequence,
+// because the reader cannot tell it happened.
 type Job struct {
 	Publisher Publisher
-	Input     Input
+	Posts     []Input
+}
+
+// PostOutcome is what one post of a paged job came to.
+//
+// A job that was one post reports no posts at all: there is nothing a per-post
+// breakdown would add to the platform's own line.
+type PostOutcome struct {
+	// Post is which post this was, counting from one.
+	Post int `json:"post"`
+	// Pages is how many pages it carried.
+	Pages int    `json:"pages"`
+	OK    bool   `json:"ok"`
+	ID    string `json:"id,omitempty"`
+	URL   string `json:"url,omitempty"`
+	Error string `json:"error,omitempty"`
 }
 
 // Outcome is what one job came to.
@@ -353,9 +436,30 @@ type Outcome struct {
 	Error    string        `json:"error,omitempty"`
 	Elapsed  time.Duration `json:"-"`
 
+	// Posts is the per-post breakdown, set only when the job was more than one
+	// post. It is what says how far a sequence got before it stopped.
+	Posts []PostOutcome `json:"posts,omitempty"`
+
 	Extra map[string]string `json:"extra,omitempty"`
 	// Err is the failure itself, for a caller that wants to inspect it.
 	Err error `json:"-"`
+}
+
+// Published counts the posts that landed.
+func (o Outcome) Published() int {
+	if len(o.Posts) == 0 {
+		if o.OK {
+			return 1
+		}
+		return 0
+	}
+	n := 0
+	for _, p := range o.Posts {
+		if p.OK {
+			n++
+		}
+	}
+	return n
 }
 
 // Report is every outcome of one run, in platform order.
@@ -419,10 +523,17 @@ func RunAll(ctx context.Context, jobs []Job, concurrency int, log zerolog.Logger
 
 // run publishes one job, turning a panic in a publisher into a failure rather
 // than taking the whole run down with it.
+//
+// A job's posts go out one at a time, in page order, each one finished before
+// the next begins. That is not caution: several platforms order a feed by when
+// a post completed, so publishing two at once is how a two-part sequence turns
+// up back to front. A post that fails stops the ones after it, and the outcome
+// says how far it got.
 func run(ctx context.Context, job Job, log zerolog.Logger) (out Outcome) {
 	name := job.Publisher.Name()
 	out = Outcome{Platform: name}
 	start := time.Now()
+	posts := job.Posts
 
 	defer func() {
 		out.Elapsed = time.Since(start)
@@ -439,24 +550,69 @@ func run(ctx context.Context, job Job, log zerolog.Logger) (out Outcome) {
 			if out.URL != "" {
 				ev = ev.Str("url", out.URL)
 			}
+			if len(posts) > 1 {
+				ev = ev.Int("posts", len(posts))
+			}
 			ev.Msg("published")
 			return
 		}
 		log.Error().Str("platform", name).Dur("elapsed", out.Elapsed).Err(out.Err).Msg("publishing failed")
 	}()
 
-	log.Debug().Str("platform", name).Str("file", job.Input.Artifact.Path).Msg("publishing")
-	res, err := job.Publisher.Publish(ctx, job.Input)
-	if err != nil {
-		out.Err = err
-		out.Error = err.Error()
+	if len(posts) == 0 {
+		out.Err = fmt.Errorf("nothing to publish")
+		out.Error = out.Err.Error()
 		return out
 	}
+
+	for i, in := range posts {
+		if err := ctx.Err(); err != nil {
+			out.Err = err
+			out.Error = err.Error()
+			return out
+		}
+		ev := log.Debug().Str("platform", name).Str("file", in.Artifact.Path)
+		if len(posts) > 1 {
+			ev = ev.Int("post", i+1).Int("posts", len(posts)).Int("files", in.Files())
+		}
+		ev.Msg("publishing")
+
+		res, err := job.Publisher.Publish(ctx, in)
+		if len(posts) > 1 {
+			p := PostOutcome{Post: i + 1, Pages: in.Files(), OK: err == nil}
+			if err != nil {
+				p.Error = err.Error()
+			} else {
+				p.ID, p.URL = res.ID, res.URL
+			}
+			out.Posts = append(out.Posts, p)
+		}
+		if err != nil {
+			out.Err = postError(err, i, len(posts))
+			out.Error = out.Err.Error()
+			return out
+		}
+		if i == 0 {
+			// The first post is the platform's line in the report: it is the
+			// one a reader follows to find the sequence.
+			out.ID, out.URL, out.Extra = res.ID, res.URL, res.Extra
+		}
+	}
 	out.OK = true
-	out.ID = res.ID
-	out.URL = res.URL
-	out.Extra = res.Extra
 	return out
+}
+
+// postError says how far a sequence got before it stopped, because "posts 1 to
+// 3 of 5 went out" is what the operator has to know to decide what to do next.
+func postError(err error, i, total int) error {
+	if total <= 1 {
+		return err
+	}
+	if i == 0 {
+		return fmt.Errorf("post 1 of %d failed and none went out: %w", total, err)
+	}
+	return fmt.Errorf("posts 1 to %d of %d went out; post %d failed and the rest were not sent: %w",
+		i, total, i+1, err)
 }
 
 // --- shared helpers --------------------------------------------------------

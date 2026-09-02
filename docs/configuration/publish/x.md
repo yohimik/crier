@@ -12,6 +12,7 @@ See [the X guide](../../publishing/x.md) for how to get these values.
 | `publish.x.fit`<br>`CRIER_PUBLISH_X_FIT`<br>`--publish-x-fit` | string | `none` | how the render is made to match x's frame: none, cover, contain or stretch; anything but none needs width and height |
 | `publish.x.fit-background`<br>`CRIER_PUBLISH_X_FIT_BACKGROUND`<br>`--publish-x-fit-background` | string | `#ffffff` | hex colour behind a contain letterbox for x, and what transparency is flattened onto |
 | `publish.x.height`<br>`CRIER_PUBLISH_X_HEIGHT`<br>`--publish-x-height` | int | — | render height for x; 0 inherits render.height |
+| `publish.x.max-attachments`<br>`CRIER_PUBLISH_X_MAX_ATTACHMENTS`<br>`--publish-x-max-attachments` | int | — | post at most this many pages to x at once; 0 uses the platform's own limit, which is also the ceiling |
 | `publish.x.overlay`<br>`CRIER_PUBLISH_X_OVERLAY`<br>`--publish-x-overlay` | list, path | — | template overlays applied for x only, after the global ones |
 | `publish.x.token`<br>`CRIER_PUBLISH_X_TOKEN`<br>`--publish-x-token` | string | — | X OAuth 2.0 user access token **Secret**: redacted by `crier config`. |
 | `publish.x.width`<br>`CRIER_PUBLISH_X_WIDTH`<br>`--publish-x-width` | int | — | render width for x; 0 inherits render.width |

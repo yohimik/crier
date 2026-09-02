@@ -299,6 +299,11 @@ func layoutDescriptors(platform string) []Descriptor {
 			Key: "publish." + platform + ".fit-background", Kind: KindString, Default: "#ffffff",
 			Usage: "hex colour behind a contain letterbox for " + platform + ", and what transparency is flattened onto",
 		},
+		{
+			Key: "publish." + platform + ".max-attachments", Kind: KindInt,
+			Usage: "post at most this many pages to " + platform + " at once; " +
+				"0 uses the platform's own limit, which is also the ceiling",
+		},
 	}
 }
 

@@ -90,6 +90,10 @@ type Layout struct {
 	// FitBackground is the colour behind a contain letterbox, and what an
 	// image with transparency is flattened onto.
 	FitBackground string
+	// MaxAttachments lowers how many pages this platform takes in one post.
+	// Zero uses the platform's own limit, which is also the ceiling: asking
+	// for more than a platform accepts would only be refused by the platform.
+	MaxAttachments int
 }
 
 // HTTP configures the shared HTTP client used by every publisher and stager.

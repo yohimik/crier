@@ -2,6 +2,7 @@ package app
 
 import (
 	"context"
+	"fmt"
 	"os"
 	"path/filepath"
 	"strings"
@@ -12,6 +13,7 @@ import (
 	"github.com/yohimik/crier/internal/httpx"
 	"github.com/yohimik/crier/internal/publish"
 	"github.com/yohimik/crier/internal/render"
+	"github.com/yohimik/crier/internal/template"
 )
 
 // pagedTemplate overflows a 200x200 page on purpose: five blocks of 120 CSS
@@ -245,5 +247,205 @@ func publishNeedsPNG() publish.Needs {
 	return publish.Needs{
 		Formats: []config.Format{config.PNG},
 		Kinds:   []render.Kind{render.KindImage},
+	}
+}
+
+// stubPub is a publisher with the needs a test wants and nothing else.
+type stubPub struct {
+	name string
+	need publish.Needs
+}
+
+func (s stubPub) Name() string { return s.name }
+func (s stubPub) Needs() publish.Needs {
+	if len(s.need.Formats) == 0 {
+		s.need.Formats = []config.Format{config.PNG}
+	}
+	if len(s.need.Kinds) == 0 {
+		s.need.Kinds = []render.Kind{render.KindImage}
+	}
+	return s.need
+}
+func (stubPub) Publish(context.Context, publish.Input) (publish.Result, error) {
+	return publish.Result{}, nil
+}
+func (s stubPub) Ping(context.Context) (publish.Identity, error) {
+	return publish.Identity{ID: s.name}, nil
+}
+
+func fivePages() Artifacts {
+	var pages []Page
+	for i := 1; i <= 5; i++ {
+		pages = append(pages, Page{
+			Images: map[config.Format]render.Artifact{
+				config.PNG: {Path: fmt.Sprintf("/p%d.png", i), Kind: render.KindImage},
+			},
+			URL: fmt.Sprintf("https://staged/%d.png", i),
+		})
+	}
+	return Artifacts{Pages: pages}
+}
+
+// TestEveryPlatformGetsTheSamePagesInTheSameOrder is the synchronisation rule.
+// A carousel at one platform and a run of single posts at another have to tell
+// the same story in the same sequence.
+func TestEveryPlatformGetsTheSamePagesInTheSameOrder(t *testing.T) {
+	cfg := config.Defaults()
+	arts := fivePages()
+	eng := template.New()
+
+	for _, tc := range []struct {
+		name     string
+		capacity int
+		want     [][]string
+	}{
+		{"a carousel platform", 10, [][]string{{"/p1.png", "/p2.png", "/p3.png", "/p4.png", "/p5.png"}}},
+		{"a four-cap platform", 4, [][]string{
+			{"/p1.png", "/p2.png", "/p3.png", "/p4.png"}, {"/p5.png"},
+		}},
+		{"a one-at-a-time platform", 1, [][]string{
+			{"/p1.png"}, {"/p2.png"}, {"/p3.png"}, {"/p4.png"}, {"/p5.png"},
+		}},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			pub := stubPub{name: "x", need: publish.Needs{MaxAttachments: tc.capacity}}
+			posts, err := PostsFor(eng, &cfg, pub, arts, nil)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if len(posts) != len(tc.want) {
+				t.Fatalf("got %d posts, want %d", len(posts), len(tc.want))
+			}
+			var flat []string
+			for i, in := range posts {
+				var got []string
+				for _, a := range in.Sequence() {
+					got = append(got, a.Path)
+				}
+				flat = append(flat, got...)
+				if strings.Join(got, ",") != strings.Join(tc.want[i], ",") {
+					t.Errorf("post %d = %v, want %v", i+1, got, tc.want[i])
+				}
+				if in.Post != i+1 || in.Posts != len(tc.want) {
+					t.Errorf("post %d says it is %d of %d", i+1, in.Post, in.Posts)
+				}
+				if in.Pages != 5 {
+					t.Errorf("post %d says the run has %d pages", i+1, in.Pages)
+				}
+			}
+			// The flattened sequence is the run's page list, unchanged: nothing
+			// reordered, skipped or merged.
+			if strings.Join(flat, ",") != "/p1.png,/p2.png,/p3.png,/p4.png,/p5.png" {
+				t.Errorf("the pages came out as %v", flat)
+			}
+		})
+	}
+}
+
+// TestPostsCarryEachBatchesOwnURLs: a platform that fetches must be given the
+// addresses of the files in the post it was handed.
+func TestPostsCarryEachBatchesOwnURLs(t *testing.T) {
+	cfg := config.Defaults()
+	pub := stubPub{name: "x", need: publish.Needs{URL: true, MaxAttachments: 2}}
+	posts, err := PostsFor(template.New(), &cfg, pub, fivePages(), nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(posts) != 3 {
+		t.Fatalf("posts = %d", len(posts))
+	}
+	if posts[1].URL != "https://staged/3.png" {
+		t.Errorf("post 2's first url = %q", posts[1].URL)
+	}
+	want := []string{"https://staged/3.png", "https://staged/4.png"}
+	if strings.Join(posts[1].SequenceURLs(), ",") != strings.Join(want, ",") {
+		t.Errorf("post 2 urls = %v, want %v", posts[1].SequenceURLs(), want)
+	}
+}
+
+// TestMaxAttachmentsOnlyLowersTheCap: asking a platform for more than it takes
+// would only be refused by the platform, which is a worse way to find out.
+func TestMaxAttachmentsOnlyLowersTheCap(t *testing.T) {
+	cfg := config.Defaults()
+	cfg.Publish.X.Layout.MaxAttachments = 2
+	pub := stubPub{name: "x", need: publish.Needs{MaxAttachments: 4}}
+	posts, err := PostsFor(template.New(), &cfg, pub, fivePages(), nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(posts) != 3 {
+		t.Errorf("posts = %d, want the configured cap of two per post", len(posts))
+	}
+
+	cfg.Publish.X.Layout.MaxAttachments = 40
+	posts, err = PostsFor(template.New(), &cfg, pub, fivePages(), nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(posts) != 2 {
+		t.Errorf("posts = %d, want the platform's own cap of four to win", len(posts))
+	}
+}
+
+// TestCaptionsCountThePosts is what lets one line of configuration write
+// "2 of 3" without the operator writing a caption per post by hand.
+func TestCaptionsCountThePosts(t *testing.T) {
+	cfg := config.Defaults()
+	cfg.Publish.Caption = "part {{.Post}}/{{.Posts}} from page {{.Page}} of {{.Pages}} on {{.Platform}}"
+	pub := stubPub{name: "x", need: publish.Needs{MaxAttachments: 2}}
+	posts, err := PostsFor(template.New(), &cfg, pub, fivePages(), nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	want := []string{
+		"part 1/3 from page 1 of 5 on x",
+		"part 2/3 from page 3 of 5 on x",
+		"part 3/3 from page 5 of 5 on x",
+	}
+	for i, in := range posts {
+		if in.Caption != want[i] {
+			t.Errorf("caption %d = %q, want %q", i+1, in.Caption, want[i])
+		}
+	}
+}
+
+// TestAnUnpagedRunStillReadsAsOneOfOne, so a caption that mentions the numbers
+// is safe to write whether or not anything ever paginates.
+func TestAnUnpagedRunStillReadsAsOneOfOne(t *testing.T) {
+	cfg := config.Defaults()
+	cfg.Publish.Caption = "{{.Post}} of {{.Posts}}"
+	arts := Artifacts{Pages: []Page{{Images: map[config.Format]render.Artifact{
+		config.PNG: {Path: "/only.png", Kind: render.KindImage},
+	}}}}
+	posts, err := PostsFor(template.New(), &cfg, stubPub{name: "x"}, arts, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(posts) != 1 || posts[0].Caption != "1 of 1" {
+		t.Errorf("posts = %+v", posts)
+	}
+}
+
+// TestAClipIsOnePostHoweverManyPagesTheStillsWouldHaveBeen.
+func TestAClipIsOnePost(t *testing.T) {
+	cfg := config.Defaults()
+	arts := Artifacts{
+		Video: &render.Artifact{Path: "/clip.mp4", Kind: render.KindVideo},
+		Pages: []Page{{URL: "https://staged/clip.mp4"}},
+	}
+	pub := stubPub{name: "x", need: publish.Needs{
+		URL:            true,
+		MaxAttachments: 10,
+		Kinds:          []render.Kind{render.KindImage, render.KindVideo},
+	}}
+	posts, err := PostsFor(template.New(), &cfg, pub, arts, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(posts) != 1 || posts[0].Files() != 1 {
+		t.Fatalf("posts = %+v", posts)
+	}
+	if posts[0].URL != "https://staged/clip.mp4" {
+		t.Errorf("url = %q", posts[0].URL)
 	}
 }

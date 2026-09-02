@@ -217,6 +217,7 @@ func Bindings(cfg *Config) map[string]Binding {
 		out["publish."+name+".height"] = bindInt(&l.Height)
 		out["publish."+name+".fit"] = bindString(&l.Fit)
 		out["publish."+name+".fit-background"] = bindString(&l.FitBackground)
+		out["publish."+name+".max-attachments"] = bindInt(&l.MaxAttachments)
 	}
 
 	// The custom platforms a configuration happens to declare. There are none

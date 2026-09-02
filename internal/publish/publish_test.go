@@ -1407,15 +1407,18 @@ func (s stubPublisher) Ping(ctx context.Context) (Identity, error) {
 	return s.ping(ctx)
 }
 
+// onePost is the ordinary case: one post carrying one file.
+var onePost = []Input{{}}
+
 func TestRunAllKeepsGoingAfterAFailure(t *testing.T) {
 	jobs := []Job{
-		{Publisher: stubPublisher{name: "b", fn: func(context.Context, Input) (Result, error) {
+		{Posts: onePost, Publisher: stubPublisher{name: "b", fn: func(context.Context, Input) (Result, error) {
 			return Result{}, errors.New("b is down")
 		}}},
-		{Publisher: stubPublisher{name: "a", fn: func(context.Context, Input) (Result, error) {
+		{Posts: onePost, Publisher: stubPublisher{name: "a", fn: func(context.Context, Input) (Result, error) {
 			return Result{ID: "1", URL: "https://a/1"}, nil
 		}}},
-		{Publisher: stubPublisher{name: "c", fn: func(context.Context, Input) (Result, error) {
+		{Posts: onePost, Publisher: stubPublisher{name: "c", fn: func(context.Context, Input) (Result, error) {
 			return Result{ID: "2"}, nil
 		}}},
 	}
@@ -1436,7 +1439,7 @@ func TestRunAllKeepsGoingAfterAFailure(t *testing.T) {
 
 func TestRunAllSucceedsQuietly(t *testing.T) {
 	rep := RunAll(context.Background(), []Job{
-		{Publisher: stubPublisher{name: "a", fn: func(context.Context, Input) (Result, error) {
+		{Posts: onePost, Publisher: stubPublisher{name: "a", fn: func(context.Context, Input) (Result, error) {
 			return Result{ID: "1"}, nil
 		}}},
 	}, 0, testLogger(t))
@@ -1447,10 +1450,10 @@ func TestRunAllSucceedsQuietly(t *testing.T) {
 
 func TestRunAllSurvivesAPanickingPublisher(t *testing.T) {
 	rep := RunAll(context.Background(), []Job{
-		{Publisher: stubPublisher{name: "boom", fn: func(context.Context, Input) (Result, error) {
+		{Posts: onePost, Publisher: stubPublisher{name: "boom", fn: func(context.Context, Input) (Result, error) {
 			panic("kaboom")
 		}}},
-		{Publisher: stubPublisher{name: "ok", fn: func(context.Context, Input) (Result, error) {
+		{Posts: onePost, Publisher: stubPublisher{name: "ok", fn: func(context.Context, Input) (Result, error) {
 			return Result{ID: "1"}, nil
 		}}},
 	}, 2, testLogger(t))
@@ -1478,7 +1481,7 @@ func TestRunAllRespectsConcurrency(t *testing.T) {
 	}
 	var jobs []Job
 	for i := 0; i < 8; i++ {
-		jobs = append(jobs, Job{Publisher: stubPublisher{
+		jobs = append(jobs, Job{Posts: onePost, Publisher: stubPublisher{
 			name: string(rune('a' + i)),
 			fn: func(context.Context, Input) (Result, error) {
 				step(1)

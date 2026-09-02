@@ -32,6 +32,7 @@ var CustomLeaves = []Descriptor{
 	{Key: "height", Kind: KindInt, Usage: "render height for this platform"},
 	{Key: "fit", Kind: KindString, Default: "none", Usage: "how the render is made to match this platform's frame: none, cover, contain or stretch"},
 	{Key: "fit-background", Kind: KindString, Default: "#ffffff", Usage: "hex colour behind a contain letterbox, and what transparency is flattened onto"},
+	{Key: "max-attachments", Kind: KindInt, Usage: "post at most this many pages at once; 0 posts one page per run of the command"},
 }
 
 // CustomEnvLeaf is the sub-object holding extra environment variables. It is
@@ -110,19 +111,20 @@ func applyCustomDefaults(c *Custom) {
 // customBindings maps one entry's leaf names to its fields.
 func customBindings(c *Custom) map[string]Binding {
 	return map[string]Binding{
-		"enabled":        bindBool(&c.Enabled),
-		"command":        bindString(&c.Command),
-		"ping-command":   bindString(&c.PingCommand),
-		"caption":        bindString(&c.Caption),
-		"kinds":          bindStrings(&c.Kinds),
-		"format":         bindString(&c.Format),
-		"needs-url":      bindBool(&c.NeedsURL),
-		"timeout":        bindString(&c.Timeout),
-		"overlay":        bindStrings(&c.Layout.Overlay),
-		"width":          bindInt(&c.Layout.Width),
-		"height":         bindInt(&c.Layout.Height),
-		"fit":            bindString(&c.Layout.Fit),
-		"fit-background": bindString(&c.Layout.FitBackground),
+		"enabled":         bindBool(&c.Enabled),
+		"command":         bindString(&c.Command),
+		"ping-command":    bindString(&c.PingCommand),
+		"caption":         bindString(&c.Caption),
+		"kinds":           bindStrings(&c.Kinds),
+		"format":          bindString(&c.Format),
+		"needs-url":       bindBool(&c.NeedsURL),
+		"timeout":         bindString(&c.Timeout),
+		"overlay":         bindStrings(&c.Layout.Overlay),
+		"width":           bindInt(&c.Layout.Width),
+		"height":          bindInt(&c.Layout.Height),
+		"fit":             bindString(&c.Layout.Fit),
+		"fit-background":  bindString(&c.Layout.FitBackground),
+		"max-attachments": bindInt(&c.Layout.MaxAttachments),
 	}
 }
 

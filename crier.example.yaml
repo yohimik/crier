@@ -40,6 +40,8 @@ publish:
     fit-background: "#ffffff"
     # render height for discord; 0 inherits render.height
     height: 0
+    # post at most this many pages to discord at once; 0 uses the platform's own limit, which is also the ceiling
+    max-attachments: 0
     # template overlays applied for discord only, after the global ones
     overlay: []
     # override the webhook's display name
@@ -63,6 +65,8 @@ publish:
     fit-background: "#ffffff"
     # render height for facebook; 0 inherits render.height
     height: 0
+    # post at most this many pages to facebook at once; 0 uses the platform's own limit, which is also the ceiling
+    max-attachments: 0
     # template overlays applied for facebook only, after the global ones
     overlay: []
     # Facebook Page id
@@ -90,6 +94,8 @@ publish:
     fit-background: "#ffffff"
     # render height for instagram; 0 inherits render.height
     height: 0
+    # post at most this many pages to instagram at once; 0 uses the platform's own limit, which is also the ceiling
+    max-attachments: 0
     # template overlays applied for instagram only, after the global ones
     overlay: []
     # how often the media container status is polled
@@ -119,6 +125,8 @@ publish:
     fit-background: "#ffffff"
     # render height for linkedin; 0 inherits render.height
     height: 0
+    # post at most this many pages to linkedin at once; 0 uses the platform's own limit, which is also the ceiling
+    max-attachments: 0
     # template overlays applied for linkedin only, after the global ones
     overlay: []
     # LinkedIn OAuth 2.0 access token
@@ -142,6 +150,8 @@ publish:
     fit-background: "#ffffff"
     # render height for mastodon; 0 inherits render.height
     height: 0
+    # post at most this many pages to mastodon at once; 0 uses the platform's own limit, which is also the ceiling
+    max-attachments: 0
     # template overlays applied for mastodon only, after the global ones
     overlay: []
     # how often a still-processing attachment is polled
@@ -177,6 +187,8 @@ publish:
     height: 0
     # post kind: auto, image, video or link
     kind: "auto"
+    # post at most this many pages to reddit at once; 0 uses the platform's own limit, which is also the ceiling
+    max-attachments: 0
     # mark the post NSFW
     nsfw: false
     # template overlays applied for reddit only, after the global ones
@@ -216,6 +228,8 @@ publish:
     fit-background: "#ffffff"
     # render height for slack; 0 inherits render.height
     height: 0
+    # post at most this many pages to slack at once; 0 uses the platform's own limit, which is also the ceiling
+    max-attachments: 0
     # template overlays applied for slack only, after the global ones
     overlay: []
     # Slack bot token (xoxb-…) with files:write and chat:write
@@ -237,6 +251,8 @@ publish:
     fit-background: "#ffffff"
     # render height for telegram; 0 inherits render.height
     height: 0
+    # post at most this many pages to telegram at once; 0 uses the platform's own limit, which is also the ceiling
+    max-attachments: 0
     # template overlays applied for telegram only, after the global ones
     overlay: []
     # Telegram bot token
@@ -256,6 +272,8 @@ publish:
     fit-background: "#ffffff"
     # render height for tiktok; 0 inherits render.height
     height: 0
+    # post at most this many pages to tiktok at once; 0 uses the platform's own limit, which is also the ceiling
+    max-attachments: 0
     # template overlays applied for tiktok only, after the global ones
     overlay: []
     # how often the publish status is polled
@@ -283,6 +301,8 @@ publish:
     fit-background: "#ffffff"
     # render height for x; 0 inherits render.height
     height: 0
+    # post at most this many pages to x at once; 0 uses the platform's own limit, which is also the ceiling
+    max-attachments: 0
     # template overlays applied for x only, after the global ones
     overlay: []
     # X OAuth 2.0 user access token
