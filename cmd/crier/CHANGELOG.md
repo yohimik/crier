@@ -1,5 +1,29 @@
 # Changelog
 
+## v1.0.0-rc.4 (2026-09-02)
+
+### Fixes
+
+- green padding between the text and the page margin ([13d5a50](https://github.com/yohimik/crier/commit/13d5a5062348ff92d17976e57e0519c6dd3f8c68)) (by yohimik, Claude Fable 5)
+  Type sat flush against the white frame on every page. The panel now
+  extends past the text, and the cover height subtracts the padding it
+  gained.
+
+- ask again when Instagram says the media is not ready ([8dc5170](https://github.com/yohimik/crier/commit/8dc5170416649c4b226dd92b8ccf07d904ae7044)) (by yohimik, Claude Fable 5)
+  A container can poll FINISHED while Meta is still making the media
+  publishable, and media_publish then answers error 9007, media not
+  available. That refusal means no post was created, so it is the one
+  publish failure that is safe to retry, bounded by the poll budget. Seen
+  on the rc.3 release: the carousel published and the first story,
+  seconds behind it, was told to wait a moment. Every other publish
+  failure keeps the never-repeat rule.
+
+### Authors
+
+- yohimik
+- Claude Fable 5
+
+
 ## v1.0.0-rc.3 (2026-09-02)
 
 ### Features
