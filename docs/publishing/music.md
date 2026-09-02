@@ -52,7 +52,7 @@ publish:
     music-file: long-version.mp3  # telegram gets this instead
 ```
 
-Setting `music-file` on any of the other nine platforms is a configuration error. The message names the platform and says why. Nothing is refused for the shared `publish.music-file` key: it means the file for the platforms that can take it, and stays quiet about the rest.
+Setting `music-file` on any of the other eleven platforms is a configuration error. The message names the platform and says why. Nothing is refused for the shared `publish.music-file` key: it means the file for the platforms that can take it, and stays quiet about the rest.
 
 If no enabled platform can carry the file, crier warns. The run still goes ahead.
 

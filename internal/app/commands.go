@@ -666,6 +666,7 @@ func enableOnly(cfg *config.Config, name string) {
 	p.VK.Enabled = name == "vk"
 	p.Threads.Enabled = name == "threads"
 	p.YouTube.Enabled = name == "youtube"
+	p.Boosty.Enabled = name == "boosty"
 }
 
 // --- config ----------------------------------------------------------------

@@ -25,6 +25,49 @@ log:
   # log level: trace, debug, info, warn, error
   level: "info"
 publish:
+  boosty:
+    # who can read the post: free, paid (a one-time price) or level (a subscription tier)
+    access: "free"
+    # Boosty access token, taken from a signed-in browser session; it expires
+    access-token: "<your-access-token>"
+    # Boosty API base URL; the API is unofficial and undocumented, so it is configurable
+    api-base-url: "https://api.boosty.to"
+    # blog to post in: the slug in boosty.to/<blog>
+    blog: ""
+    # Boosty specific post text
+    caption: ""
+    # currency publish.boosty.price is quoted in, sent as the X-Currency header
+    currency: "RUB"
+    # the browser session's device id, which a refresh will not run without
+    device-id: "<your-device-id>"
+    # publish to a Boosty blog
+    enabled: false
+    # how the render is made to match boosty's frame: none, cover, contain or stretch; anything but none needs width and height
+    fit: "none"
+    # hex colour behind a contain letterbox for boosty, and what transparency is flattened onto
+    fit-background: "#ffffff"
+    # render height for boosty; 0 inherits render.height
+    height: 0
+    # not available: a boosty post is pictures or a video and never both, so a value here is refused rather than ignored
+    lead-video: ""
+    # subscription level id the post is limited to; required when access is level
+    level-id: ""
+    # post at most this many pages to boosty at once; 0 uses the platform's own limit, which is also the ceiling
+    max-attachments: 0
+    # not available: boosty has no API for attaching an audio file, so a value here is refused rather than ignored
+    music-file: ""
+    # template overlays applied for boosty only, after the global ones
+    overlay: []
+    # one-time price the post is unlocked by, in publish.boosty.currency; required when access is paid
+    price: 0
+    # Boosty refresh token; with device-id it renews an expired access token, and boosty replaces it every time it is used
+    refresh-token: "<your-refresh-token>"
+    # Boosty post title; empty uses the caption's first line
+    title: ""
+    # Boosty upload host; media goes here rather than to the API host
+    upload-base-url: "https://upload.boosty.to"
+    # render width for boosty; 0 inherits render.width
+    width: 0
   # caption used by every platform that has no caption of its own
   caption: ""
   # how many platforms are published to at the same time

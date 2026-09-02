@@ -196,6 +196,7 @@ var registry = map[string]constructor{
 	"vk":        newVK,
 	"threads":   newThreads,
 	"youtube":   newYouTube,
+	"boosty":    newBoosty,
 }
 
 // Names are every platform crier knows, sorted.
@@ -256,6 +257,8 @@ func enabledIn(cfg *config.Config, name string) bool {
 		return p.Threads.Enabled
 	case "youtube":
 		return p.YouTube.Enabled
+	case "boosty":
+		return p.Boosty.Enabled
 	default:
 		if c := config.CustomOf(p, name); c != nil {
 			return c.Enabled
@@ -509,8 +512,8 @@ func (r Report) Err() error {
 // RunAll publishes to every platform, a bounded number at a time.
 //
 // One platform's failure never cancels another's: the whole point of posting
-// to thirteen places is that twelve of them still get the post when the
-// thirteenth is down. The context is passed through unchanged, so a cancelled run does stop
+// to fourteen places is that thirteen of them still get the post when the
+// fourteenth is down. The context is passed through unchanged, so a cancelled run does stop
 // everything.
 func RunAll(ctx context.Context, jobs []Job, concurrency int, log zerolog.Logger) Report {
 	if concurrency < 1 {

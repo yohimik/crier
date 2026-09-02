@@ -106,23 +106,26 @@ This requires a layout pass per frame. Three seconds at thirty frames a second i
 | [VK](../publishing/vk.md) | yes | yes | the document methods, because a saved photo would be a still |
 | [Threads](../publishing/threads.md) | yes | **no** | none |
 | [YouTube](../publishing/youtube.md) | yes | **no** | none, and no images either |
+| [Boosty](../publishing/boosty.md) | **no** | **no** | none; its upload host pins no video endpoint |
 | [Instagram](../publishing/instagram.md) | yes | **no** | none |
 | [Facebook](../publishing/facebook.md) | yes | **no** | none |
 | [TikTok](../publishing/tiktok.md) | yes | **no** | none |
 | [LinkedIn](../publishing/linkedin.md) | yes | **no** | none |
 
-Sending a GIF to one of these six is a configuration error. The system names the error and refuses it before anything is rendered:
+Sending a GIF to one of these seven is a configuration error. The system names the error and refuses it before anything is rendered:
 
 ```
 crier: render.video.enabled is set but linkedin cannot post an animated GIF;
 disable it, or set render.video.format
 ```
 
-These six are not an oversight. Their APIs only support animations if you upload an MP4. If crier produced an MP4 while the configuration says `gif`, that would be worse than just saying no.
+Six of these seven are not an oversight. Their APIs only support animations if you upload an MP4. If crier produced an MP4 while the configuration says `gif`, that would be worse than just saying no.
+
+Boosty is the seventh, and it is a different no. Its API is unofficial, and the upload endpoint a clip would go through is not pinned by any client crier could read. A guessed endpoint would leave a file nobody can play sitting in a post, after ffmpeg spent a minute encoding it. See [Boosty](../publishing/boosty.md).
 
 ## Publishing a video
 
-Every platform crier ships can post video, and YouTube posts nothing else. Each has its own limits: Telegram allows 50MB, Discord allows 10MB on a free server, and X allows 512MB and 140 seconds. crier checks known limits before uploading. This means a rejection arrives in a second instead of after the upload.
+Every platform crier ships can post video bar Boosty, and YouTube posts nothing else. Each has its own limits: Telegram allows 50MB, Discord allows 10MB on a free server, and X allows 512MB and 140 seconds. crier checks known limits before uploading. This means a rejection arrives in a second instead of after the upload.
 
 Reddit requires a poster image with a video. crier renders frame 0 as a JPEG and uploads it alongside. This requires no configuration. A GIF is submitted as an image instead of a video, so it needs no poster image.
 

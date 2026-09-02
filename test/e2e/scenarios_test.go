@@ -579,11 +579,11 @@ func enableAll(f *fakes, extra string) string {
 	return strings.Join(out, "\n") + extra
 }
 
-// TestSmokePublishToEveryPlatform is in the release smoke subset: twelve
+// TestSmokePublishToEveryPlatform is in the release smoke subset: thirteen
 // publishers fanned out against fakes, which is the one test that touches
 // every image platform's request shape.
 //
-// Twelve of the thirteen. YouTube is the exception and stays out on purpose: it
+// Thirteen of the fourteen. YouTube is the exception and stays out on purpose: it
 // uploads videos and nothing else, so enabling it on a run of image posts is a
 // configuration error rather than a thirteenth row. Its own flow is
 // TestYouTubeUploadsTheRenderedClip, and its credentials are checked in the
@@ -608,8 +608,8 @@ func TestSmokePublishToEveryPlatform(t *testing.T) {
 	if err := json.Unmarshal([]byte(res.Stdout), &rep); err != nil {
 		t.Fatalf("%v\n%s", err, res.Stdout)
 	}
-	if len(rep.Results) != 12 {
-		t.Fatalf("published to %d platforms, want 12: %+v", len(rep.Results), rep.Results)
+	if len(rep.Results) != 13 {
+		t.Fatalf("published to %d platforms, want 13: %+v", len(rep.Results), rep.Results)
 	}
 	for _, r := range rep.Results {
 		if !r.OK {
@@ -627,6 +627,7 @@ func TestSmokePublishToEveryPlatform(t *testing.T) {
 		"/vk/method/photos.getWallUploadServer", "/vk-photo-upload",
 		"/vk/method/photos.saveWallPhoto", "/vk/method/wall.post",
 		"/threads/th-user/threads", "/threads/th-user/threads_publish",
+		"/boosty-upload/image", "/boosty-upload/upload/", "/boosty/v1/blog/crierhq/post/",
 	} {
 		if _, ok := f.find(fragment); !ok {
 			t.Errorf("no request reached %s", fragment)
@@ -1384,7 +1385,7 @@ token = "tok"
 
 // --- ping ------------------------------------------------------------------
 
-// TestPingChecksEveryEnabledPlatform is the safe setup check: thirteen identity
+// TestPingChecksEveryEnabledPlatform is the safe setup check: fourteen identity
 // endpoints, no post anywhere.
 func TestPingChecksEveryEnabledPlatform(t *testing.T) {
 	f := newFakes(t)
@@ -1408,8 +1409,8 @@ func TestPingChecksEveryEnabledPlatform(t *testing.T) {
 	if err := json.Unmarshal([]byte(res.Stdout), &rep); err != nil {
 		t.Fatalf("%v\n%s", err, res.Stdout)
 	}
-	if len(rep.Results) != 13 {
-		t.Fatalf("checked %d targets, want 13: %+v", len(rep.Results), rep.Results)
+	if len(rep.Results) != 14 {
+		t.Fatalf("checked %d targets, want 14: %+v", len(rep.Results), rep.Results)
 	}
 	for _, r := range rep.Results {
 		if !r.OK {
@@ -1428,6 +1429,7 @@ func TestPingChecksEveryEnabledPlatform(t *testing.T) {
 		"/linkedin/v2/userinfo", "/reddit/api/v1/me", "/slack/auth.test",
 		"/vk/method/groups.getById", "/threads/me",
 		"/youtube-auth/token", "/youtube/youtube/v3/channels",
+		"/boosty/v1/blog/crierhq",
 	} {
 		if _, ok := f.find(fragment); !ok {
 			t.Errorf("ping did not reach %s", fragment)
@@ -1444,6 +1446,7 @@ func TestPingChecksEveryEnabledPlatform(t *testing.T) {
 		"/vk/method/wall.post", "/vk/method/photos.getWallUploadServer",
 		"/threads/th-user/threads", "/threads/th-user/threads_publish",
 		"/youtube/upload/youtube/v3/videos", "/youtube-upload/",
+		"/boosty/v1/blog/crierhq/post/", "/boosty-upload/image",
 	} {
 		if _, ok := f.find(fragment); ok {
 			t.Errorf("ping posted something: %s was called", fragment)
@@ -1467,8 +1470,8 @@ func TestPingWithOneBadTokenIsExitFour(t *testing.T) {
 	if !strings.Contains(res.Stderr, "x") {
 		t.Errorf("the failure should be logged: %s", res.Stderr)
 	}
-	// The other eleven still reported.
-	if strings.Count(res.Stdout, "ok") < 11 {
+	// The other twelve still reported.
+	if strings.Count(res.Stdout, "ok") < 12 {
 		t.Errorf("the other platforms should still have been checked:\n%s", res.Stdout)
 	}
 }
@@ -2542,6 +2545,325 @@ func TestYouTubePingNamesTheChannel(t *testing.T) {
 	}
 	if !strings.Contains(res.Stdout, "Crier Releases") {
 		t.Errorf("the channel should be in the table:\n%s", res.Stdout)
+	}
+}
+
+// --- boosty ------------------------------------------------------------------
+
+// boostyProject writes a project that posts to a Boosty blog.
+//
+// The two hosts come from the environment rather than from the file, because
+// that is the pair a run has to wire for the fake to be reachable at all, and
+// doing it through CRIER_ proves the environment layer reaches a fourteenth
+// platform the same way it reaches the first.
+func boostyProject(t *testing.T, f *fakes, extra ...string) (dir string, env []string) {
+	t.Helper()
+	dir = newProject(t, strings.Join(append([]string{
+		"  boosty:",
+		"    enabled: true",
+		"    blog: " + boostyBlog,
+		"    access-token: boosty-token",
+	}, extra...), "\n")+"\n")
+	return dir, boostyEnv(f)
+}
+
+func boostyEnv(f *fakes) []string {
+	return []string{
+		"CRIER_PUBLISH_BOOSTY_API_BASE_URL=" + f.URL + "/boosty",
+		"CRIER_PUBLISH_BOOSTY_UPLOAD_BASE_URL=" + f.URL + "/boosty-upload",
+	}
+}
+
+// boostyCreate is the create call's form body, parsed.
+func boostyCreate(t *testing.T, f *fakes) url.Values {
+	t.Helper()
+	req, ok := f.find("/boosty/v1/blog/" + boostyBlog + "/post/")
+	if !ok {
+		t.Fatal("nothing created a boosty post")
+	}
+	form, err := url.ParseQuery(req.Body)
+	if err != nil {
+		t.Fatal(err)
+	}
+	return form
+}
+
+// boostyImageIDs is the file ids the post's content blocks name, in order.
+func boostyImageIDs(t *testing.T, f *fakes) []string {
+	t.Helper()
+	var blocks []map[string]any
+	if err := json.Unmarshal([]byte(boostyCreate(t, f).Get("data")), &blocks); err != nil {
+		t.Fatal(err)
+	}
+	var out []string
+	for _, b := range blocks {
+		if b["type"] == "image" {
+			id, _ := b["id"].(string)
+			out = append(out, id)
+		}
+	}
+	return out
+}
+
+// TestBoostyPublishesTheCardAsAPost is the flow end to end through the real
+// binary: a slot, the bytes in a numbered part, a completion, and one create
+// call carrying the picture and the caption.
+func TestBoostyPublishesTheCardAsAPost(t *testing.T) {
+	f := newFakes(t)
+	dir, env := boostyProject(t, f, `    caption: "{{ .title }} {{ .version }}\n\nthe card"`)
+
+	res := crier(t, dir, env, "publish", "--json")
+	if res.Code != exitOK {
+		t.Fatalf("code=%d stderr=%s", res.Code, res.Stderr)
+	}
+	var rep struct {
+		Results []struct {
+			Platform string `json:"platform"`
+			OK       bool   `json:"ok"`
+			ID       string `json:"id"`
+			URL      string `json:"url"`
+			Error    string `json:"error"`
+		} `json:"results"`
+	}
+	if err := json.Unmarshal([]byte(res.Stdout), &rep); err != nil {
+		t.Fatalf("%v\n%s", err, res.Stdout)
+	}
+	if len(rep.Results) != 1 || rep.Results[0].Platform != "boosty" || !rep.Results[0].OK {
+		t.Fatalf("results = %+v", rep.Results)
+	}
+	if rep.Results[0].URL != "https://boosty.to/"+boostyBlog+"/posts/e2e-post" {
+		t.Errorf("url = %q", rep.Results[0].URL)
+	}
+
+	// The bytes went to the upload host as a numbered part, not to the API one.
+	part, ok := f.find("/boosty-upload/upload/")
+	if !ok {
+		t.Fatal("the picture never reached the upload host")
+	}
+	if part.Header.Get("X-PartNumber") != "1" {
+		t.Errorf("X-PartNumber = %q, want parts numbered from one", part.Header.Get("X-PartNumber"))
+	}
+	if part.Header.Get("Content-Type") != "application/octet-stream" {
+		t.Errorf("content type = %q", part.Header.Get("Content-Type"))
+	}
+	if len(part.Body) == 0 {
+		t.Error("the part carried no bytes")
+	}
+	if part.Header.Get("Authorization") != "Bearer boosty-token" {
+		t.Errorf("the upload host got %q", part.Header.Get("Authorization"))
+	}
+
+	// The caption became text blocks and the first line became the title.
+	form := boostyCreate(t, f)
+	if got := form.Get("title"); got != "end to end 9.9.9" {
+		t.Errorf("title = %q, want the caption's first line", got)
+	}
+	// The inner array is a JSON string inside the outer one, so it appears
+	// escaped. That nesting is the encoding, not an accident of the test.
+	for _, want := range []string{
+		`{"type":"text","content":"[\"end to end 9.9.9\",\"unstyled\",[]]","modificator":""}`,
+		`{"type":"text","content":"","modificator":"BLOCK_END"}`,
+		`{"type":"text","content":"[\"the card\",\"unstyled\",[]]","modificator":""}`,
+		`"type":"image"`, `"uploadId":"bo-1"`,
+	} {
+		if !strings.Contains(form.Get("data"), want) {
+			t.Errorf("the content blocks are missing %s:\n%s", want, form.Get("data"))
+		}
+	}
+	// Free is the default, and it is two zeroes on the wire.
+	if form.Get("price") != "0" || form.Get("subscription_level_id") != "0" {
+		t.Errorf("price=%q level=%q, want a post everybody can read",
+			form.Get("price"), form.Get("subscription_level_id"))
+	}
+}
+
+// TestBoostyPagesBecomeOneBoostyPost: a paginated run is one post carrying the
+// pages in order, which is the thing an album-shaped platform is for.
+//
+// The fake mints file ids in arrival order, so the ids the post names being
+// bo-1, bo-2, bo-3 is the proof that the pages went up in order and were
+// listed in the order they went up.
+func TestBoostyPagesBecomeOneBoostyPost(t *testing.T) {
+	f := newFakes(t)
+	dir := newPagedProject(t, strings.Join([]string{
+		"  boosty:",
+		"    enabled: true",
+		"    blog: " + boostyBlog,
+		"    access-token: boosty-token",
+		"    max-attachments: 3",
+	}, "\n")+"\n")
+	writeFile(t, dir, "template.html", strings.Replace(pagedTemplate,
+		`<div class="b">page four</div><div class="b">page five</div>`, "", 1))
+
+	res := crier(t, dir, boostyEnv(f), "publish")
+	if res.Code != exitOK {
+		t.Fatalf("code=%d stderr=%s", res.Code, res.Stderr)
+	}
+	if n := len(f.findAll("/boosty/v1/blog/" + boostyBlog + "/post/")); n != 1 {
+		t.Fatalf("%d posts were created, want three pages in one", n)
+	}
+	if n := f.count("/boosty-upload/image"); n != 3 {
+		t.Errorf("%d upload slots were opened, want one per page", n)
+	}
+	if got := strings.Join(boostyImageIDs(t, f), ","); got != "bo-1,bo-2,bo-3" {
+		t.Errorf("image blocks = %q, want the pages in the order they went up", got)
+	}
+}
+
+// TestBoostyPaidPostCarriesThePrice, because a post that was meant to be
+// bought and went out free cannot be taken back.
+func TestBoostyPaidPostCarriesThePrice(t *testing.T) {
+	f := newFakes(t)
+	dir, env := boostyProject(t, f,
+		"    access: paid",
+		"    price: 300",
+		"    currency: RUB",
+	)
+
+	res := crier(t, dir, env, "publish")
+	if res.Code != exitOK {
+		t.Fatalf("code=%d stderr=%s", res.Code, res.Stderr)
+	}
+	form := boostyCreate(t, f)
+	if form.Get("price") != "300" {
+		t.Errorf("price = %q", form.Get("price"))
+	}
+	if form.Get("subscription_level_id") != "0" {
+		t.Errorf("a one-time price is not a tier: subscription_level_id = %q",
+			form.Get("subscription_level_id"))
+	}
+	req, _ := f.find("/boosty/v1/blog/" + boostyBlog + "/post/")
+	if req.Header.Get("X-Currency") != "RUB" {
+		t.Errorf("X-Currency = %q, which is what the price is quoted in", req.Header.Get("X-Currency"))
+	}
+}
+
+// TestBoostyAccessLevelIsRefusedWithoutItsKey: paid with no price and level
+// with no id would both be a free post, so neither reaches the network.
+func TestBoostyAccessLevelIsRefusedWithoutItsKey(t *testing.T) {
+	for _, tc := range []struct{ name, set, want string }{
+		{"paid", "    access: paid", "publish.boosty.price"},
+		{"level", "    access: level", "publish.boosty.level-id"},
+		{"unknown", "    access: patrons", "publish.boosty.access"},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			f := newFakes(t)
+			dir, env := boostyProject(t, f, tc.set)
+
+			res := crier(t, dir, env, "publish")
+			if res.Code != exitConfig {
+				t.Fatalf("code=%d stderr=%s", res.Code, res.Stderr)
+			}
+			if !strings.Contains(res.Stderr, tc.want) {
+				t.Errorf("the refusal should name %s:\n%s", tc.want, res.Stderr)
+			}
+			if len(f.all()) != 0 {
+				t.Errorf("it made %d requests before refusing", len(f.all()))
+			}
+		})
+	}
+}
+
+// TestBoostyNeedsABlog, because there is no default and nothing to guess.
+func TestBoostyNeedsABlog(t *testing.T) {
+	f := newFakes(t)
+	dir := newProject(t, strings.Join([]string{
+		"  boosty:",
+		"    enabled: true",
+		"    access-token: boosty-token",
+	}, "\n")+"\n")
+
+	res := crier(t, dir, boostyEnv(f), "publish")
+	if res.Code != exitConfig {
+		t.Fatalf("code=%d stderr=%s", res.Code, res.Stderr)
+	}
+	if !strings.Contains(res.Stderr, "publish.boosty.blog") {
+		t.Errorf("the refusal should name the key: %s", res.Stderr)
+	}
+	if len(f.all()) != 0 {
+		t.Errorf("it made %d requests before refusing", len(f.all()))
+	}
+}
+
+// TestBoostyBadTokenIsAPartialFailure: boosty fails, telegram still posts, and
+// the run is exit four rather than exit five.
+func TestBoostyBadTokenIsAPartialFailure(t *testing.T) {
+	f := newFakes(t)
+	dir := newProject(t, enableTwo(f)+"\n"+strings.Join([]string{
+		"  boosty:",
+		"    enabled: true",
+		"    blog: " + boostyBlog,
+		"    access-token: bad-token",
+	}, "\n")+"\n")
+
+	res := crier(t, dir, boostyEnv(f), "publish")
+	if res.Code != exitPartial {
+		t.Fatalf("code=%d stderr=%s stdout=%s", res.Code, res.Stderr, res.Stdout)
+	}
+	if !strings.Contains(res.Stdout, "boosty") || !strings.Contains(res.Stdout, "failed") {
+		t.Errorf("the failing platform should be named in the table:\n%s", res.Stdout)
+	}
+	// Nothing was posted for it, and the run did not stop the others.
+	if _, ok := f.find("/boosty/v1/blog/" + boostyBlog + "/post/"); ok {
+		t.Error("a post was created with a refused token")
+	}
+	if _, ok := f.find("/sendPhoto"); !ok {
+		t.Error("one platform's failure cancelled another's")
+	}
+	// With no refresh credentials there is nothing to renew with, and crier
+	// says so rather than trying.
+	if _, ok := f.find("/boosty/oauth/token/"); ok {
+		t.Error("it tried to refresh with no refresh token configured")
+	}
+	if !strings.Contains(res.Stderr, "refresh-token") {
+		t.Errorf("the warning should say why the token could not be renewed:\n%s", res.Stderr)
+	}
+}
+
+// TestBoostyRenewsAnExpiredTokenAndCarriesOn is the auth model through the
+// real binary: the configured access token is stale, the refresh pair renews
+// it once, and the post lands.
+func TestBoostyRenewsAnExpiredTokenAndCarriesOn(t *testing.T) {
+	f := newFakes(t)
+	dir, env := boostyProject(t, f,
+		"    refresh-token: boosty-refresh",
+		"    device-id: e2e-device",
+	)
+	// "bad-token" is refused everywhere by the fakes, which is what an access
+	// token that ran out between runs looks like.
+	env = append(env, "CRIER_PUBLISH_BOOSTY_ACCESS_TOKEN=bad-token")
+
+	res := crier(t, dir, env, "publish")
+	if res.Code != exitOK {
+		t.Fatalf("code=%d stderr=%s", res.Code, res.Stderr)
+	}
+	if n := f.count("/boosty/oauth/token/"); n != 1 {
+		t.Errorf("the token was refreshed %d times, want once per run", n)
+	}
+	if _, ok := f.find("/boosty/v1/blog/" + boostyBlog + "/post/"); !ok {
+		t.Error("the post never went out after the refresh")
+	}
+	// Boosty spends the refresh token it was given, so the replacement has to
+	// reach the operator.
+	if !strings.Contains(res.Stderr, "boosty-refresh-2") {
+		t.Errorf("the new refresh token was not reported:\n%s", res.Stderr)
+	}
+}
+
+// TestBoostyPingNamesTheBlog, which is the answer a setup is asking for.
+func TestBoostyPingNamesTheBlog(t *testing.T) {
+	f := newFakes(t)
+	dir, env := boostyProject(t, f)
+
+	res := crier(t, dir, env, "ping")
+	if res.Code != exitOK {
+		t.Fatalf("code=%d stderr=%s", res.Code, res.Stderr)
+	}
+	if !strings.Contains(res.Stdout, "Crier HQ") {
+		t.Errorf("the blog should be in the table:\n%s", res.Stdout)
+	}
+	if _, ok := f.find("/boosty-upload/"); ok {
+		t.Error("ping uploaded something")
 	}
 }
 

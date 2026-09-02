@@ -194,9 +194,10 @@ type Publish struct {
 	VK        VK
 	Threads   Threads
 	YouTube   YouTube
+	Boosty    Boosty
 
 	// Custom are script-backed platforms, keyed by the name the configuration
-	// gave them. They are peers of the thirteen above: they take part in the
+	// gave them. They are peers of the fourteen above: they take part in the
 	// fan-out, in the render variants, in caption templating, in `crier ping`
 	// and in a dry run.
 	//
@@ -454,6 +455,54 @@ type YouTube struct {
 	// needs a phone-verified channel, so a failure here is a warning rather
 	// than a failed post.
 	Thumbnail string
+}
+
+// Boosty configures the boosty.to publisher.
+//
+// Boosty publishes no API documentation. What these keys describe is the
+// undocumented service the Boosty web app itself calls, which is what every
+// community client binds, and it can change without notice. Both hosts are
+// keys for that reason as much as for the tests: media goes to an upload host
+// and everything else to the API host, and a change on either can be worked
+// around without a new release.
+//
+// The credentials are a browser session's rather than an app's. There is no
+// developer console to register with, so the access token is copied out of a
+// signed-in session and it expires. RefreshToken and DeviceID are what let
+// crier renew it, and Boosty spends a refresh token every time one is used.
+type Boosty struct {
+	Layout
+	Music
+	LeadVideo
+
+	Enabled    bool
+	APIBaseURL string
+	// UploadBaseURL is the media host. It is a different origin from the API
+	// host, and the same bearer token reaches both.
+	UploadBaseURL string
+	// Blog is the slug in boosty.to/<blog>, which is how every call names the
+	// blog it acts on.
+	Blog        string
+	AccessToken string
+	// RefreshToken and DeviceID are both halves of one thing: a refresh needs
+	// the pair, and either alone can never run.
+	RefreshToken string
+	DeviceID     string
+	// Access is free, paid or level. It is one key here and two numbers on the
+	// wire, because the API has no field of this name: a price is a one-time
+	// purchase and a subscription level id is a tier.
+	Access string
+	// Price is the one-time price, in Currency. It means something only when
+	// Access is paid.
+	Price int
+	// LevelID is the subscription level the post is limited to. It means
+	// something only when Access is level.
+	LevelID string
+	// Currency is what Price is quoted in. It travels as a header, which is
+	// how the API is told which of a blog's currencies a number is in.
+	Currency string
+	Title    string
+	Caption  string
 }
 
 // Reddit configures the Reddit publisher.

@@ -50,6 +50,11 @@ func textFields(cfg *config.Config, platform string) []textField {
 			{"publish.youtube.caption", &p.YouTube.Caption, true},
 			{"publish.youtube.title", &p.YouTube.Title, false},
 		}
+	case "boosty":
+		return []textField{
+			{"publish.boosty.caption", &p.Boosty.Caption, true},
+			{"publish.boosty.title", &p.Boosty.Title, false},
+		}
 	case "mastodon":
 		return []textField{
 			{"publish.mastodon.caption", &p.Mastodon.Caption, true},

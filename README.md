@@ -1,6 +1,6 @@
 # crier
 
-Render an HTML template to an image or a video, and publish it to thirteen social platforms with one command.
+Render an HTML template to an image or a video, and publish it to fourteen social platforms with one command.
 
 ```sh
 cd my-project && crier
@@ -10,7 +10,7 @@ Provide one layout, one data file, and one config. Instagram gets a story, Disco
 
 crier finds the configuration by walking up from where you are. It works the way git finds a repository. Publishing is what it does with no arguments. So the everyday flow is: change directory, run `crier`.
 
-- **Thirteen platforms.** Instagram, Facebook, TikTok, Telegram, X, Mastodon, Discord, LinkedIn, Reddit, Slack, VK, Threads, and YouTube. Publish images, video, and animated GIFs. You can also use any shell script you like as a [platform of your own](./docs/publishing/custom.md).
+- **Fourteen platforms.** Instagram, Facebook, TikTok, Telegram, X, Mastodon, Discord, LinkedIn, Reddit, Slack, VK, Threads, YouTube, and Boosty. Publish images, video, and animated GIFs. You can also use any shell script you like as a [platform of your own](./docs/publishing/custom.md).
 - **HTML and CSS you already know.** Use gradients, web fonts, SVG, and blend modes. They are laid out by a pure-Go engine and painted by a rasterizer written for it. There is no headless browser.
 - **One layout, many shapes.** Use template overlays and per-platform sizes. One card becomes a story and a banner without a second template.
 - **Configuration that composes.** Set every value in a file, an environment variable, or a flag. The file is found by walking up from where you are, the way git finds a repository.
@@ -118,7 +118,7 @@ The `crier init` command names a template and a data file. You need to write the
 
 ```yaml
 title: crier ships v1
-subtitle: One template, thirteen platforms, one command.
+subtitle: One template, fourteen platforms, one command.
 ```
 
 Next, fill in the `crier.yaml` file. The `init` command already created it.
@@ -166,7 +166,7 @@ render:
 
 ```sh
 CARD_TITLE="crier ships v1" \
-CARD_SUBTITLE="One template, thirteen platforms, one command." \
+CARD_SUBTITLE="One template, fourteen platforms, one command." \
   crier render
 ```
 

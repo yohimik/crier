@@ -350,6 +350,7 @@ func validatePublish(p *Publish) []error {
 			strconv.Itoa(p.YouTube.MaxAttachments),
 			"a youtube upload is one video; there is no carousel here to lower"))
 	}
+	errs = append(errs, validateBoosty(&p.Boosty)...)
 
 	errs = append(errs, validateMusic(p)...)
 	errs = append(errs, validateLeadVideo(p)...)
@@ -376,8 +377,37 @@ func validatePublish(p *Publish) []error {
 	return errs
 }
 
+// validateBoosty checks the access level and the key that goes with it.
+//
+// The three levels share one call at the API and differ only in two numbers,
+// which is exactly the arrangement where a missing key produces a post rather
+// than an error: an access of paid with no price would be free, and an access
+// of level with no level id would be free as well. Neither is what was asked
+// for, and neither can be taken back once the post is up.
+func validateBoosty(b *Boosty) []error {
+	var errs []error
+	switch strings.ToLower(strings.TrimSpace(b.Access)) {
+	case "free":
+	case "paid":
+		if b.Price <= 0 {
+			errs = append(errs, invalid("publish.boosty.price", strconv.Itoa(b.Price),
+				"want more than 0 when publish.boosty.access is paid"))
+		}
+	case "level":
+		if strings.TrimSpace(b.LevelID) == "" {
+			errs = append(errs, missing("publish.boosty.level-id", "publish.boosty.access is level"))
+		}
+	default:
+		errs = append(errs, invalid("publish.boosty.access", b.Access, "want free, paid or level"))
+	}
+	if b.Price < 0 {
+		errs = append(errs, invalid("publish.boosty.price", strconv.Itoa(b.Price), "want 0 or more"))
+	}
+	return errs
+}
+
 // MusicOf returns a platform's own audio setting, or nil when the name is not
-// one of the thirteen built-in platforms.
+// one of the fourteen built-in platforms.
 //
 // A custom platform has none. Its command decides what it sends, so an audio
 // file crier attached for it would be a file the command never sees.
@@ -409,6 +439,8 @@ func MusicOf(p *Publish, name string) *Music {
 		return &p.Threads.Music
 	case "youtube":
 		return &p.YouTube.Music
+	case "boosty":
+		return &p.Boosty.Music
 	default:
 		return nil
 	}
@@ -432,7 +464,7 @@ func MusicFileFor(p *Publish, name string) string {
 }
 
 // LeadVideoOf returns a platform's opening clip, or nil when the name is not
-// one of the thirteen built-in platforms.
+// one of the fourteen built-in platforms.
 func LeadVideoOf(p *Publish, name string) *LeadVideo {
 	switch name {
 	case "instagram":
@@ -461,6 +493,8 @@ func LeadVideoOf(p *Publish, name string) *LeadVideo {
 		return &p.Threads.LeadVideo
 	case "youtube":
 		return &p.YouTube.LeadVideo
+	case "boosty":
+		return &p.Boosty.LeadVideo
 	default:
 		return nil
 	}
@@ -513,6 +547,8 @@ func LayoutOf(p *Publish, name string) *Layout {
 		return &p.Threads.Layout
 	case "youtube":
 		return &p.YouTube.Layout
+	case "boosty":
+		return &p.Boosty.Layout
 	default:
 		if c := CustomOf(p, name); c != nil {
 			return &c.Layout

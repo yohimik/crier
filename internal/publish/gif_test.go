@@ -19,7 +19,7 @@ func gifArtifact(t *testing.T, size int) render.Artifact {
 }
 
 // TestGIFSupportMatrix is the routing table as a test: seven platforms take an
-// animation and six do not, and a configuration that mixes them has to fail
+// animation and seven do not, and a configuration that mixes them has to fail
 // before anything is rendered rather than at the API.
 func TestGIFSupportMatrix(t *testing.T) {
 	const at = "https://example.test"
@@ -35,6 +35,7 @@ func TestGIFSupportMatrix(t *testing.T) {
 		"vk":        vkConfig(at, vkCommunity),
 		"threads":   threadsConfig(at),
 		"youtube":   youtubeConfig(at, at),
+		"boosty":    boostyConfig(at, at),
 	}
 	discord := config.Defaults()
 	discord.Publish.Discord.Enabled = true
@@ -53,14 +54,17 @@ func TestGIFSupportMatrix(t *testing.T) {
 		"vk":        true,
 		"instagram": false, "facebook": false, "tiktok": false, "linkedin": false,
 		"threads": false,
-		"youtube": false,
+		"youtube": false, "boosty": false,
 	} {
 		p := onlyPublisher(t, byName[name])
 		if got := p.Needs().Accepts(render.KindGIF); got != want {
 			t.Errorf("%s accepts a GIF = %t, want %t", name, got, want)
 		}
-		// Every platform still takes a video, GIF support or not.
-		if !p.Needs().Accepts(render.KindVideo) {
+		// Every platform still takes a video, GIF support or not. Boosty is
+		// the one exception, and it is a deliberate one: its upload host has an
+		// endpoint per media kind and nothing pins the video one, so a clip
+		// there would be a guess rather than a post.
+		if name != "boosty" && !p.Needs().Accepts(render.KindVideo) {
 			t.Errorf("%s stopped accepting video", name)
 		}
 	}

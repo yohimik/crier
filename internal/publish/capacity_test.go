@@ -34,6 +34,7 @@ func TestEveryPlatformDeclaresItsCapacity(t *testing.T) {
 	p.Threads.Token, p.Threads.UserID = "t", "u"
 	p.YouTube.ClientID, p.YouTube.ClientSecret = "i", "s"
 	p.YouTube.RefreshToken = "r"
+	p.Boosty.Blog, p.Boosty.AccessToken = "crier", "t"
 
 	want := map[string]int{
 		// Documented by the platform.
@@ -49,6 +50,7 @@ func TestEveryPlatformDeclaresItsCapacity(t *testing.T) {
 		"discord":  10,
 		"slack":    10,
 		"vk":       10, // wall.post, "no more than 10 media objects"
+		"boosty":   10, // boosty documents nothing and no client names a limit
 		"mastodon": 4,  // the instance's max_media_attachments; 4 is the default
 		// One at a time, on purpose.
 		"reddit":  1, // galleries need an endpoint reddit does not document
@@ -69,6 +71,7 @@ func TestEveryPlatformDeclaresItsCapacity(t *testing.T) {
 		p.VK.Enabled = name == "vk"
 		p.Threads.Enabled = name == "threads"
 		p.YouTube.Enabled = name == "youtube"
+		p.Boosty.Enabled = name == "boosty"
 
 		pubs, err := Build(&cfg, testDeps(t))
 		if err != nil {

@@ -39,6 +39,11 @@ type fakes struct {
 	// by the id in the Location it handed out, so a PUT can be checked against
 	// a session that exists rather than against a string.
 	youtubeSessions map[string]string
+	// boostyFiles maps a minted Boosty file id to the bytes its parts carried,
+	// and boostyDone records which of them completion was called on. A post is
+	// only accepted when every picture it names is in the second map.
+	boostyFiles map[string]int
+	boostyDone  map[string]bool
 }
 
 type request struct {
@@ -54,6 +59,8 @@ func newFakes(t *testing.T) *fakes {
 	f := &fakes{
 		threadsContainers: map[string]url.Values{},
 		youtubeSessions:   map[string]string{},
+		boostyFiles:       map[string]int{},
+		boostyDone:        map[string]bool{},
 	}
 	f.Server = httptest.NewServer(http.HandlerFunc(f.serve))
 	f.uploadHost = f.URL
@@ -102,8 +109,8 @@ func (f *fakes) count(fragment string) int {
 }
 
 // serve routes by path prefix. Every platform gets a namespace of its own so
-// the config can point fourteen base URLs at one server: thirteen platforms,
-// and YouTube's second host for its token.
+// the config can point sixteen base URLs at one server: fourteen platforms,
+// YouTube's second host for its token, and Boosty's separate upload host.
 func (f *fakes) serve(w http.ResponseWriter, r *http.Request) {
 	req := f.record(r)
 	path := req.Path
@@ -364,6 +371,19 @@ func (f *fakes) serve(w http.ResponseWriter, r *http.Request) {
 		f.youtubeToken(w, req)
 	case strings.HasPrefix(path, "/youtube/"), strings.HasPrefix(path, "/youtube-upload/"):
 		f.serveYouTube(w, req)
+
+	// --- boosty -----------------------------------------------------------
+	//
+	// Two hosts again, and for a different reason than YouTube's: media goes to
+	// an upload host and everything else to the API host, and the same bearer
+	// reaches both. The refresh comes first because its credentials travel in
+	// the form body, where the shared bad-token rule cannot see them.
+	case path == "/boosty/oauth/token/":
+		f.boostyToken(w, req)
+	case strings.HasPrefix(path, "/boosty/"):
+		f.serveBoosty(w, req)
+	case strings.HasPrefix(path, "/boosty-upload/"):
+		f.serveBoostyUpload(w, req)
 
 	default:
 		http.Error(w, "no fake for "+path, http.StatusNotFound)
@@ -708,6 +728,130 @@ func (f *fakes) youtubeConfig() string {
 `, f.URL)
 }
 
+// boostyBlog is the blog every Boosty fake here posts in.
+const boostyBlog = "crierhq"
+
+// boostyToken is the refresh, which is the one Boosty call that carries no
+// usable bearer: the credentials are in the form body, so the shared bad-token
+// rule at the top of serve cannot see them.
+func (f *fakes) boostyToken(w http.ResponseWriter, req request) {
+	form, _ := url.ParseQuery(req.Body)
+	if form.Get("refresh_token") == "bad-token" || form.Get("device_id") == "" {
+		w.WriteHeader(http.StatusBadRequest)
+		writeJSON(w, map[string]any{"error": "invalid_grant"})
+		return
+	}
+	writeJSON(w, map[string]any{
+		"access_token": "boosty-token", "refresh_token": "boosty-refresh-2", "expires_in": 3600,
+	})
+}
+
+// serveBoostyUpload is the media host, and the half of the contract that says
+// how a picture gets to Boosty.
+//
+// The linkage is enforced rather than answered. A file id is minted by the
+// slot call, a part without an X-PartNumber is refused the way the real host
+// refuses it, and completion needs bytes to have arrived — so an upload
+// assembled out of the wrong steps shows up as a failed run.
+func (f *fakes) serveBoostyUpload(w http.ResponseWriter, req request) {
+	rest := strings.TrimPrefix(req.Path, "/boosty-upload/")
+
+	switch {
+	case rest == "image":
+		f.mu.Lock()
+		id := fmt.Sprintf("bo-%d", len(f.boostyFiles)+1)
+		f.boostyFiles[id] = 0
+		f.mu.Unlock()
+		writeJSON(w, map[string]any{"fileId": id})
+
+	case strings.HasPrefix(rest, "upload/") && strings.HasSuffix(rest, "/complete"):
+		id := strings.TrimSuffix(strings.TrimPrefix(rest, "upload/"), "/complete")
+		f.mu.Lock()
+		got := f.boostyFiles[id]
+		if got > 0 {
+			f.boostyDone[id] = true
+		}
+		f.mu.Unlock()
+		if got == 0 {
+			boostyRefuse(w, "nothing was uploaded to "+id)
+			return
+		}
+		writeJSON(w, map[string]any{"fileId": id})
+
+	case strings.HasPrefix(rest, "upload/"):
+		id := strings.TrimPrefix(rest, "upload/")
+		if req.Header.Get("X-PartNumber") == "" {
+			boostyRefuse(w, "a part needs an X-PartNumber header")
+			return
+		}
+		f.mu.Lock()
+		_, ok := f.boostyFiles[id]
+		if ok {
+			f.boostyFiles[id] += len(req.Body)
+		}
+		f.mu.Unlock()
+		if !ok {
+			boostyRefuse(w, "no such upload: "+id)
+			return
+		}
+		writeJSON(w, map[string]any{"ok": true})
+
+	default:
+		http.Error(w, "no boosty upload fake for "+req.Path, http.StatusNotFound)
+	}
+}
+
+// serveBoosty is the API host: the blog read that ping uses, and the create
+// call that is the post itself.
+//
+// A post is refused unless every image block it carries names a file this fake
+// finished, so a post whose pictures went nowhere fails rather than passes.
+func (f *fakes) serveBoosty(w http.ResponseWriter, req request) {
+	rest := strings.TrimPrefix(req.Path, "/boosty/")
+
+	switch rest {
+	case "v1/blog/" + boostyBlog:
+		writeJSON(w, map[string]any{
+			"title": "Crier HQ", "blogUrl": boostyBlog, "isOwner": true,
+			"owner":        map[string]any{"id": 4242, "name": "Crier"},
+			"accessRights": map[string]any{"canCreate": true},
+		})
+
+	case "v1/blog/" + boostyBlog + "/post/":
+		form, _ := url.ParseQuery(req.Body)
+		if strings.TrimSpace(form.Get("title")) == "" {
+			boostyRefuse(w, "a post needs a title")
+			return
+		}
+		var blocks []map[string]any
+		if err := json.Unmarshal([]byte(form.Get("data")), &blocks); err != nil {
+			boostyRefuse(w, "data is not an array of content blocks: "+err.Error())
+			return
+		}
+		f.mu.Lock()
+		defer f.mu.Unlock()
+		for _, b := range blocks {
+			if b["type"] != "image" {
+				continue
+			}
+			id, _ := b["id"].(string)
+			if !f.boostyDone[id] {
+				boostyRefuse(w, "the post names a picture that was never finished: "+id)
+				return
+			}
+		}
+		writeJSON(w, map[string]any{"id": "e2e-post", "int_id": 5150, "title": form.Get("title")})
+
+	default:
+		http.Error(w, "no boosty fake for "+req.Path, http.StatusNotFound)
+	}
+}
+
+func boostyRefuse(w http.ResponseWriter, why string) {
+	w.WriteHeader(http.StatusBadRequest)
+	writeJSON(w, map[string]any{"error": "bad_request", "error_description": why})
+}
+
 func threadsRefuse(w http.ResponseWriter, why string) {
 	w.WriteHeader(http.StatusBadRequest)
 	writeJSON(w, map[string]any{"error": map[string]any{"message": why, "code": 100}})
@@ -767,6 +911,11 @@ func (f *fakes) platformConfig() string {
     user-id: th-user
     poll-interval: 1ms
     poll-timeout: 5s
+  boosty:
+    api-base-url: %[1]s/boosty
+    upload-base-url: %[1]s/boosty-upload
+    blog: crierhq
+    access-token: boosty-token
   reddit:
     api-base-url: %[1]s/reddit
     auth-base-url: %[1]s/reddit-auth

@@ -45,6 +45,7 @@ func Bindings(cfg *Config) map[string]Binding {
 	ig, fb, tt, tg := &p.Instagram, &p.Facebook, &p.TikTok, &p.Telegram
 	x, ma, dc, li, rd := &p.X, &p.Mastodon, &p.Discord, &p.LinkedIn, &p.Reddit
 	sl, vk, th, yt := &p.Slack, &p.VK, &p.Threads, &p.YouTube
+	bo := &p.Boosty
 	vid := &r.Video
 
 	out := map[string]Binding{
@@ -233,6 +234,20 @@ func Bindings(cfg *Config) map[string]Binding {
 		"publish.youtube.category-id":    bindString(&yt.CategoryID),
 		"publish.youtube.privacy-status": bindString(&yt.PrivacyStatus),
 		"publish.youtube.thumbnail":      bindString(&yt.Thumbnail),
+
+		"publish.boosty.enabled":         bindBool(&bo.Enabled),
+		"publish.boosty.api-base-url":    bindString(&bo.APIBaseURL),
+		"publish.boosty.upload-base-url": bindString(&bo.UploadBaseURL),
+		"publish.boosty.blog":            bindString(&bo.Blog),
+		"publish.boosty.access-token":    bindString(&bo.AccessToken),
+		"publish.boosty.refresh-token":   bindString(&bo.RefreshToken),
+		"publish.boosty.device-id":       bindString(&bo.DeviceID),
+		"publish.boosty.access":          bindString(&bo.Access),
+		"publish.boosty.price":           bindInt(&bo.Price),
+		"publish.boosty.level-id":        bindString(&bo.LevelID),
+		"publish.boosty.currency":        bindString(&bo.Currency),
+		"publish.boosty.title":           bindString(&bo.Title),
+		"publish.boosty.caption":         bindString(&bo.Caption),
 	}
 
 	// The layout keys are generated exactly like their descriptors are, so a
@@ -242,7 +257,7 @@ func Bindings(cfg *Config) map[string]Binding {
 		"telegram": &tg.Layout, "x": &x.Layout, "mastodon": &ma.Layout,
 		"discord": &dc.Layout, "linkedin": &li.Layout, "reddit": &rd.Layout,
 		"slack": &sl.Layout, "vk": &vk.Layout, "threads": &th.Layout,
-		"youtube": &yt.Layout,
+		"youtube": &yt.Layout, "boosty": &bo.Layout,
 	} {
 		out["publish."+name+".overlay"] = bindStrings(&l.Overlay)
 		out["publish."+name+".width"] = bindInt(&l.Width)
@@ -253,27 +268,27 @@ func Bindings(cfg *Config) map[string]Binding {
 	}
 
 	// The audio file, the same way. Every platform has the key, including the
-	// ten that cannot use it: the value is refused by Validate with a reason,
+	// eleven that cannot use it: the value is refused by Validate with a reason,
 	// rather than by the decoder as a key nobody has heard of.
 	for name, m := range map[string]*Music{
 		"instagram": &ig.Music, "facebook": &fb.Music, "tiktok": &tt.Music,
 		"telegram": &tg.Music, "x": &x.Music, "mastodon": &ma.Music,
 		"discord": &dc.Music, "linkedin": &li.Music, "reddit": &rd.Music,
 		"slack": &sl.Music, "vk": &vk.Music, "threads": &th.Music,
-		"youtube": &yt.Music,
+		"youtube": &yt.Music, "boosty": &bo.Music,
 	} {
 		out["publish."+name+".music-file"] = bindString(&m.File)
 	}
 
 	// The opening clip, on the same terms as the audio: every platform has the
-	// key, and the eleven that cannot post mixed media are answered by Validate
+	// key, and the twelve that cannot post mixed media are answered by Validate
 	// with the reason rather than by the decoder with a shrug.
 	for name, v := range map[string]*LeadVideo{
 		"instagram": &ig.LeadVideo, "facebook": &fb.LeadVideo, "tiktok": &tt.LeadVideo,
 		"telegram": &tg.LeadVideo, "x": &x.LeadVideo, "mastodon": &ma.LeadVideo,
 		"discord": &dc.LeadVideo, "linkedin": &li.LeadVideo, "reddit": &rd.LeadVideo,
 		"slack": &sl.LeadVideo, "vk": &vk.LeadVideo, "threads": &th.LeadVideo,
-		"youtube": &yt.LeadVideo,
+		"youtube": &yt.LeadVideo, "boosty": &bo.LeadVideo,
 	} {
 		out["publish."+name+".lead-video"] = bindString(&v.File)
 	}

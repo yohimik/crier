@@ -97,6 +97,7 @@ var Platforms = []string{
 	"vk",
 	"threads",
 	"youtube",
+	"boosty",
 }
 
 // MusicPlatforms are the platforms whose API can carry an audio file beside
@@ -363,10 +364,36 @@ var registry = []Descriptor{
 	{Key: "publish.youtube.thumbnail", Kind: KindString, Path: true,
 		Usage: "JPEG or PNG set as the video's thumbnail; it needs a phone-verified channel, " +
 			"so a refusal is a warning rather than a failed post"},
+
+	{Key: "publish.boosty.enabled", Kind: KindBool, Usage: "publish to a Boosty blog"},
+	{Key: "publish.boosty.api-base-url", Kind: KindString, Default: "https://api.boosty.to",
+		Usage: "Boosty API base URL; the API is unofficial and undocumented, so it is configurable"},
+	{Key: "publish.boosty.upload-base-url", Kind: KindString, Default: "https://upload.boosty.to",
+		Usage: "Boosty upload host; media goes here rather than to the API host"},
+	{Key: "publish.boosty.blog", Kind: KindString,
+		Usage: "blog to post in: the slug in boosty.to/<blog>"},
+	{Key: "publish.boosty.access-token", Kind: KindString, Secret: true,
+		Usage: "Boosty access token, taken from a signed-in browser session; it expires"},
+	{Key: "publish.boosty.refresh-token", Kind: KindString, Secret: true,
+		Usage: "Boosty refresh token; with device-id it renews an expired access token, " +
+			"and boosty replaces it every time it is used"},
+	{Key: "publish.boosty.device-id", Kind: KindString, Secret: true,
+		Usage: "the browser session's device id, which a refresh will not run without"},
+	{Key: "publish.boosty.access", Kind: KindString, Default: "free",
+		Usage: "who can read the post: free, paid (a one-time price) or level (a subscription tier)"},
+	{Key: "publish.boosty.price", Kind: KindInt,
+		Usage: "one-time price the post is unlocked by, in publish.boosty.currency; required when access is paid"},
+	{Key: "publish.boosty.level-id", Kind: KindString,
+		Usage: "subscription level id the post is limited to; required when access is level"},
+	{Key: "publish.boosty.currency", Kind: KindString, Default: "RUB",
+		Usage: "currency publish.boosty.price is quoted in, sent as the X-Currency header"},
+	{Key: "publish.boosty.title", Kind: KindString,
+		Usage: "Boosty post title; empty uses the caption's first line"},
+	{Key: "publish.boosty.caption", Kind: KindString, Usage: "Boosty specific post text"},
 }
 
 // layoutDescriptors are the three keys every platform has for overriding what
-// gets rendered for it. They are generated rather than written out thirteen
+// gets rendered for it. They are generated rather than written out fourteen
 // times, because a platform silently missing one would be a hole nobody
 // notices.
 func layoutDescriptors(platform string) []Descriptor {

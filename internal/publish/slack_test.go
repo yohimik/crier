@@ -345,7 +345,7 @@ func TestSlackIsAPeer(t *testing.T) {
 	if !found {
 		t.Errorf("built = %v, want slack among them", built)
 	}
-	if len(Names()) != 13 {
-		t.Errorf("crier knows %d platforms, want thirteen", len(Names()))
+	if len(Names()) != 14 {
+		t.Errorf("crier knows %d platforms, want fourteen", len(Names()))
 	}
 }
