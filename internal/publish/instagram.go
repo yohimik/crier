@@ -247,15 +247,29 @@ func (i *Instagram) publishContainer(ctx context.Context, id string) (Result, er
 	}, nil
 }
 
-// igMediaNotReady recognises error 9007, the one publish refusal that means
-// nothing happened. Meta marks it is_transient: false, but its own message
-// says to wait a moment, and waiting is what works.
+// igMediaNotReady recognises the publish refusals that mean nothing
+// happened, of which Meta has served two so far, both marked is_transient:
+// false and both cured by waiting:
+//
+//   - 9007, "Media ID is not available": the container polled FINISHED while
+//     the media was still becoming publishable. Seen on rc.3.
+//   - 24 with subcode 2207006, "Media Not Found": the very container this
+//     process created and polled seconds earlier "does not exist" at the
+//     publish endpoint — replication lag wearing a different costume. Seen
+//     on rc.5, again on the first story seconds behind the carousel. A
+//     container that does not exist published nothing, which is what makes
+//     asking again safe; one that is genuinely gone spends the budget and
+//     surfaces the same error.
 func igMediaNotReady(err error) bool {
 	var api *httpx.APIError
 	if !errors.As(err, &api) {
 		return false
 	}
-	return bytes.Contains(api.Body, []byte(`"code":9007`))
+	if bytes.Contains(api.Body, []byte(`"code":9007`)) {
+		return true
+	}
+	return bytes.Contains(api.Body, []byte(`"code":24`)) &&
+		bytes.Contains(api.Body, []byte(`"error_subcode":2207006`))
 }
 
 // permalink asks Instagram where the post ended up.

@@ -48,6 +48,45 @@ func TestInstagramRetriesTheNotReadyPublish(t *testing.T) {
 	}
 }
 
+// TestInstagramRetriesTheVanishedContainer: rc.5's costume for the same
+// race — the container this process created "does not exist" at the publish
+// endpoint for a moment. Nothing was published from a container that does
+// not exist, so asking again is safe.
+func TestInstagramRetriesTheVanishedContainer(t *testing.T) {
+	rejections := 0
+	srv := fakeServer(t, func(w http.ResponseWriter, r *http.Request) {
+		switch r.URL.Path {
+		case "/123/media":
+			_, _ = w.Write([]byte(`{"id":"c1"}`))
+		case "/c1":
+			_, _ = w.Write([]byte(`{"status_code":"FINISHED"}`))
+		case "/123/media_publish":
+			if rejections == 0 {
+				rejections++
+				w.WriteHeader(http.StatusBadRequest)
+				_, _ = w.Write([]byte(`{"error":{"message":"The requested resource does not exist","type":"OAuthException","code":24,"error_subcode":2207006,"is_transient":false}}`))
+				return
+			}
+			_, _ = w.Write([]byte(`{"id":"p1"}`))
+		case "/p1":
+			_, _ = w.Write([]byte(`{"permalink":"https://www.instagram.com/stories/x/1/"}`))
+		default:
+			w.WriteHeader(http.StatusNotFound)
+		}
+	})
+
+	p := onlyPublisher(t, instagramConfig(srv.URL))
+	res, err := p.Publish(context.Background(), Input{
+		Artifact: imageArtifact(t), URL: "https://cdn.example/x.jpg",
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if rejections != 1 || res.ID != "p1" {
+		t.Errorf("rejections=%d res=%+v", rejections, res)
+	}
+}
+
 // TestInstagramDoesNotRetryOtherPublishFailures: everything that is not the
 // not-ready refusal keeps the old rule — publishing may have happened, so it
 // is never repeated.

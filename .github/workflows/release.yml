@@ -106,6 +106,13 @@ jobs:
           sudo apt-get install -y -qq ngrok
           ngrok version
 
+      # The anthem story is a video, and the runner image carries no ffmpeg
+      # of its own — the announce script checks and skips without it, which is
+      # how one release went out silent.
+      - name: Install ffmpeg
+        if: env.CRIER_PUBLISH_INSTAGRAM_TOKEN != ''
+        run: sudo apt-get install -y -qq ffmpeg >/dev/null && ffmpeg -version | head -1
+
       - name: Release
         id: dispat
         env:
