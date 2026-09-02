@@ -6,9 +6,12 @@ import (
 	"encoding/json"
 	"fmt"
 	"net"
+	"net/http"
+	"net/http/httptest"
 	"path/filepath"
 	"regexp"
 	"strings"
+	"sync"
 	"testing"
 )
 
@@ -410,5 +413,71 @@ func TestRenderWritesEveryPage(t *testing.T) {
 		if cfg, format := decodeImage(t, path); format != "png" || cfg.Width != 240 {
 			t.Errorf("%s is a %s of %dx%d", name, format, cfg.Width, cfg.Height)
 		}
+	}
+}
+
+// TestSmokeStoriesRecoverFromNotReady: what rc.3 hit in the wild. A container
+// can poll FINISHED while Meta is still making the media publishable, and
+// media_publish then answers error 9007. That refusal created no post, so the
+// shipped binary has to ask again rather than stop the story sequence — and
+// still stop on every other refusal. This runs in the release smoke because
+// the failure only ever shows up against real timing, so the recovery is the
+// part that must be proven on the bytes being shipped.
+func TestSmokeStoriesRecoverFromNotReady(t *testing.T) {
+	var mu sync.Mutex
+	rejected := 0
+	published := 0
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		mu.Lock()
+		defer mu.Unlock()
+		switch {
+		case strings.HasSuffix(r.URL.Path, "/ig-user/media"):
+			writeJSON(w, map[string]any{"id": "c1"})
+		case strings.HasSuffix(r.URL.Path, "/c1"):
+			writeJSON(w, map[string]any{"status_code": "FINISHED"})
+		case strings.HasSuffix(r.URL.Path, "/ig-user/media_publish"):
+			if rejected == 0 {
+				rejected++
+				w.WriteHeader(http.StatusBadRequest)
+				writeJSON(w, map[string]any{"error": map[string]any{
+					"message": "Media ID is not available", "type": "OAuthException",
+					"code": 9007, "error_subcode": 2207027, "is_transient": false,
+				}})
+				return
+			}
+			published++
+			writeJSON(w, map[string]any{"id": "p1"})
+		case strings.HasSuffix(r.URL.Path, "/p1"):
+			writeJSON(w, map[string]any{"permalink": "https://www.instagram.com/stories/x/1/"})
+		default:
+			w.WriteHeader(http.StatusNotFound)
+		}
+	}))
+	t.Cleanup(srv.Close)
+
+	addr := freeAddr(t)
+	dir := newProject(t, strings.Join([]string{
+		"  instagram:",
+		"    enabled: true",
+		"    api-base-url: " + srv.URL,
+		"    token: t",
+		"    user-id: ig-user",
+		"    story: true",
+		"    poll-interval: 1ms",
+		"    poll-timeout: 5s",
+	}, "\n")+"\nstage:\n  mode: server\n  server:\n    listen: "+addr+
+		"\n    public-url: http://"+addr+"\n")
+
+	res := crier(t, dir, nil, "publish", "--json")
+	if res.Code != exitOK {
+		t.Fatalf("code=%d stderr=%s", res.Code, res.Stderr)
+	}
+	mu.Lock()
+	defer mu.Unlock()
+	if rejected != 1 {
+		t.Errorf("the fake rejected %d publishes, want the scripted 1", rejected)
+	}
+	if published != 1 {
+		t.Errorf("the story published %d times after the refusal, want exactly 1", published)
 	}
 }
