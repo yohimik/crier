@@ -1,5 +1,21 @@
 # Changelog
 
+## v1.0.0-rc.17 (2026-09-02)
+
+### Fixes
+
+- the card stops undercounting its platforms ([06b5a29](https://github.com/yohimik/crier/commit/06b5a29728ac3084d714911b8b7f2025c9eb581f)) (by yohimik, Claude Fable 5)
+  The cover's lede still said ten while the caption under it said
+  fourteen: the card was written before four platforms landed and no
+  sweep ever reached announce/. Both layouts now agree with the caption,
+  and the committed previews are redrawn at their pinned seed.
+
+### Authors
+
+- yohimik
+- Claude Fable 5
+
+
 ## v1.0.0-rc.16 (2026-09-02)
 
 ### Fixes
