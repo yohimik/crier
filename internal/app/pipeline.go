@@ -231,42 +231,104 @@ func (p *Pipeline) Data() (any, error) {
 	return data, nil
 }
 
+// Page is one laid-out page of a document, encoded into every format the run
+// needs.
+//
+// A document that fits on one page has one of these, which is what every run
+// was before pagination existed.
+type Page struct {
+	// Images are the encoded stills of this page, by format.
+	Images map[config.Format]render.Artifact
+	// URL is where this page was staged, empty when nothing needed staging.
+	URL string
+}
+
 // Artifacts is what one variant produced.
 type Artifacts struct {
 	Variant Variant
-	// Images are the encoded stills, by format.
-	Images map[config.Format]render.Artifact
-	// Video is the encoded clip, when video rendering is on.
+	// Pages are the encoded stills, one per laid-out page, in page order.
+	Pages []Page
+	// Video is the encoded clip, when video rendering is on. A clip is never
+	// paginated: it is one file however long it runs.
 	Video *render.Artifact
 	// Poster is the first frame as a still, for platforms that need one
 	// alongside a video.
 	Poster *render.Artifact
 
-	// URL is where the primary artifact was staged, empty when nothing needed
-	// staging.
-	URL string
 	// PosterURL is where the poster was staged.
 	PosterURL string
 }
 
-// Primary is the artifact a publisher posts: the video when there is one, and
-// the preferred still otherwise.
+// First is the first page, or an empty one when nothing was encoded.
+//
+// It is what the single-file paths — the render report, staging a clip, the
+// dry-run plan — are asking for when they ask for "the" artifact.
+func (a Artifacts) First() Page {
+	if len(a.Pages) == 0 {
+		return Page{Images: map[config.Format]render.Artifact{}}
+	}
+	return a.Pages[0]
+}
+
+// URL is where the first page was staged.
+func (a Artifacts) URL() string { return a.First().URL }
+
+// Primary is the artifact a publisher posts first: the video when there is one,
+// and the first page's preferred still otherwise.
 func (a Artifacts) Primary(needs publish.Needs) (render.Artifact, error) {
+	arts, err := a.Sequence(needs)
+	if err != nil {
+		return render.Artifact{}, err
+	}
+	return arts[0], nil
+}
+
+// Sequence is every artifact a publisher posts, in page order.
+//
+// A clip is one artifact whatever the page count, because a clip is one file.
+// Stills are one per page, and the order is the page order — the run's single
+// ordered page list, which every platform receives identically.
+func (a Artifacts) Sequence(needs publish.Needs) ([]render.Artifact, error) {
 	if a.Video != nil {
 		// The artifact's own kind, not KindVideo: a GIF lives in this field
 		// too, and four platforms take a video and not an animation. Asking
 		// the wrong question here would upload a GIF to Instagram as if it
 		// were an MP4.
 		if !needs.Accepts(a.Video.Kind) {
-			return render.Artifact{}, fmt.Errorf("this platform does not take %s", a.Video.Kind)
+			return nil, fmt.Errorf("this platform does not take %s", a.Video.Kind)
 		}
-		return *a.Video, nil
+		return []render.Artifact{*a.Video}, nil
 	}
-	art, ok := needs.Prefers(a.Images)
-	if !ok {
-		return render.Artifact{}, fmt.Errorf("none of the encoded formats is one this platform accepts")
+	if len(a.Pages) == 0 {
+		return nil, fmt.Errorf("nothing was encoded to publish")
 	}
-	return art, nil
+	if !needs.Accepts(render.KindImage) {
+		return nil, fmt.Errorf("this platform does not take %s", render.KindImage)
+	}
+	out := make([]render.Artifact, 0, len(a.Pages))
+	for i, page := range a.Pages {
+		art, ok := needs.Prefers(page.Images)
+		if !ok {
+			return nil, fmt.Errorf("none of the encoded formats is one this platform accepts")
+		}
+		if art.Kind != render.KindImage {
+			// A page list is images. Mixing kinds across pages would make a
+			// carousel that some platforms take and others silently truncate.
+			return nil, fmt.Errorf("page %d is %s; a paged post has to be images throughout",
+				i+1, art.Kind)
+		}
+		out = append(out, art)
+	}
+	return out, nil
+}
+
+// URLs is where every page was staged, in page order.
+func (a Artifacts) URLs() []string {
+	out := make([]string, 0, len(a.Pages))
+	for _, p := range a.Pages {
+		out = append(out, p.URL)
+	}
+	return out
 }
 
 // Variants groups the enabled platforms by what they need rendered.
@@ -377,7 +439,7 @@ func (p *Pipeline) Render(ctx context.Context, v Variant, data any, formats []co
 		return p.fromFrames(ctx, v)
 	}
 
-	out := Artifacts{Variant: v, Images: map[config.Format]render.Artifact{}}
+	out := Artifacts{Variant: v}
 
 	if p.cfg.Render.Video.Enabled {
 		video, poster, err := p.renderVideo(ctx, v, data)
@@ -388,22 +450,43 @@ func (p *Pipeline) Render(ctx context.Context, v Variant, data any, formats []co
 		return out, nil
 	}
 
-	img, err := p.renderFrame(ctx, v, data, nil)
+	imgs, err := p.renderPages(ctx, v, data)
 	if err != nil {
 		return out, err
 	}
-	img = p.applyFit(v, img)
 	enc := p.encoder()
-	for _, format := range formats {
-		art, err := enc.Encode(img, format, v.Key())
-		if err != nil {
-			return out, fail(ExitRender, err)
+	for i, img := range imgs {
+		// The fit is per page: every page is made to match the platform's
+		// frame on its own, so a carousel is a set of pictures the same shape.
+		img = p.applyFit(v, img)
+		page := Page{Images: map[config.Format]render.Artifact{}}
+		for _, format := range formats {
+			art, err := enc.Encode(img, format, pageKey(v, i, len(imgs)))
+			if err != nil {
+				return out, fail(ExitRender, err)
+			}
+			page.Images[format] = art
+			p.log.Debug().Str("variant", v.Name()).Str("format", string(format)).
+				Int("page", i+1).Int("pages", len(imgs)).
+				Str("path", art.Path).Int64("bytes", art.Size).Msg("encoded a page")
 		}
-		out.Images[format] = art
-		p.log.Debug().Str("variant", v.Name()).Str("format", string(format)).
-			Str("path", art.Path).Int64("bytes", art.Size).Msg("encoded an image")
+		out.Pages = append(out.Pages, page)
+	}
+	if len(imgs) > 1 {
+		p.log.Info().Str("variant", v.Name()).Int("pages", len(imgs)).
+			Msg("the document laid out into several pages")
 	}
 	return out, nil
+}
+
+// pageKey names a page's encoded files. A single-page run keeps the name it
+// always had, so nothing that reads a rendered file by name has to learn about
+// pagination to keep working.
+func pageKey(v Variant, i, total int) string {
+	if total <= 1 {
+		return v.Key()
+	}
+	return fmt.Sprintf("%s-p%02d", v.Key(), i+1)
 }
 
 // PosterFor produces the still that goes alongside a clip crier was handed.
@@ -436,10 +519,8 @@ func (p *Pipeline) fromInput(formats []config.Format) (Artifacts, error) {
 	if err != nil {
 		return Artifacts{}, err
 	}
-	out := Artifacts{
-		Variant: Variant{Width: art.Width, Height: art.Height},
-		Images:  map[config.Format]render.Artifact{},
-	}
+	out := Artifacts{Variant: Variant{Width: art.Width, Height: art.Height}}
+	page := Page{Images: map[config.Format]render.Artifact{}}
 	p.log.Info().Str("file", art.Path).Str("kind", string(art.Kind)).
 		Int64("bytes", art.Size).Int("width", art.Width).Int("height", art.Height).
 		Msg("publishing an existing file")
@@ -449,24 +530,25 @@ func (p *Pipeline) fromInput(formats []config.Format) (Artifacts, error) {
 		return out, nil
 	}
 
-	out.Images[art.Format] = art
+	page.Images[art.Format] = art
 	img, err := decodeFrame(art.Path)
 	if err != nil {
 		return out, fail(ExitRender, err)
 	}
 	enc := p.encoder()
 	for _, format := range formats {
-		if _, have := out.Images[format]; have {
+		if _, have := page.Images[format]; have {
 			continue
 		}
 		transcoded, err := enc.Encode(img, format, "input")
 		if err != nil {
 			return out, fail(ExitRender, err)
 		}
-		out.Images[format] = transcoded
+		page.Images[format] = transcoded
 		p.log.Info().Str("from", string(art.Format)).Str("to", string(format)).
 			Str("path", transcoded.Path).Msg("transcoded the input for a platform that needs it")
 	}
+	out.Pages = []Page{page}
 	return out, nil
 }
 
@@ -494,7 +576,7 @@ func (p *Pipeline) fromFrames(ctx context.Context, v Variant) (Artifacts, error)
 		Str("first", filepath.Base(files[0])).Str("last", filepath.Base(files[len(files)-1])).
 		Msg("encoding frames from disk")
 
-	out := Artifacts{Variant: v, Images: map[config.Format]render.Artifact{}}
+	out := Artifacts{Variant: v}
 
 	// The first frame doubles as the poster, as it does for a rendered clip.
 	poster, err := p.encoder().Encode(first, config.JPEG, "frames-poster")
@@ -558,10 +640,54 @@ func (p *Pipeline) encoder() render.Encoder {
 	return render.Encoder{Dir: p.dir, JPEGQuality: p.cfg.Render.JPEGQuality, Background: bg}
 }
 
-// renderFrame executes the template and lays the result out.
+// renderPages lays the document out and keeps every page it produced.
+//
+// This is the whole of pagination on the rendering side. Laying out was always
+// producing pages; what changed is that crier keeps them all rather than
+// refusing anything past the first.
+func (p *Pipeline) renderPages(ctx context.Context, v Variant, data any) ([]*image.RGBA, error) {
+	opts, err := p.renderOptions(v, data, nil)
+	if err != nil {
+		return nil, err
+	}
+	pages, err := render.Render(ctx, opts)
+	if err != nil {
+		return nil, fail(ExitRender, err)
+	}
+	// The ceiling is checked after the layout rather than before, because the
+	// page count is not knowable until the content has flowed. A runaway loop
+	// in a template is caught here rather than at the platform, which would
+	// have taken the first ten and said nothing about the rest.
+	if max := p.cfg.Render.PagesMax; max > 0 && len(pages) > max {
+		return nil, failf(ExitRender,
+			"the document laid out into %d pages and render.pages-max is %d; "+
+				"shorten the content, raise render.pages-max (up to %d), or raise render.height",
+			len(pages), max, config.MaxPages)
+	}
+	return pages, nil
+}
+
+// renderFrame executes the template and lays the result out as a single page.
 //
 // frameVars is nil for a still and carries .Video for one frame of a clip.
+// Video is the one caller left: a clip's frames are each one page by
+// definition, and a frame that overflowed would be a template bug rather than
+// a document to paginate.
 func (p *Pipeline) renderFrame(ctx context.Context, v Variant, data any, frameVars map[string]any) (*image.RGBA, error) {
+	opts, err := p.renderOptions(v, data, frameVars)
+	if err != nil {
+		return nil, err
+	}
+	img, err := render.RenderOne(ctx, opts)
+	if err != nil {
+		return nil, fail(ExitRender, err)
+	}
+	return img, nil
+}
+
+// renderOptions assembles what one layout needs: the executed template, the
+// extra stylesheets, the page size and the fonts.
+func (p *Pipeline) renderOptions(v Variant, data any, frameVars map[string]any) (render.Options, error) {
 	r := &p.cfg.Render
 	extra := map[string]any{}
 	if frameVars != nil {
@@ -572,21 +698,21 @@ func (p *Pipeline) renderFrame(ctx context.Context, v Variant, data any, frameVa
 	// ninety times for a video reads standard input once.
 	html, err := p.execute(p.template, v.Overlays, data, extra)
 	if err != nil {
-		return nil, err
+		return render.Options{}, err
 	}
 
 	css, err := readAllFiles(r.CSS)
 	if err != nil {
-		return nil, fail(ExitRender, err)
+		return render.Options{}, fail(ExitRender, err)
 	}
 	bg, _ := config.ParseColor(r.Background)
 
 	base, err := baseURL(r.BaseURL)
 	if err != nil {
-		return nil, fail(ExitConfig, err)
+		return render.Options{}, fail(ExitConfig, err)
 	}
 
-	img, err := render.RenderOne(ctx, render.Options{
+	return render.Options{
 		HTML:        html,
 		BaseURL:     base,
 		Width:       v.Width,
@@ -598,11 +724,7 @@ func (p *Pipeline) renderFrame(ctx context.Context, v Variant, data any, frameVa
 		ExtraCSS:    css,
 		Fonts:       p.fonts,
 		Logger:      p.log,
-	})
-	if err != nil {
-		return nil, fail(ExitRender, err)
-	}
-	return img, nil
+	}, nil
 }
 
 // execute renders the template with the data already in hand.
@@ -771,16 +893,30 @@ func (p *Pipeline) Stage(ctx context.Context, stager stage.Stager, a *Artifacts,
 	if !needsURL {
 		return nil
 	}
-	primary, err := stagedAsset(a)
-	if err != nil {
-		return fail(ExitStaging, err)
+	// A clip is one file, so it stages once and lands on the first page. Stills
+	// stage one page at a time: a platform that fetches by URL fetches every
+	// page of a carousel, so every page needs an address of its own.
+	if a.Video != nil {
+		obj, err := stager.Stage(ctx, videoAsset(a.Video))
+		if err != nil {
+			return fail(ExitStaging, err)
+		}
+		a.Pages = []Page{{Images: map[config.Format]render.Artifact{}, URL: obj.URL}}
+		p.onCleanup(obj.Remove)
+	} else {
+		for i := range a.Pages {
+			asset, err := stagedAsset(a.Pages[i])
+			if err != nil {
+				return fail(ExitStaging, err)
+			}
+			obj, err := stager.Stage(ctx, asset)
+			if err != nil {
+				return fail(ExitStaging, fmt.Errorf("page %d: %w", i+1, err))
+			}
+			a.Pages[i].URL = obj.URL
+			p.onCleanup(obj.Remove)
+		}
 	}
-	obj, err := stager.Stage(ctx, primary)
-	if err != nil {
-		return fail(ExitStaging, err)
-	}
-	a.URL = obj.URL
-	p.onCleanup(obj.Remove)
 
 	if needsPoster && a.Poster != nil {
 		posterObj, err := stager.Stage(ctx, stage.Asset{
@@ -798,18 +934,19 @@ func (p *Pipeline) Stage(ctx context.Context, stager stage.Stager, a *Artifacts,
 	return nil
 }
 
-// stagedAsset picks what a variant publishes by URL.
-func stagedAsset(a *Artifacts) (stage.Asset, error) {
-	if a.Video != nil {
-		return stage.Asset{
-			Path: a.Video.Path, ContentType: a.Video.ContentType,
-			Name: filepath.Base(a.Video.Path), Size: a.Video.Size,
-		}, nil
+func videoAsset(a *render.Artifact) stage.Asset {
+	return stage.Asset{
+		Path: a.Path, ContentType: a.ContentType,
+		Name: filepath.Base(a.Path), Size: a.Size,
 	}
+}
+
+// stagedAsset picks what one page publishes by URL.
+func stagedAsset(p Page) (stage.Asset, error) {
 	// JPEG is what the URL-fetching platforms want; PNG is the fallback for a
 	// run that produced only that.
 	for _, f := range []config.Format{config.JPEG, config.PNG} {
-		if art, ok := a.Images[f]; ok {
+		if art, ok := p.Images[f]; ok {
 			return stage.Asset{
 				Path: art.Path, ContentType: art.ContentType,
 				Name: filepath.Base(art.Path), Size: art.Size,

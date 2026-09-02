@@ -60,13 +60,13 @@ func stagePipeline(t *testing.T) *Pipeline {
 func TestStageOnlyWhenSomethingNeedsIt(t *testing.T) {
 	p := stagePipeline(t)
 	st := &countingStager{}
-	arts := Artifacts{Images: map[config.Format]render.Artifact{
+	arts := Artifacts{Pages: []Page{{Images: map[config.Format]render.Artifact{
 		config.PNG: {Path: "/tmp/card.png", ContentType: "image/png", Format: config.PNG},
-	}}
+	}}}}
 	if err := p.Stage(context.Background(), st, &arts, false, false); err != nil {
 		t.Fatal(err)
 	}
-	if len(st.staged) != 0 || arts.URL != "" {
+	if len(st.staged) != 0 || arts.URL() != "" {
 		t.Errorf("it staged %v for a run that needed no URL", st.staged)
 	}
 }
@@ -86,14 +86,14 @@ func TestStagePosterAlongsideTheClip(t *testing.T) {
 	if len(st.staged) != 2 {
 		t.Fatalf("staged %v, want the clip and its poster", st.staged)
 	}
-	if arts.URL == "" || arts.PosterURL == "" {
-		t.Errorf("urls = %q and %q", arts.URL, arts.PosterURL)
+	if arts.URL() == "" || arts.PosterURL == "" {
+		t.Errorf("urls = %q and %q", arts.URL(), arts.PosterURL)
 	}
 
 	// A poster nobody asked for is not staged.
 	st2 := &countingStager{}
 	arts2 := arts
-	arts2.URL, arts2.PosterURL = "", ""
+	arts2.Pages, arts2.PosterURL = nil, ""
 	if err := p.Stage(context.Background(), st2, &arts2, true, false); err != nil {
 		t.Fatal(err)
 	}
@@ -106,9 +106,9 @@ func TestStagePosterAlongsideTheClip(t *testing.T) {
 // publish failure, because nothing was ever sent to a platform.
 func TestStageFailureIsAStagingError(t *testing.T) {
 	p := stagePipeline(t)
-	arts := Artifacts{Images: map[config.Format]render.Artifact{
+	arts := Artifacts{Pages: []Page{{Images: map[config.Format]render.Artifact{
 		config.PNG: {Path: "/tmp/card.png", ContentType: "image/png", Format: config.PNG},
-	}}
+	}}}}
 	err := p.Stage(context.Background(), failingStager{err: errors.New("access denied")},
 		&arts, true, false)
 	if err == nil || codeOf(err) != ExitStaging {
@@ -126,7 +126,7 @@ func TestStageFailureIsAStagingError(t *testing.T) {
 	}
 
 	// Nothing to stage at all is a staging error naming the gap.
-	empty := Artifacts{Images: map[config.Format]render.Artifact{}}
+	empty := Artifacts{Pages: []Page{{Images: map[config.Format]render.Artifact{}}}}
 	if err := p.Stage(context.Background(), &countingStager{}, &empty, true, false); err == nil {
 		t.Error("there is nothing to stage; that should be an error")
 	}

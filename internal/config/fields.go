@@ -61,6 +61,7 @@ func Bindings(cfg *Config) map[string]Binding {
 		"render.height":         bindInt(&r.Height),
 		"render.scale":          bindString(&r.Scale),
 		"render.supersample":    bindInt(&r.SuperSample),
+		"render.pages-max":      bindInt(&r.PagesMax),
 		"render.format":         bindString(&r.Format),
 		"render.jpeg-quality":   bindInt(&r.JPEGQuality),
 		"render.output":         bindString(&r.Output),

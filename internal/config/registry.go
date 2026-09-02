@@ -130,6 +130,7 @@ var registry = []Descriptor{
 	{Key: "render.height", Kind: KindInt, Default: "1920", Usage: "output height in CSS pixels (0 lets the document's @page rule decide)"},
 	{Key: "render.scale", Kind: KindFloat, Default: "1", Usage: "device pixel ratio: output pixels per CSS pixel (max 4)"},
 	{Key: "render.supersample", Kind: KindInt, Default: "1", Usage: "extra supersampling factor applied on top of scale, then downsampled"},
+	{Key: "render.pages-max", Kind: KindInt, Default: "10", Usage: "most pages a document may lay out into; content past it is refused (hard cap 20)"},
 	{Key: "render.format", Kind: KindString, Default: "png", Usage: "output image format: png or jpeg"},
 	{Key: "render.jpeg-quality", Kind: KindInt, Default: "90", Usage: "JPEG quality, 1 to 100"},
 	{Key: "render.output", Kind: KindString, Path: true, Usage: "output file path; empty writes into a temporary directory"},

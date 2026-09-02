@@ -798,11 +798,11 @@ func TestPlaceOutputCopies(t *testing.T) {
 }
 
 func TestStagedAssetPrefersJPEG(t *testing.T) {
-	a := &Artifacts{Images: map[config.Format]render.Artifact{
+	page := Page{Images: map[config.Format]render.Artifact{
 		config.PNG:  {Path: "/a.png", ContentType: "image/png"},
 		config.JPEG: {Path: "/a.jpg", ContentType: "image/jpeg"},
 	}}
-	got, err := stagedAsset(a)
+	got, err := stagedAsset(page)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -810,12 +810,11 @@ func TestStagedAssetPrefersJPEG(t *testing.T) {
 		t.Errorf("got %q, want the JPEG the URL-fetching platforms need", got.Path)
 	}
 
-	a = &Artifacts{Video: &render.Artifact{Path: "/a.mp4"}}
-	if got, _ := stagedAsset(a); got.Path != "/a.mp4" {
-		t.Errorf("a video should be staged over anything else, got %q", got.Path)
+	if got := videoAsset(&render.Artifact{Path: "/a.mp4"}); got.Path != "/a.mp4" {
+		t.Errorf("a video stages as itself, got %q", got.Path)
 	}
 
-	if _, err := stagedAsset(&Artifacts{}); err == nil {
+	if _, err := stagedAsset(Page{}); err == nil {
 		t.Error("nothing encoded means nothing to stage")
 	}
 }

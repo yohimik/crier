@@ -42,6 +42,7 @@ type Render struct {
 	Height        int
 	Scale         string
 	SuperSample   int
+	PagesMax      int
 	Format        string
 	JPEGQuality   int
 	Output        string

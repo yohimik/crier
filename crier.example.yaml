@@ -314,6 +314,8 @@ render:
   output: ""
   # template files parsed after the base one, redefining its {{block}} sections
   overlays: []
+  # most pages a document may lay out into; content past it is refused (hard cap 20)
+  pages-max: 10
   # a pool of base templates; one is chosen at random per run
   pool: []
   # device pixel ratio: output pixels per CSS pixel (max 4)

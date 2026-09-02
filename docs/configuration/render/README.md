@@ -18,6 +18,7 @@ What is drawn, how large, in which format, and with which fonts.
 | `render.media-type`<br>`CRIER_RENDER_MEDIA_TYPE`<br>`--render-media-type` | string | `screen` | CSS media type used for the cascade: screen or print |
 | `render.output`<br>`CRIER_RENDER_OUTPUT`<br>`--render-output` | string, path | — | output file path; empty writes into a temporary directory |
 | `render.overlays`<br>`CRIER_RENDER_OVERLAYS`<br>`--render-overlays` | list, path | — | template files parsed after the base one, redefining its {{block}} sections |
+| `render.pages-max`<br>`CRIER_RENDER_PAGES_MAX`<br>`--render-pages-max` | int | `10` | most pages a document may lay out into; content past it is refused (hard cap 20) |
 | `render.pool`<br>`CRIER_RENDER_POOL`<br>`--render-pool` | list, path | — | a pool of base templates; one is chosen at random per run |
 | `render.scale`<br>`CRIER_RENDER_SCALE`<br>`--render-scale` | float | `1` | device pixel ratio: output pixels per CSS pixel (max 4) |
 | `render.seed`<br>`CRIER_RENDER_SEED`<br>`--render-seed` | int | — | seed for the template randomisation; 0 draws a new one and logs it |

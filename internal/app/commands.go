@@ -34,6 +34,9 @@ type RenderReport struct {
 	Files   []string `json:"files"`
 	Width   int      `json:"width"`
 	Height  int      `json:"height"`
+	// Pages is how many pages the document laid out into, when it was more
+	// than one.
+	Pages int `json:"pages,omitempty"`
 }
 
 func (a App) runRender(ctx context.Context, args []string) error {
@@ -106,17 +109,23 @@ func (a App) runRender(ctx context.Context, args []string) error {
 		rep.Files = []string{path}
 		rep.Width, rep.Height = arts.Video.Width, arts.Video.Height
 	} else {
-		art := arts.Images[format]
-		path, err := placeOutput(s.Config.Render.Output, art.Path, format.Ext())
-		if err != nil {
-			return fail(ExitRender, err)
+		// Every page is written out, numbered when there is more than one, so
+		// `crier render` on a paginated template hands back the whole set.
+		for i, page := range arts.Pages {
+			art := page.Images[format]
+			path, err := placeOutput(numbered(s.Config.Render.Output, i, len(arts.Pages)),
+				art.Path, format.Ext())
+			if err != nil {
+				return fail(ExitRender, err)
+			}
+			rep.Files = append(rep.Files, path)
+			rep.Width, rep.Height = art.Width, art.Height
 		}
-		rep.Files = []string{path}
-		rep.Width, rep.Height = art.Width, art.Height
+		rep.Pages = len(arts.Pages)
 	}
 
 	s.Log.Info().Str("file", rep.Files[0]).Int("width", rep.Width).Int("height", rep.Height).
-		Str("variant", rep.Variant).Msg("rendered")
+		Int("pages", len(rep.Files)).Str("variant", rep.Variant).Msg("rendered")
 
 	if asJSON {
 		return writeJSON(a.Stdout, rep)
@@ -370,7 +379,7 @@ func (a App) runPublish(ctx context.Context, args []string) error {
 			}
 		}
 
-		vr := VariantReport{Name: v.Name(), Platforms: v.Platforms, URL: arts.URL}
+		vr := VariantReport{Name: v.Name(), Platforms: v.Platforms, URL: arts.URL()}
 		for _, art := range sortedArtifacts(arts) {
 			vr.Files = append(vr.Files, art.Path)
 			vr.Width, vr.Height = art.Width, art.Height
@@ -388,7 +397,7 @@ func (a App) runPublish(ctx context.Context, args []string) error {
 			}
 			in := publish.Input{
 				Artifact:  art,
-				URL:       arts.URL,
+				URL:       arts.URL(),
 				Caption:   caption,
 				Poster:    arts.Poster,
 				PosterURL: arts.PosterURL,
@@ -467,15 +476,28 @@ func sortedArtifacts(a Artifacts) []render.Artifact {
 	if a.Video != nil {
 		out = append(out, *a.Video)
 	}
-	formats := make([]config.Format, 0, len(a.Images))
-	for f := range a.Images {
-		formats = append(formats, f)
-	}
-	sort.Slice(formats, func(i, j int) bool { return formats[i] < formats[j] })
-	for _, f := range formats {
-		out = append(out, a.Images[f])
+	for _, page := range a.Pages {
+		formats := make([]config.Format, 0, len(page.Images))
+		for f := range page.Images {
+			formats = append(formats, f)
+		}
+		sort.Slice(formats, func(i, j int) bool { return formats[i] < formats[j] })
+		for _, f := range formats {
+			out = append(out, page.Images[f])
+		}
 	}
 	return out
+}
+
+// numbered inserts a page number into an output path, so a paginated render
+// writes card-1.png, card-2.png rather than overwriting itself. A single-page
+// render keeps the path it was given.
+func numbered(out string, i, total int) string {
+	if total <= 1 || strings.TrimSpace(out) == "" {
+		return out
+	}
+	ext := filepath.Ext(out)
+	return fmt.Sprintf("%s-%d%s", strings.TrimSuffix(out, ext), i+1, ext)
 }
 
 func (a App) printPublish(rep PublishReport, asJSON bool) error {

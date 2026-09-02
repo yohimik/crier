@@ -21,6 +21,13 @@ const (
 	MaxScale = 4
 	// MaxSuperSample is the largest extra supersampling factor.
 	MaxSuperSample = 4
+	// MaxPages is the hard ceiling on render.pages-max.
+	//
+	// It is above every platform's own carousel limit bar Reddit's, so the
+	// binding limit on a post is nearly always the platform's rather than
+	// this one. It exists so a template with a runaway loop fails instead of
+	// rendering until the machine gives out.
+	MaxPages = 20
 	// MaxVideoFrames caps a clip, because a frame is a full page layout and a
 	// mistyped duration would otherwise run for hours.
 	MaxVideoFrames = 36000
@@ -142,6 +149,10 @@ func validateRender(r *Render) error {
 	if r.SuperSample < 1 || r.SuperSample > MaxSuperSample {
 		errs = append(errs, invalid("render.supersample", strconv.Itoa(r.SuperSample),
 			fmt.Sprintf("want 1 to %d", MaxSuperSample)))
+	}
+	if r.PagesMax < 1 || r.PagesMax > MaxPages {
+		errs = append(errs, invalid("render.pages-max", strconv.Itoa(r.PagesMax),
+			fmt.Sprintf("want 1 to %d", MaxPages)))
 	}
 	if _, err := ParseFormat(r.Format); err != nil {
 		errs = append(errs, invalid("render.format", r.Format, "want png or jpeg"))
