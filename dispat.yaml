@@ -22,16 +22,15 @@ tagFormat: v{version}
 # `uses: yohimik/crier@v1` — the Marketplace only accepts that ref shape, so the
 # composite action needs a moving major tag beside the exact one.
 #
-# There is deliberately no moving `v{major}` alias. dispat refuses one here —
-# a `v1` beside `tagFormat: v{version}` would be found first as the newest
-# tag when reading the package's history back, and it does not parse as a
-# version — and the tagFormat itself cannot grow a path prefix, because a Go
-# module at the repository root releases under bare vX.Y.Z tags or
-# `go install …@v1.2.3` stops resolving. So the composite action is pinned to
-# an exact version (`uses: yohimik/crier@v1.2.3`), which the docs present as
-# the supply-chain-sound default anyway. If a floating `@v1` ever becomes
-# worth having, it belongs in a separate `setup-crier` action repository, the
-# way actions/setup-go carries one for Go.
+# `channels: [stable]` is the whole point of the scoping: a release candidate
+# must never drag v1 forward. Someone pinned to @v1 asked for the stable line,
+# and 1.0.0-rc.0 answering that would hand them a prerelease they did not ask
+# for. The tag therefore does not exist at all until the first stable release,
+# which is worth saying in the README rather than leaving people to discover.
+aliasTags:
+  - format: v{major}
+    moving: true
+    channels: [stable]
 
 parser:
   # The channels this repository releases on. dispat needs no declaration to
