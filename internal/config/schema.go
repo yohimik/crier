@@ -106,6 +106,18 @@ type Music struct {
 	File string
 }
 
+// LeadVideo is the clip that opens a platform's post, ahead of the pages.
+//
+// It sits beside Music for the same reason Music sits beside Layout: every
+// platform has the field, it is generated the same way, and Validate refuses a
+// value on a platform whose API cannot use it. Its File is reached through
+// LeadVideoOf rather than through the promoted name, which Music also spells
+// File.
+type LeadVideo struct {
+	// File is a video file on this machine. Empty posts none.
+	File string
+}
+
 // HTTP configures the shared HTTP client used by every publisher and stager.
 type HTTP struct {
 	Timeout        string
@@ -229,6 +241,7 @@ type Custom struct {
 type Slack struct {
 	Layout
 	Music
+	LeadVideo
 
 	Enabled    bool
 	APIBaseURL string
@@ -242,6 +255,7 @@ type Slack struct {
 type Instagram struct {
 	Layout
 	Music
+	LeadVideo
 
 	Enabled      bool
 	APIBaseURL   string
@@ -257,6 +271,7 @@ type Instagram struct {
 type Facebook struct {
 	Layout
 	Music
+	LeadVideo
 
 	Enabled    bool
 	APIBaseURL string
@@ -271,6 +286,7 @@ type Facebook struct {
 type TikTok struct {
 	Layout
 	Music
+	LeadVideo
 
 	Enabled      bool
 	APIBaseURL   string
@@ -290,6 +306,7 @@ type TikTok struct {
 type Telegram struct {
 	Layout
 	Music
+	LeadVideo
 
 	Enabled    bool
 	APIBaseURL string
@@ -302,6 +319,7 @@ type Telegram struct {
 type X struct {
 	Layout
 	Music
+	LeadVideo
 
 	Enabled      bool
 	APIBaseURL   string
@@ -315,6 +333,7 @@ type X struct {
 type Mastodon struct {
 	Layout
 	Music
+	LeadVideo
 
 	Enabled      bool
 	APIBaseURL   string
@@ -330,6 +349,7 @@ type Mastodon struct {
 type Discord struct {
 	Layout
 	Music
+	LeadVideo
 
 	Enabled    bool
 	WebhookURL string
@@ -341,6 +361,7 @@ type Discord struct {
 type LinkedIn struct {
 	Layout
 	Music
+	LeadVideo
 
 	Enabled    bool
 	APIBaseURL string
@@ -358,6 +379,7 @@ type LinkedIn struct {
 type Reddit struct {
 	Layout
 	Music
+	LeadVideo
 
 	Enabled      bool
 	APIBaseURL   string

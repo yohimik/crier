@@ -336,6 +336,7 @@ func validatePublish(p *Publish) []error {
 	}
 
 	errs = append(errs, validateMusic(p)...)
+	errs = append(errs, validateLeadVideo(p)...)
 	errs = append(errs, validateCustom(p)...)
 
 	for _, name := range append(append([]string(nil), Platforms...), CustomNames(p)...) {
@@ -406,6 +407,52 @@ func MusicFileFor(p *Publish, name string) string {
 		return m.File
 	}
 	return strings.TrimSpace(p.MusicFile)
+}
+
+// LeadVideoOf returns a platform's opening clip, or nil when the name is not
+// one of the ten built-in platforms.
+func LeadVideoOf(p *Publish, name string) *LeadVideo {
+	switch name {
+	case "instagram":
+		return &p.Instagram.LeadVideo
+	case "facebook":
+		return &p.Facebook.LeadVideo
+	case "tiktok":
+		return &p.TikTok.LeadVideo
+	case "telegram":
+		return &p.Telegram.LeadVideo
+	case "x":
+		return &p.X.LeadVideo
+	case "mastodon":
+		return &p.Mastodon.LeadVideo
+	case "discord":
+		return &p.Discord.LeadVideo
+	case "linkedin":
+		return &p.LinkedIn.LeadVideo
+	case "reddit":
+		return &p.Reddit.LeadVideo
+	case "slack":
+		return &p.Slack.LeadVideo
+	default:
+		return nil
+	}
+}
+
+// LeadVideoFor is the clip one platform opens its post with, and empty for a
+// platform that cannot post mixed media.
+//
+// There is no shared key to fall back to, unlike the audio. A clip that opens
+// a post is part of that post's composition rather than a decoration applied
+// to every surface, and the two platforms that take one want different shapes
+// of it often enough that naming it twice is the honest spelling.
+func LeadVideoFor(p *Publish, name string) string {
+	if !CanCarryLeadVideo(name) {
+		return ""
+	}
+	if v := LeadVideoOf(p, name); v != nil {
+		return strings.TrimSpace(v.File)
+	}
+	return ""
 }
 
 // LayoutOf returns a platform's render overrides, or nil when the name is not
@@ -571,6 +618,26 @@ func validateMusic(p *Publish) []error {
 		errs = append(errs, invalid("publish."+name+".music-file", m.File,
 			name+" has no API for attaching an audio file; only "+
 				strings.Join(MusicPlatforms, ", ")+" can carry one"))
+	}
+	return errs
+}
+
+// validateLeadVideo refuses an opening clip on a platform that posts pictures
+// or a video and never both.
+//
+// The same reasoning as validateMusic: ignoring it would send the post without
+// the thing the operator put at the front of it, and nothing anywhere would
+// say why.
+func validateLeadVideo(p *Publish) []error {
+	var errs []error
+	for _, name := range Platforms {
+		v := LeadVideoOf(p, name)
+		if v == nil || strings.TrimSpace(v.File) == "" || CanCarryLeadVideo(name) {
+			continue
+		}
+		errs = append(errs, invalid("publish."+name+".lead-video", v.File,
+			name+" posts pictures or a video and never both; only "+
+				strings.Join(LeadVideoPlatforms, " and ")+" take a post of mixed media"))
 	}
 	return errs
 }

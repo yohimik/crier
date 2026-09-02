@@ -17,6 +17,7 @@ See [the Reddit guide](../../publishing/reddit.md) for how to get these values.
 | `publish.reddit.flair-id`<br>`CRIER_PUBLISH_REDDIT_FLAIR_ID`<br>`--publish-reddit-flair-id` | string | — | flair template id applied to the post |
 | `publish.reddit.height`<br>`CRIER_PUBLISH_REDDIT_HEIGHT`<br>`--publish-reddit-height` | int | — | render height for reddit; 0 inherits render.height |
 | `publish.reddit.kind`<br>`CRIER_PUBLISH_REDDIT_KIND`<br>`--publish-reddit-kind` | string | `auto` | post kind: auto, image, video or link |
+| `publish.reddit.lead-video`<br>`CRIER_PUBLISH_REDDIT_LEAD_VIDEO`<br>`--publish-reddit-lead-video` | string, path | — | not available: a reddit post is pictures or a video and never both, so a value here is refused rather than ignored |
 | `publish.reddit.max-attachments`<br>`CRIER_PUBLISH_REDDIT_MAX_ATTACHMENTS`<br>`--publish-reddit-max-attachments` | int | — | post at most this many pages to reddit at once; 0 uses the platform's own limit, which is also the ceiling |
 | `publish.reddit.music-file`<br>`CRIER_PUBLISH_REDDIT_MUSIC_FILE`<br>`--publish-reddit-music-file` | string, path | — | not available: reddit has no API for attaching an audio file, so a value here is refused rather than ignored |
 | `publish.reddit.nsfw`<br>`CRIER_PUBLISH_REDDIT_NSFW`<br>`--publish-reddit-nsfw` | bool | — | mark the post NSFW |

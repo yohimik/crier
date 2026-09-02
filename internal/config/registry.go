@@ -116,6 +116,26 @@ func CanCarryMusic(platform string) bool {
 	return false
 }
 
+// LeadVideoPlatforms are the platforms whose API takes a post of mixed media,
+// so a clip can be item one of something whose other items are pictures.
+//
+// Two, and for two different reasons. An Instagram feed carousel takes video
+// children beside image children. A Telegram media group mixes InputMediaPhoto
+// and InputMediaVideo in the one array. Everywhere else a post is pictures or
+// it is a video, and there is no arrangement of API calls that makes it both.
+var LeadVideoPlatforms = []string{"instagram", "telegram"}
+
+// CanCarryLeadVideo reports whether a platform accepts a clip at the head of a
+// multi-file post.
+func CanCarryLeadVideo(platform string) bool {
+	for _, name := range LeadVideoPlatforms {
+		if name == platform {
+			return true
+		}
+	}
+	return false
+}
+
 // Aliases are extra, shorter flag names for keys people type often. They are
 // documented alongside their key and resolve to exactly the same value.
 var Aliases = map[string]string{
@@ -355,10 +375,27 @@ func musicDescriptor(platform string) Descriptor {
 	return d
 }
 
+// leadVideoDescriptor is a platform's opening clip, declared for every platform
+// for the same reason musicDescriptor is: the answer to "can I open the
+// carousel with a video here" belongs on the platform's own reference page,
+// not in an unknown-key error that reads like a typo.
+func leadVideoDescriptor(platform string) Descriptor {
+	d := Descriptor{Key: "publish." + platform + ".lead-video", Kind: KindString, Path: true}
+	if CanCarryLeadVideo(platform) {
+		d.Usage = "video file posted as the first item of the " + platform +
+			" post, ahead of the pages; it counts towards the attachment limit"
+		return d
+	}
+	d.Usage = "not available: a " + platform + " post is pictures or a video and never both, " +
+		"so a value here is refused rather than ignored"
+	return d
+}
+
 func init() {
 	for _, p := range Platforms {
 		registry = append(registry, layoutDescriptors(p)...)
 		registry = append(registry, musicDescriptor(p))
+		registry = append(registry, leadVideoDescriptor(p))
 	}
 }
 

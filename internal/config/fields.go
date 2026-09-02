@@ -236,6 +236,18 @@ func Bindings(cfg *Config) map[string]Binding {
 		out["publish."+name+".music-file"] = bindString(&m.File)
 	}
 
+	// The opening clip, on the same terms as the audio: every platform has the
+	// key, and the eight that cannot post mixed media are answered by Validate
+	// with the reason rather than by the decoder with a shrug.
+	for name, v := range map[string]*LeadVideo{
+		"instagram": &ig.LeadVideo, "facebook": &fb.LeadVideo, "tiktok": &tt.LeadVideo,
+		"telegram": &tg.LeadVideo, "x": &x.LeadVideo, "mastodon": &ma.LeadVideo,
+		"discord": &dc.LeadVideo, "linkedin": &li.LeadVideo, "reddit": &rd.LeadVideo,
+		"slack": &sl.LeadVideo,
+	} {
+		out["publish."+name+".lead-video"] = bindString(&v.File)
+	}
+
 	// The custom platforms a configuration happens to declare. There are none
 	// before the file has been read, which is exactly right: the defaults and
 	// the environment binding are built from a Config that has none, and the

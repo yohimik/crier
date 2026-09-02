@@ -13,6 +13,7 @@ See [the TikTok guide](../../publishing/tiktok.md) for how to get these values.
 | `publish.tiktok.fit`<br>`CRIER_PUBLISH_TIKTOK_FIT`<br>`--publish-tiktok-fit` | string | `none` | how the render is made to match tiktok's frame: none, cover, contain or stretch; anything but none needs width and height |
 | `publish.tiktok.fit-background`<br>`CRIER_PUBLISH_TIKTOK_FIT_BACKGROUND`<br>`--publish-tiktok-fit-background` | string | `#ffffff` | hex colour behind a contain letterbox for tiktok, and what transparency is flattened onto |
 | `publish.tiktok.height`<br>`CRIER_PUBLISH_TIKTOK_HEIGHT`<br>`--publish-tiktok-height` | int | — | render height for tiktok; 0 inherits render.height |
+| `publish.tiktok.lead-video`<br>`CRIER_PUBLISH_TIKTOK_LEAD_VIDEO`<br>`--publish-tiktok-lead-video` | string, path | — | not available: a tiktok post is pictures or a video and never both, so a value here is refused rather than ignored |
 | `publish.tiktok.max-attachments`<br>`CRIER_PUBLISH_TIKTOK_MAX_ATTACHMENTS`<br>`--publish-tiktok-max-attachments` | int | — | post at most this many pages to tiktok at once; 0 uses the platform's own limit, which is also the ceiling |
 | `publish.tiktok.music-file`<br>`CRIER_PUBLISH_TIKTOK_MUSIC_FILE`<br>`--publish-tiktok-music-file` | string, path | — | not available: tiktok has no API for attaching an audio file, so a value here is refused rather than ignored |
 | `publish.tiktok.overlay`<br>`CRIER_PUBLISH_TIKTOK_OVERLAY`<br>`--publish-tiktok-overlay` | list, path | — | template overlays applied for tiktok only, after the global ones |
