@@ -1142,6 +1142,100 @@ func TestVideoIsRenderedAndPublished(t *testing.T) {
 	}
 }
 
+// TestAudioPoolPicksOneTrackPerSeed is render.video.audio-pool end to end: a
+// pool of two soundtracks in a config file, through the real binary, and what
+// ffmpeg was actually handed as its audio input.
+//
+// It is the audio half of what the template pool promises. One seed picks one
+// track and keeps picking it, and the pool as a whole is more than one track,
+// or a release would sound the same every time whatever the seed said.
+func TestAudioPoolPicksOneTrackPerSeed(t *testing.T) {
+	dir := newProject(t, "")
+	self := selfPath(t)
+	writeFile(t, dir, "one.mp3", "not really an mp3")
+	writeFile(t, dir, "two.mp3", "nor is this")
+	writeFile(t, dir, "crier.yaml", strings.Join([]string{
+		"log:",
+		"  level: debug",
+		"render:",
+		"  template: template.html",
+		"  data: data.yaml",
+		"  width: 80",
+		"  height: 40",
+		"  hermetic-fonts: true",
+		"  video:",
+		"    enabled: true",
+		"    fps: 5",
+		"    frames: 2",
+		"    ffmpeg-bin: " + self,
+		// Relative, so this also proves the pool's paths are anchored to the
+		// config file's directory the way every other path-typed key is.
+		"    audio-pool:",
+		"      - one.mp3",
+		"      - two.mp3",
+	}, "\n"))
+	writeFile(t, dir, "template.html",
+		`<html><body style="margin:0;background:#fff">`+
+			`<div style="width:80px;height:40px;background:#0a0"></div></body></html>`)
+
+	// audioFor renders once with a seed and reports which file reached ffmpeg
+	// as its audio input.
+	audioFor := func(seed string) string {
+		t.Helper()
+		log := filepath.Join(t.TempDir(), "ffmpeg-args")
+		res := crier(t, dir, []string{helperEnv + "=ffmpeg", helperArgsEnv + "=" + log},
+			"render", "--render-seed", seed,
+			"--render-output", filepath.Join(t.TempDir(), "clip.mp4"))
+		if res.Code != exitOK {
+			t.Fatalf("seed %s: code=%d stderr=%s", seed, res.Code, res.Stderr)
+		}
+		body, err := os.ReadFile(log)
+		if err != nil {
+			t.Fatalf("seed %s: ffmpeg was never run: %v", seed, err)
+		}
+		fields := strings.Fields(string(body))
+		got := ""
+		for i, f := range fields {
+			if f == "-i" && i+1 < len(fields) && strings.HasSuffix(fields[i+1], ".mp3") {
+				got = fields[i+1]
+			}
+		}
+		if got == "" {
+			t.Fatalf("seed %s: no audio input reached ffmpeg: %s", seed, body)
+		}
+		// Anchored to the config file's directory, not left relative.
+		if !filepath.IsAbs(got) {
+			t.Errorf("seed %s: ffmpeg was handed %q; a pool path in a config file resolves beside it",
+				seed, got)
+		}
+		if !strings.Contains(res.Stderr, "picked an audio track from the pool") {
+			t.Errorf("seed %s: the pick should be logged: %s", seed, res.Stderr)
+		}
+		return filepath.Base(got)
+	}
+
+	// The same seed reaches the same file: that is the whole reproducibility
+	// promise, and it is what lets one release be re-run and sound the same.
+	first := audioFor("7")
+	if again := audioFor("7"); again != first {
+		t.Errorf("seed 7 chose %q and then %q", first, again)
+	}
+
+	// And the pool is a pool: some seed reaches the other track.
+	seen := map[string]bool{first: true}
+	for _, seed := range []string{"1", "2", "3", "4", "5", "6", "8", "9"} {
+		seen[audioFor(seed)] = true
+	}
+	if len(seen) != 2 {
+		t.Errorf("nine seeds only ever chose %v; a pool of two should reach both", seen)
+	}
+	for name := range seen {
+		if name != "one.mp3" && name != "two.mp3" {
+			t.Errorf("ffmpeg was handed %q, which is not in the pool", name)
+		}
+	}
+}
+
 // TestGIFGoesOutAsAnAnimation is the E4 GIF path end to end: the same frame
 // pipeline, ffmpeg's palette filter, and two platforms that take an animation
 // — with Telegram's different method as the thing that would silently go wrong.

@@ -53,7 +53,26 @@ const (
 	helperEnv     = "CRIER_E2E_HELPER"
 	helperURLEnv  = "CRIER_E2E_HELPER_URL"
 	helperFailEnv = "CRIER_E2E_HELPER_FAIL"
+	// helperArgsEnv names a file the fake ffmpeg appends its command line to.
+	// A real ffmpeg's inputs leave no trace once it has run, so a test that
+	// wants to know which audio file was mixed in has nowhere else to look.
+	helperArgsEnv = "CRIER_E2E_HELPER_ARGS"
 )
+
+// recordHelperArgs appends this invocation's command line to the file
+// helperArgsEnv names, when a test asked for one.
+func recordHelperArgs() {
+	path := os.Getenv(helperArgsEnv)
+	if path == "" {
+		return
+	}
+	f, err := os.OpenFile(path, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0o600)
+	if err != nil {
+		return
+	}
+	defer func() { _ = f.Close() }()
+	_, _ = fmt.Fprintln(f, strings.Join(os.Args[1:], " "))
+}
 
 func TestMain(m *testing.M) {
 	if mode := os.Getenv(helperEnv); mode != "" {
@@ -159,6 +178,7 @@ func helperMain(mode string) {
 		}
 		_ = os.WriteFile(out, []byte(body), 0o600)
 		_ = os.WriteFile(out+".bytes", []byte(strconv.FormatInt(n, 10)), 0o600)
+		recordHelperArgs()
 		fmt.Fprintln(os.Stderr, "fake ffmpeg wrote", n, "bytes")
 	}
 	os.Exit(0)

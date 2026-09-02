@@ -9,7 +9,20 @@
 # written here is one thing rather than a set of values half of which every run
 # has to undo.
 render:
-  template: template.html
+  # Two layouts rather than one. They share every load-bearing rule — the page
+  # geometry, the margin boxes that carry the version badge and the page
+  # counter, the wrapping of a changelog entry — and differ in how they look:
+  # scanlines on near-black against a radial duotone with a framed card. crier
+  # picks one per run from the run's seed, which announce.sh derives from the
+  # version, so a release has a face of its own and every pass of that release
+  # wears the same one.
+  #
+  # A pool and render.template together would not be an error, but the pool
+  # would win and the file would read as two intentions, so there is no
+  # render.template here.
+  pool:
+    - template.html
+    - template-b.html
   # The data comes from announce.sh on standard input, built out of the
   # release-notes variables. It has arrays in it, which an env: prefix cannot
   # carry — this is the case stdin exists for.
@@ -30,6 +43,22 @@ render:
   # rather than posting a truncated version of itself, and notes.sh's own cap
   # of twenty entries a section is what keeps a real release well under it.
   pages-max: 10
+  video:
+    # The anthem, chosen the way the layout is: one of these per release, from
+    # the same seed, so a re-run of a release plays the same sixteen seconds.
+    # announce.sh turns video on with a flag for the one pass that renders the
+    # clip; the pool sits here because it belongs to the project rather than to
+    # that one invocation, and the pick is drawn on every run either way, which
+    # is what keeps the passes agreeing with each other.
+    #
+    # announce/anthem.md carries the provenance of all four. They are
+    # public-domain recordings, sixteen seconds each, normalised to the same
+    # loudness so one release is not twice as loud as the last.
+    audio-pool:
+      - anthem.mp3
+      - anthem-stars-and-stripes.mp3
+      - anthem-william-tell.mp3
+      - anthem-mountain-king.mp3
 
 publish:
   # Instagram fetches the media from a public URL rather than taking bytes, so
@@ -40,7 +69,7 @@ publish:
     THIS IS RENDERED AND POSTED FROM GITHUB ACTIONS (DATA COMING FROM COMMIT MESSAGES) 
     crier v{{ .version }} is out.
 
-    Render an HTML template to an image or a video and publish it to twelve
+    Render an HTML template to an image or a video and publish it to fourteen
     social platforms with one command.
 
     {{ range .install }}{{ if eq .label "curl" }}{{ .command }}{{ end }}{{ end }}

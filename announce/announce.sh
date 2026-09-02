@@ -21,6 +21,12 @@
 # posts them as one carousel, the story pass as one story per page in order.
 # Neither is a flag here — crier works it out from the platform.
 #
+# Every release looks and sounds a little different. The card has two layouts
+# and a set of accent colours, and there are four anthems; crier draws all of
+# it from one seeded source. The seed is the version, so the choice is made
+# once for the whole announcement and re-running a release reproduces it
+# exactly.
+#
 # The binary is the one the release just built. That is the point: the bytes
 # being announced are the bytes doing the announcing, so a release that cannot
 # render its own card does not ship.
@@ -35,6 +41,19 @@ if [ -z "$version" ]; then
 	log "no DISPAT_NEW_VERSION, so there is no release to announce; skipping"
 	exit 0
 fi
+
+# --- one seed for the whole announcement --------------------------------------
+#
+# The card's layout, its accent colours and the anthem are all drawn from
+# crier's seeded random source, and this script runs crier half a dozen times
+# over one release. Left alone, each run would draw a seed of its own and the
+# stories would come out looking like a different release than the feed post.
+#
+# So the version decides. cksum of the version string is a stable number on
+# every POSIX system, which makes one release one look and one soundtrack,
+# re-runnable to the pixel, and the next release something else.
+seed=$(printf '%s' "$version" | cksum | cut -d' ' -f1)
+log "seed for v$version is $seed"
 
 # --- what has to be there -----------------------------------------------------
 #
@@ -112,7 +131,7 @@ post() {
 	doc=$2
 	shift 2
 	log "posting the $what"
-	if "$crier" --config "$here/crier.yaml" --render-data - "$@" <"$doc"; then
+	if "$crier" --config "$here/crier.yaml" --render-data - --render-seed "$seed" "$@" <"$doc"; then
 		log "posted the $what"
 		return 0
 	fi
@@ -124,11 +143,13 @@ post() {
 
 # --- the anthem ---------------------------------------------------------------
 #
-# The cover page, held for sixteen seconds with announce/anthem.mp3 as its
-# soundtrack — the one way audio reaches Instagram, which takes no audio file
-# and no track id (see docs/publishing/music.md and announce/anthem.md). The
-# changelog is not in this clip: the image stories carry it, and this is the
-# fanfare.
+# The cover page, held for sixteen seconds over one of the four public-domain
+# clips in announce/ — the one way audio reaches Instagram, which takes no
+# audio file and no track id (see docs/publishing/music.md and
+# announce/anthem.md). Which one is not a flag here: render.video.audio-pool
+# in crier.yaml lists them and the seed above chooses, so a release has a
+# soundtrack of its own and re-running it plays the same one. The changelog is
+# not in this clip: the image stories carry it, and this is the fanfare.
 #
 # It renders once and is posted twice, because both surfaces want the same
 # sixteen seconds: the feed carousel opens with it, and the story reel opens
@@ -150,6 +171,7 @@ render_anthem() {
 	DISPAT_BREAKING_CHANGES='' DISPAT_FEATURES='' DISPAT_FIXES='' \
 		sh "$here/notes.sh" >"$cover"
 	if ! "$crier" render --config "$here/crier.yaml" --render-data - \
+		--render-seed "$seed" \
 		--render-format png --render-background '#ffffff' \
 		--render-output "$frames/cover.png" <"$cover"; then
 		log "the cover did not render; the release goes out without the anthem"
@@ -164,10 +186,10 @@ render_anthem() {
 
 	log "rendering the anthem"
 	if ! "$crier" render --config "$here/crier.yaml" --render-data - \
+		--render-seed "$seed" \
 		--render-video-enabled=true \
 		--render-video-fps 24 \
 		--render-video-frames-input "$frames" \
-		--render-video-audio "$here/anthem.mp3" \
 		--render-background '#ffffff' \
 		--render-output "$anthem_dir/anthem.mp4" <"$cover"; then
 		log "the anthem did not render; the release goes out without it"
@@ -189,6 +211,7 @@ anthem_story() {
 	# rendered in this mode, but the caption template is still resolved, and
 	# the config points render.data at stdin.
 	if "$crier" --config "$here/crier.yaml" --render-data - \
+		--render-seed "$seed" \
 		--publish-input "$anthem_mp4" \
 		--publish-instagram-story \
 		--publish-instagram-width 1080 \
@@ -239,6 +262,7 @@ else
 	post_updates() {
 		log "posting the stories"
 		if "$crier" --config "$here/crier.yaml" --render-data - \
+			--render-seed "$seed" \
 			--publish-instagram-story \
 			--publish-instagram-width 1080 \
 			--publish-instagram-height 1920 \

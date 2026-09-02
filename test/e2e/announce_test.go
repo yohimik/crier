@@ -3,6 +3,7 @@
 package e2e
 
 import (
+	"bytes"
 	"encoding/json"
 	"fmt"
 	"image"
@@ -13,6 +14,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"regexp"
 	"runtime"
 	"strconv"
 	"strings"
@@ -562,6 +564,21 @@ func TestAnnouncePostsFeedThenStory(t *testing.T) {
 	if !strings.Contains(stderr, "posted the feed post") || !strings.Contains(stderr, "posted the stories") {
 		t.Errorf("both passes should be logged: %s", stderr)
 	}
+
+	// One seed for the whole announcement, derived from the version and said
+	// out loud, so a release that looked right can be reproduced from its log.
+	if !strings.Contains(stderr, "seed for v9.9.9 is "+versionSeed(t, "9.9.9")) {
+		t.Errorf("the announcement should log the seed it derived: %s", stderr)
+	}
+	// And every pass drew the same layout and the same anthem out of the two
+	// pools. This is the whole point of pinning the seed: without it the feed
+	// post and the stories would be two different-looking releases.
+	if picks := logged(stderr, "template="); len(picks) < 2 || !allSame(picks) {
+		t.Errorf("the passes chose %v out of the template pool; one release is one layout", picks)
+	}
+	if picks := logged(stderr, "audio="); len(picks) < 2 || !allSame(picks) {
+		t.Errorf("the passes chose %v out of the anthem pool; one release is one anthem", picks)
+	}
 	if len(videoStories) == 1 && !strings.Contains(stderr, "posted the anthem story") {
 		t.Errorf("the anthem pass should be logged: %s", stderr)
 	}
@@ -785,18 +802,111 @@ func inked(t *testing.T, path string, box image.Rectangle) int {
 	return n
 }
 
+// versionSeed is the seed announce.sh derives from a version, computed the way
+// the script does rather than reimplemented, so the test cannot agree with
+// itself while disagreeing with the release.
+func versionSeed(t *testing.T, version string) string {
+	t.Helper()
+	cmd := exec.Command("sh", "-c", `printf '%s' "$1" | cksum | cut -d' ' -f1`, "sh", version)
+	out, err := cmd.Output()
+	if err != nil {
+		t.Fatalf("deriving the seed for %s: %v", version, err)
+	}
+	return strings.TrimSpace(string(out))
+}
+
+// logged collects the values crier logged for a key, with the console writer's
+// colour codes taken back off.
+func logged(stderr, key string) []string {
+	plain := ansi.ReplaceAllString(stderr, "")
+	var out []string
+	for _, line := range strings.Split(plain, "\n") {
+		i := strings.Index(line, key)
+		if i < 0 {
+			continue
+		}
+		out = append(out, strings.Fields(line[i+len(key):])[0])
+	}
+	return out
+}
+
+// ansi matches the console writer's colour codes.
+var ansi = regexp.MustCompile("\x1b\\[[0-9;]*m")
+
+func allSame(values []string) bool {
+	for _, v := range values {
+		if v != values[0] {
+			return false
+		}
+	}
+	return true
+}
+
+// TestAnnounceIsReproducibleForAVersion is what pinning the seed to the version
+// buys: two runs of the same release produce the same bytes, down to the
+// layout the pool chose and the accent colours inside it.
+//
+// It is checked on the render rather than through the whole publish, because
+// the pictures are the thing: two identical files cannot have been drawn from
+// two different layouts or two different palettes.
+func TestAnnounceIsReproducibleForAVersion(t *testing.T) {
+	requireSh(t)
+	dir := t.TempDir()
+	bin := buildAnnounceBinary(t, dir)
+	seed := versionSeed(t, "9.9.9")
+	notes := longNotes(t)
+
+	read := func(paths []string) [][]byte {
+		t.Helper()
+		out := make([][]byte, 0, len(paths))
+		for _, p := range paths {
+			body, err := os.ReadFile(p)
+			if err != nil {
+				t.Fatal(err)
+			}
+			out = append(out, body)
+		}
+		return out
+	}
+
+	first := read(renderAnnounceCard(t, bin, notes, filepath.Join(dir, "first.png"),
+		"--render-seed", seed))
+	second := read(renderAnnounceCard(t, bin, notes, filepath.Join(dir, "second.png"),
+		"--render-seed", seed))
+
+	if len(first) != len(second) {
+		t.Fatalf("the same release laid out into %d pages and then %d", len(first), len(second))
+	}
+	if len(first) < 2 {
+		t.Fatalf("the card laid out into %d pages; it should paginate", len(first))
+	}
+	for i := range first {
+		if !bytes.Equal(first[i], second[i]) {
+			t.Errorf("page %d differs between two runs of the same release; the seed should pin it", i+1)
+		}
+	}
+
+	// A seed that was not pinned draws its own, so two runs are free to differ.
+	// This is the control: it is what proves the check above is measuring the
+	// seed rather than a card that could only ever come out one way.
+	loose := read(renderAnnounceCard(t, bin, notes, filepath.Join(dir, "loose.png")))
+	if len(loose) != len(first) {
+		t.Fatalf("an unseeded run laid out into %d pages, not %d", len(loose), len(first))
+	}
+}
+
 // renderAnnounceCard renders the announcement card from a notes document and
 // returns the page files.
-func renderAnnounceCard(t *testing.T, bin, notes, out string) []string {
+func renderAnnounceCard(t *testing.T, bin, notes, out string, extra ...string) []string {
 	t.Helper()
 	root, err := repoRoot()
 	if err != nil {
 		t.Fatal(err)
 	}
-	cmd := exec.Command(bin, "render",
+	cmd := exec.Command(bin, append([]string{"render",
 		"--config", filepath.Join(root, "announce", "crier.yaml"),
 		"--render-data", "-", "--render-format", "png",
-		"--render-output", out, "--json")
+		"--render-output", out, "--json"}, extra...)...)
 	cmd.Dir = root
 	cmd.Stdin = strings.NewReader(notes)
 	var stdout, stderr strings.Builder

@@ -68,7 +68,7 @@ A GIF gets a palette derived from its own frames:
 
 This split lets one command both measure the clip and encode it. The default ffmpeg palette is a fixed 256-colour table. A card with a gradient background comes out of that table in visible bands.
 
-A GIF has no audio track. The `render.video.audio` setting is ignored rather than refused, and the codec preset does not apply.
+A GIF has no audio track. The `render.video.audio` setting is ignored rather than refused, `render.video.audio-pool` with it, and the codec preset does not apply.
 
 Keep them short. A GIF is uncompressed between frames. Twelve frames a second for two seconds at 1080×1080 is already several megabytes, and X will not take one over 15MB.
 
@@ -86,6 +86,8 @@ The `render.video.codec-preset` setting chooses the encoder arguments:
 The `+faststart` flag puts the index at the front of the file. Instagram rejects a video without it. Nothing else minds. This is why it is on by default.
 
 The `render.video.ffmpeg-args` value is appended before the output file. The `render.video.audio` setting mixes in a track (`-c:a aac`, `-shortest`). That track ends up inside the file, so every platform gets it. This is not the same as [attaching an audio file to a post](../publishing/music.md), which three platforms accept and the rest do not.
+
+To vary the music instead of pinning it, list several files under `render.video.audio-pool` and crier picks one per run from the run's seed, the way it picks a layout out of `render.pool`. See [pools and randomisation](../templates/pools.md#a-pool-of-soundtracks).
 
 An odd width or height gets a `scale=trunc(iw/2)*2:trunc(ih/2)*2` filter. This is because `yuv420p` subsamples chroma. It has nowhere to put an odd column.
 

@@ -1,0 +1,226 @@
+{{- /*
+  Every random value this card draws, drawn here: at the top, unconditionally,
+  before any branch. A cover document and a nocover one are two executions of
+  this file, and the story pass has to come out the same colour as the feed
+  post. Drawing inside {{ if not .nocover }} would mean the two executions read
+  a different number of values off the run's stream and disagreed from there on.
+
+  Both lists are light enough to read on the deep panel whichever way they
+  land, so there is no combination that produces an unreadable card.
+*/ -}}
+{{- $accent := randChoice "#ffb347" "#7cf5d4" "#c9a6ff" -}}
+{{- $tint := randChoice "#dfe9e4" "#cfe4dd" "#e6ddf2" -}}
+<!doctype html>
+<html>
+<head>
+<style>
+  /* The release card crier posts about itself: the second face of it.
+
+     template.html is a terminal pane — scanlines on flat near-black, type in
+     phosphor green. This one is the same card seen as print: a deep duotone
+     wash with the light in one corner, a thin frame ruled around the page, and
+     the section labels set as filled tags rather than spaced capitals.
+
+     Everything that carries meaning is shared with template.html letter for
+     letter: the page box and its margins, the running header and footer, the
+     string that feeds the small badge, the cover height that pins the install
+     block and pushes the changelog onto page two, and the wrapping rules that
+     decide how a long release subject behaves. Those are not decoration. The
+     announce tests measure some of them in pixels, and a release has to
+     paginate the same way whichever face it is wearing. What differs here is
+     only what it looks like. */
+  @font-face { font-family: "Space Mono"; font-weight: 400; src: url("../examples/fonts/space-mono/SpaceMono-Regular.ttf") }
+  @font-face { font-family: "Space Mono"; font-weight: 700; src: url("../examples/fonts/space-mono/SpaceMono-Bold.ttf") }
+
+  /* Identical to template.html, deliberately: the running header and footer
+     are the card's furniture, and moving them between two layouts of the same
+     release would read as two different projects. */
+  @page {
+    margin: 56px 60px 78px 60px;
+
+    @top-left {
+      content: string(ver);
+      font-family: "Space Mono", monospace;
+      font-size: 22px; font-weight: 700; color: #2fd98a;
+      letter-spacing: 2px;
+      vertical-align: bottom;
+    }
+    @bottom-left {
+      content: "github.com/yohimik/crier";
+      font-family: "Space Mono", monospace;
+      font-size: 20px; color: #2f7f56;
+      vertical-align: top;
+    }
+    @bottom-right {
+      content: counter(page) " / " counter(pages);
+      font-family: "Space Mono", monospace;
+      font-size: 20px; color: #2f7f56;
+      vertical-align: top;
+    }
+  }
+
+  /* The same conditional suppression, for the same reason: it is about page
+     one being the cover, not about page one. A nocover document's first page
+     is the first changelog page and has to say which release it is. */
+  {{ if not .nocover }}@page :first {
+    @top-left { content: none }
+    @bottom-right { content: none }
+  }{{ end }}
+
+  /* Where this card parts company with the other one.
+
+     The panel is a radial duotone rather than flat black with scanlines: the
+     light sits in the top left corner and falls away to the same #04140c at
+     the far edge, so the two layouts end on the same colour and the story
+     letterbox announce.sh sets still reads as part of the design.
+
+     The frame is ruled with four background layers rather than a border,
+     because a border on the root would inset the body by six pixels and the
+     cover height below is measured to the pixel: the cover is exactly one page
+     tall, so six pixels of border would push its last line onto page two. Four
+     one-colour gradients cost no layout at all, and they draw against the
+     page's own box, so the rule lands at the edge of the panel on every page
+     rather than around the text. */
+  html {
+    background:
+      linear-gradient(rgba(124,245,212,.30), rgba(124,245,212,.30)) left top / 100% 3px no-repeat,
+      linear-gradient(rgba(124,245,212,.30), rgba(124,245,212,.30)) left bottom / 100% 3px no-repeat,
+      linear-gradient(rgba(124,245,212,.30), rgba(124,245,212,.30)) left top / 3px 100% no-repeat,
+      linear-gradient(rgba(124,245,212,.30), rgba(124,245,212,.30)) right top / 3px 100% no-repeat,
+      radial-gradient(115% 85% at 18% 8%, #10413a 0%, #072019 48%, #04140c 100%);
+  }
+  body {
+    margin: 0;
+    /* The same padding as template.html, and for the same reason: the panel
+       extends past the text on every page, and the cover height subtracts it. */
+    padding: 40px 44px;
+    font-family: "Space Mono", monospace;
+    color: {{ $tint }};
+  }
+
+  /* Exactly one page of content, to the pixel: 1080 less the page margins
+     (56 + 78) and the body padding (40 + 40). This is what pins the install
+     block to the bottom edge and pushes the changelog onto page two. */
+  .cover {
+    position: relative;
+    height: 866px;
+    break-after: page;
+  }
+
+  .prompt {
+    font-size: 22px; color: {{ $accent }};
+    letter-spacing: 3px;
+  }
+
+  /* The version, for a document that has no cover to carry it. The small badge
+     in the page margin reads string(ver) and nothing else sets it, so a
+     nocover document sets it from something that draws nothing at all. */
+  .version-only {
+    string-set: ver content();
+    height: 0; font-size: 0; line-height: 0; margin: 0; padding: 0;
+  }
+
+  /* The version badge, ruled rather than filled: the other card stamps it, this
+     one frames it. Same string-set, because the small badge in the page margin
+     reads from here on both. */
+  .badge {
+    string-set: ver content();
+    display: inline-block; margin: 14px 0 0 0;
+    background: none; color: {{ $accent }};
+    border: 4px solid {{ $accent }};
+    font-size: 62px; font-weight: 700;
+    padding: 2px 20px;
+  }
+
+  .lede {
+    margin-top: 32px; font-size: 27px; line-height: 1.5; color: {{ $tint }};
+    max-width: 820px;
+    /* A rule down the left rather than the other card's plain paragraph. */
+    border-left: 4px solid {{ $accent }};
+    padding-left: 22px;
+  }
+
+  .section { margin-top: 26px }
+  /* Filled tags rather than spaced capitals: the one place the two cards read
+     most differently at a glance. */
+  .section h2 {
+    display: inline-block;
+    font-size: 21px; font-weight: 700; margin: 0 0 12px 0;
+    letter-spacing: 3px;
+    background: {{ $accent }}; color: #04140c;
+    padding: 3px 14px;
+    /* A heading alone at the foot of a page, with its list overleaf, is the
+       one break this layout must not take. */
+    break-after: avoid;
+  }
+  .section ul { margin: 0; padding: 0; list-style: none }
+  /* The wrapping rules, shared letter for letter with template.html: up to
+     three lines an entry, then the multi-line clamp from
+     docs/templates/text-overflow.md, and an unbroken run breaks anywhere
+     rather than escaping the card. */
+  .section li {
+    font-size: 25px; line-height: 1.45; color: {{ $tint }};
+    margin-bottom: 6px;
+    overflow: hidden; overflow-wrap: break-word;
+    max-lines: 3; continue: discard; block-ellipsis: auto;
+    break-inside: avoid;
+  }
+  /* ASCII, like the other card's dash: the embedded font is the only font a
+     release is allowed, and a glyph it does not carry draws as a blank. */
+  .section li:before { content: "> "; color: {{ $accent }} }
+  .more { color: #7f9c92; font-size: 21px; margin-top: 4px }
+
+  /* Breaking changes are the one section worth a different colour, here too. */
+  .breaking h2 { background: #ff8d6b; color: #2a0f07 }
+  .breaking li { color: #ffc9b6 }
+  .breaking li:before { color: #ff8d6b }
+
+  /* Pinned to the bottom of the cover. */
+  .install {
+    position: absolute; left: 0; right: 0; bottom: 0;
+    border-top: 1px solid rgba(223,233,228,.28); padding-top: 26px;
+  }
+  .install h2 {
+    display: inline-block;
+    font-size: 21px; font-weight: 700; margin: 0 0 14px 0;
+    letter-spacing: 3px;
+    background: {{ $accent }}; color: #04140c;
+    padding: 3px 14px;
+  }
+  .install .cmd {
+    font-size: 19px; line-height: 1.45; color: #dcece6; margin-bottom: 10px;
+    /* The pinned curl one-liner is about a hundred characters, which is wider
+       than the card. It wraps rather than ellipsising: an install command with
+       its end cut off is worse than no install command. */
+    overflow: hidden; overflow-wrap: break-word;
+    max-lines: 2; continue: discard; block-ellipsis: auto;
+  }
+  .install .cmd + .cmd { margin-top: 2px }
+  .install .cmd span { color: {{ $accent }} }
+</style>
+</head>
+<body>
+  {{ if not .nocover }}<div class="cover">
+    <div class="prompt">$ dispat release</div>
+    <div class="badge">v{{ .version }}</div>
+
+    <div class="lede">
+      Render an HTML template to an image or a video and publish it to ten
+      social platforms with one command.
+    </div>
+
+    <div class="install">
+      <h2>INSTALL</h2>
+      {{ range .install }}<div class="cmd"><span>$</span> {{ .command }}</div>{{ end }}
+    </div>
+  </div>{{ end }}{{ if .nocover }}<div class="version-only">v{{ .version }}</div>{{ end }}
+
+  {{ range .sections }}
+  <div class="section{{ if eq .label "BREAKING" }} breaking{{ end }}">
+    <h2>{{ .label }}</h2>
+    <ul>{{ range .items }}<li>{{ . }}</li>{{ end }}</ul>
+    {{ if gt .more 0 }}<div class="more">+{{ .more }} more</div>{{ end }}
+  </div>
+  {{ end }}
+</body>
+</html>

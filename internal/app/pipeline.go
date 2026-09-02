@@ -115,6 +115,12 @@ type Pipeline struct {
 	// there is one, so every variant and every video frame uses the same one.
 	template string
 
+	// audio is the soundtrack this run mixes in, chosen once from
+	// render.video.audio-pool when there is one. Same story as template: one
+	// choice per run, so the clip a platform gets and the clip the next
+	// platform gets are the same clip.
+	audio string
+
 	cleanups []func(context.Context) error
 }
 
@@ -148,11 +154,22 @@ func NewPipeline(o PipelineOptions) (*Pipeline, error) {
 		environ: o.Environ,
 		dir:     o.Dir,
 	}
+	// The two pool picks are drawn here, in this order, and unconditionally:
+	// the layout first and the soundtrack second. Order and count are what
+	// make one seed mean one run — a pick drawn only when video happens to be
+	// enabled would shift every draw after it, and announce/announce.sh runs
+	// crier several times over one release with video on for one of them.
 	p.template = o.Config.Render.Template
 	if picked, ok := p.engine.Pick(o.Config.Render.Pool); ok {
 		p.template = picked
 		o.Logger.Info().Str("template", picked).Int("pool", len(o.Config.Render.Pool)).
 			Msg("picked a template from the pool")
+	}
+	p.audio = o.Config.Render.Video.Audio
+	if picked, ok := p.engine.Pick(o.Config.Render.Video.AudioPool); ok {
+		p.audio = picked
+		o.Logger.Info().Str("audio", picked).Int("pool", len(o.Config.Render.Video.AudioPool)).
+			Msg("picked an audio track from the pool")
 	}
 	if p.stdin == nil {
 		p.stdin = os.Stdin
@@ -205,6 +222,10 @@ func (p *Pipeline) Engine() *template.Engine { return p.engine }
 // Template is the layout this run renders: render.template, or the one picked
 // out of render.pool.
 func (p *Pipeline) Template() string { return p.template }
+
+// Audio is the soundtrack this run mixes into a clip: render.video.audio, or
+// the one picked out of render.video.audio-pool.
+func (p *Pipeline) Audio() string { return p.audio }
 
 // Data loads the template's data document once, so it can be shared by the
 // layout and by every caption.
@@ -702,7 +723,7 @@ func (p *Pipeline) fromFrames(ctx context.Context, v Variant) (Artifacts, error)
 		Format:     vid.Format,
 		FitFilter:  fitFilter,
 		ExtraArgs:  vid.FFmpegArgs,
-		Audio:      vid.Audio,
+		Audio:      p.audio,
 		Background: bg,
 		Logger:     p.log,
 	}, reader.at)
@@ -898,7 +919,7 @@ func (p *Pipeline) renderVideo(ctx context.Context, v Variant, data any) (*rende
 		Format:     vid.Format,
 		FitFilter:  fitFilter,
 		ExtraArgs:  vid.FFmpegArgs,
-		Audio:      vid.Audio,
+		Audio:      p.audio,
 		Background: bg,
 		Logger:     p.log,
 	}, func(ctx context.Context, i int) (*image.RGBA, error) {

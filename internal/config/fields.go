@@ -82,6 +82,7 @@ func Bindings(cfg *Config) map[string]Binding {
 		"render.video.ffmpeg-args":  bindStrings(&vid.FFmpegArgs),
 		"render.video.codec-preset": bindString(&vid.CodecPreset),
 		"render.video.audio":        bindString(&vid.Audio),
+		"render.video.audio-pool":   bindStrings(&vid.AudioPool),
 
 		"http.timeout":          bindString(&h.Timeout),
 		"http.upload-timeout":   bindString(&h.UploadTimeout),

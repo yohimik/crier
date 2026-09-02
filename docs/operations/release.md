@@ -137,14 +137,28 @@ It is a prerelease. Downstream tools treat it as one:
 
 - **`go install …@latest` skips it**. This follows Go's own prerelease rule. Running `go install …@v1.0.0-rc.0` works.
 
-### The anthem
+### The anthems
 
 The release posts a third story: the cover page, held for sixteen seconds as a
-video with `announce/anthem.mp3` as its soundtrack. The clip is the 1812
-Overture finale from a public-domain recording; `announce/anthem.md` carries
-the provenance. Video is the one way audio reaches Instagram, which takes no
-audio file and no track id. The pass needs ffmpeg on the runner and skips
-with a log line where there is none.
+video with a fanfare under it. Video is the one way audio reaches Instagram,
+which takes no audio file and no track id. The pass needs ffmpeg on the runner
+and skips with a log line where there is none.
+
+There are four fanfares, listed under `render.video.audio-pool` in
+`announce/crier.yaml`: the 1812 Overture finale, the last strain of The Stars
+and Stripes Forever, the William Tell galop, and the end of In the Hall of the
+Mountain King. Each is sixteen seconds of a public-domain recording,
+normalised to the same loudness so one release is not twice as loud as the
+last. `announce/anthem.md` carries the provenance of all four.
+
+The release does not choose between them and neither does anybody else. The
+same version-derived seed that picks the layout picks the anthem, so a release
+has a soundtrack of its own, re-running it plays the same one, and the next
+release is something else. The pick is logged:
+
+```
+INF picked an audio track from the pool audio=announce/anthem-william-tell.mp3 pool=4
+```
 
 ## The assets
 
@@ -181,7 +195,38 @@ darwin and windows cannot run in the build at all. Proving those falls to the re
 
 Every release posts a feed card and a story to Instagram, and the release to LinkedIn: the anthem clip carries the announcement, and the changelog pages follow as one multi-image album. A LinkedIn post takes one video or many images, never both, which is why it is two posts. The video API is a partner product (LinkedIn's Community Management API) that a plain member token does not carry. When LinkedIn refuses the clip, the pass falls back to the whole card as one album, cover first, so the release reaches LinkedIn with whatever the token allows. The commentary is LinkedIn's own, written around the fact that the post is generated: the changelog comes from the commits, and the render and the publish both happen inside the GitHub Actions run. LinkedIn takes the bytes directly, so that pass needs no tunnel. The `crier` tool renders these from the binary that the release just built. It runs in the `announce` stage of `dispat`. This stage only ever warns. The `announce/announce.sh` script exits with 0 for any reason it decides not to post. **A missing secret can never turn a good release red.**
 
-The card is located in [`announce/`](../../announce/). This folder contains a template, a config, and a script. The script turns the release-notes variables into data for the card.
+The card is located in [`announce/`](../../announce/). This folder contains two templates, a config, and a script. The script turns the release-notes variables into data for the card.
+
+### No two releases look alike
+
+There are two layouts, [`template.html`](../../announce/template.html) and [`template-b.html`](../../announce/template-b.html), and each of them draws its accent colours out of a small palette. crier picks one layout and one palette per run, from its [seeded random source](../templates/pools.md). So the release you are reading about had a look of its own, and the next one will have a different one.
+
+The two layouts are different faces on one card, not two cards. Everything that carries meaning is shared between them letter for letter: the page box, the running header and footer, the string that feeds the small version badge, the cover height that pins the install block, and the wrapping rules that decide what a long release subject does. Only the look differs. That is what lets the announce tests measure the same pixels whichever one a release drew.
+
+The seed is the version. `announce/announce.sh` derives it once, near the top, as the `cksum` of the version string, and passes it to every crier run it makes:
+
+```sh
+seed=$(printf '%s' "$version" | cksum | cut -d' ' -f1)
+```
+
+This matters because the announcement is not one crier run. It is the anthem render, the feed post, the story pass and the LinkedIn passes, and each one would otherwise draw a seed of its own. The stories would come out as a different-looking release than the feed post they follow.
+
+The seed is logged, so the run says what it chose:
+
+```
+announce: seed for v1.1.0 is 487772968
+```
+
+To draw a given release's card again on your own machine, hand that number back:
+
+```sh
+DISPAT_NEW_VERSION=1.1.0 sh announce/notes.sh |
+  crier render --config announce/crier.yaml --render-data - \
+    --render-seed "$(printf '%s' 1.1.0 | cksum | cut -d' ' -f1)" \
+    --render-format png --render-output announce/preview.png
+```
+
+That is also how the committed previews are made: version 1.1.0, seed 487772968. Pinning it is what keeps them from changing every time somebody regenerates them.
 
 The card paginates. Page one is the cover: the version badge and the three install routes, each pinned to the version. The changelog carries on across the pages after it, under a small version badge and a footer that numbers the page. A committed preview shows both: [page one](../../announce/preview-1.png) and [page two](../../announce/preview-2.png).
 
@@ -248,7 +293,7 @@ DISPAT_NEW_VERSION=1.2.3 sh announce/notes.sh |
   crier render --config announce/crier.yaml --render-data - --render-output card.jpg
 ```
 
-The config renders a JPEG because that is what Instagram fetches. Add `--render-format png` for a lossless copy.
+The config renders a JPEG because that is what Instagram fetches. Add `--render-format png` for a lossless copy. With no `--render-seed` this draws a fresh layout and palette every time, which is a quick way to see what the pool holds; add the seed to pin one, as above.
 
 ## Versioned documentation
 
