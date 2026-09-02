@@ -46,10 +46,12 @@ parser:
 # the header grammar puts `!` last; the other order is a parse error and would
 # release on stable. See docs/operations/release.md.
 #
-# `commitErrors` stays at its default `warn`. The seven commits that predate
-# this repository's conventional-commit convention cannot be parsed, and the
-# stricter `error` would refuse every release until the first tag exists —
-# after which they fall outside the window and it becomes worth turning on.
+# `commitErrors: error` refuses a release over a commit dispat cannot parse,
+# rather than letting it contribute nothing in silence. It only became
+# possible once the first tag existed: the seven commits that predate this
+# repository's conventional-commit convention sat inside every window until
+# v1.0.0-rc.0, and outside every window since.
+commitErrors: error
 #
 # Every commit is scoped — feat(crier): …, fix(crier): … — because the scope is
 # what attributes a change under internal/ to the package whose path is

@@ -43,11 +43,7 @@ dispat install yohimik/crier
 
 The crier releases name their binaries the way the dispat installer expects. They use the repository's name and the platform. This means the bare command works on its own. You need dispat 1.7 or newer. An older dispat requires `--asset 'crier-{os}-{arch}'`.
 
-Before the first stable release, add `--prerelease`. Release candidates are prereleases, and `dispat install` skips those by default:
-
-```sh
-dispat install yohimik/crier --prerelease
-```
+The bare command resolves the newest stable release. Release candidates are prereleases, and `dispat install` skips those unless you add `--prerelease`.
 
 ### GitHub Actions
 
@@ -58,11 +54,7 @@ dispat install yohimik/crier --prerelease
 
 The action installs crier and puts it on `PATH`. It takes `version` (default: the latest stable), `bin-dir` and `github-token`. It reports `version` and `path`.
 
-**`@v1` appears with the first stable release.** It is a moving tag scoped to the stable line. A release candidate never drags it forward, which means it does not exist yet. Until then, pin the full tag:
-
-```yaml
-- uses: yohimik/crier@v1.0.0-rc.0
-```
+**`@v1` is a moving tag scoped to the stable line.** It follows the newest 1.x stable release, and a release candidate never drags it forward: `@v1` asked for stable and gets stable. Pin the full tag, `@v1.0.0`, to stay put.
 
 More: [installing](./docs/operations/install.md#github-actions).
 
@@ -74,7 +66,7 @@ go install github.com/yohimik/crier/cmd/crier@latest
 
 This builds from source and needs Go 1.26 or newer. The binary reports the module version rather than the one stamped at release time. Released binaries carry the version, the commit and the build date in their ldflags. A `go install` build reads what it can from the module's own build info instead. Everything else is identical.
 
-`@latest` follows Go's prerelease rule and skips release candidates. Name one explicitly during the rc period.
+`@latest` follows Go's prerelease rule and resolves the newest stable release, skipping release candidates.
 
 ### Keeping it up to date
 

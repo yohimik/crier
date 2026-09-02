@@ -67,7 +67,6 @@ func (l *LinkedIn) Needs() Needs {
 	return Needs{Formats: imageFormats, Kinds: imageAndVideo, MaxAttachments: LinkedInImageMax}
 }
 
-// rest starts a request with the headers LinkedIn insists on.
 // LinkedInCommentaryMax is LinkedIn's hard cap on a post's commentary, in
 // characters, counted after escaping. v1.0.0's graduation collected a whole
 // rc train into the caption's changelog and the post was refused at 4408:
@@ -120,6 +119,7 @@ func escapeLittleText(s string) string {
 // LinkedIn's own docs spells them. The joiner keeps segments as given.
 func encodeURN(urn string) string { return strings.ReplaceAll(urn, ":", "%3A") }
 
+// rest starts a request with the headers LinkedIn insists on.
 func (l *LinkedIn) rest(method string, segments ...string) *httpx.Builder {
 	return httpx.NewRequest(method, l.cfg.APIBaseURL, segments...).
 		Bearer(l.cfg.Token).
