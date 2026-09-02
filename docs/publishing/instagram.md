@@ -113,7 +113,9 @@ publish:
     lead-video: anthem.mp4
 ```
 
-The child container is `video_url` plus `is_carousel_item=true` and carries no `media_type`. It counts as one of the carousel's ten items, so a run with one posts at most nine pages. It is staged like every other Instagram asset, and crier waits for its container to report `FINISHED` before creating the parent, because video children are processed asynchronously.
+The child container is `video_url`, `is_carousel_item=true` and `media_type=VIDEO`. It counts as one of the carousel's ten items, so a run with one posts at most nine pages. It is staged like every other Instagram asset, and crier waits for its container to report `FINISHED` before creating the parent, because video children are processed asynchronously.
+
+`media_type=VIDEO` is required even though the reference does not list `VIDEO` among that parameter's values. Omit it and the call fails with `400 IGApiException` code 100, "The parameter image_url is required": the API presumes an image child and asks for an image child's parameter. See [music](./music.md#instagram).
 
 Instagram crops a carousel to the shape of its **first** item, which with a lead video is the clip. Render the cards to match it.
 

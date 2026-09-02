@@ -136,7 +136,9 @@ A single page plus a lead video is still a carousel of two. That is the point: o
 
 ### Instagram
 
-The child container is `video_url` plus `is_carousel_item=true`, and nothing else. It carries no `media_type`: that parameter names a container kind, and its documented values are `CAROUSEL`, `REELS` and `STORIES`. `VIDEO` is no longer one of them, and a reel is refused inside a carousel outright, so Meta infers the kind from which URL was sent. A child carries no caption either, which Meta does not accept.
+The child container is `video_url`, `is_carousel_item=true` and `media_type=VIDEO`. A child carries no caption, which Meta does not accept.
+
+The `media_type` is worth a note, because the reference and the endpoint disagree. The reference lists `CAROUSEL`, `REELS` and `STORIES` as that parameter's values and does not mention `VIDEO` at all, which reads as an instruction to leave it out. Leave it out and the call fails: `400 IGApiException` code 100, "The parameter image_url is required". Without a `media_type` the API presumes an image child and asks for the parameter an image child would have. Send `VIDEO` and it works. Behaviour wins.
 
 Instagram fetches the clip from a public URL like everything else it posts, so the lead video is staged the way the pages are. See [staging](../staging/README.md).
 

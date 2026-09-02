@@ -111,11 +111,14 @@ func igFake(t *testing.T, rec *recorder) string {
 	t.Helper()
 	n := 0
 	srv := fakeServer(t, func(w http.ResponseWriter, r *http.Request) {
-		rec.record(r)
+		req := rec.record(r)
 		switch {
 		case strings.HasSuffix(r.URL.Path, "/media_publish"):
 			_, _ = w.Write([]byte(`{"id":"post-1"}`))
 		case strings.HasSuffix(r.URL.Path, "/media"):
+			if !igContainerIsWellFormed(w, req.Body) {
+				return
+			}
 			n++
 			_, _ = w.Write([]byte(`{"id":"c` + itoa(n) + `"}`))
 		case strings.HasSuffix(r.URL.Path, "/post-1"):
@@ -125,6 +128,30 @@ func igFake(t *testing.T, rec *recorder) string {
 		}
 	})
 	return srv.URL
+}
+
+// igContainerIsWellFormed answers a malformed container the way Instagram
+// does, so a fake cannot accept a request the real endpoint refuses.
+//
+// The one rule worth enforcing: a carousel child carrying a video_url has to
+// say media_type=VIDEO. Without it the API presumes an image child and answers
+// "The parameter image_url is required", which is how rc.8's feed post failed.
+func igContainerIsWellFormed(w http.ResponseWriter, body string) bool {
+	v, err := url.ParseQuery(body)
+	if err != nil {
+		w.WriteHeader(http.StatusBadRequest)
+		return false
+	}
+	if v.Get("is_carousel_item") != "true" || v.Get("video_url") == "" {
+		return true
+	}
+	if v.Get("media_type") != "VIDEO" {
+		w.WriteHeader(http.StatusBadRequest)
+		_, _ = w.Write([]byte(
+			`{"error":{"message":"The parameter image_url is required.","type":"IGApiException","code":100}}`))
+		return false
+	}
+	return true
 }
 
 func itoa(n int) string { return string(rune('0' + n)) }
@@ -173,10 +200,11 @@ func TestInstagramCarouselOpensWithTheVideo(t *testing.T) {
 		t.Fatalf("created %d containers, want the video, two images and the parent", len(got))
 	}
 
-	// The video child comes first, and it is video_url plus is_carousel_item
-	// and nothing else. media_type names a container kind, whose documented
-	// values are CAROUSEL, REELS and STORIES: VIDEO is not one of them, and
-	// REELS is refused inside a carousel outright.
+	// The video child comes first: video_url, is_carousel_item, and
+	// media_type=VIDEO. The reference omits VIDEO from that parameter's enum,
+	// and the endpoint answers a child without it with "The parameter
+	// image_url is required" — it presumes an image child. This assertion
+	// exists because the documentation led the other way once already.
 	lead := got[0]
 	if lead.Get("video_url") != "https://cdn/anthem.mp4" {
 		t.Errorf("the first container is not the clip: %v", lead)
@@ -184,8 +212,9 @@ func TestInstagramCarouselOpensWithTheVideo(t *testing.T) {
 	if lead.Get("is_carousel_item") != "true" {
 		t.Errorf("the clip is not a carousel item: %v", lead)
 	}
-	if lead.Has("media_type") {
-		t.Errorf("a video carousel child must not carry media_type: %q", lead.Get("media_type"))
+	if lead.Get("media_type") != "VIDEO" {
+		t.Errorf("media_type = %q, want VIDEO or instagram asks for an image_url",
+			lead.Get("media_type"))
 	}
 	if lead.Has("caption") {
 		t.Error("meta does not accept a caption on a carousel child")

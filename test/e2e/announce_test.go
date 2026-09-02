@@ -339,6 +339,9 @@ func TestAnnouncePostsFeedThenStory(t *testing.T) {
 		requests = append(requests, recordedCall{Path: r.URL.Path, Body: body})
 		switch {
 		case strings.HasSuffix(r.URL.Path, "/media"):
+			if !igContainerIsWellFormed(w, body) {
+				return
+			}
 			_, _ = w.Write([]byte(`{"id":"c-` + strconv.Itoa(len(requests)) + `"}`))
 		case strings.HasSuffix(r.URL.Path, "/media_publish"):
 			_, _ = w.Write([]byte(`{"id":"p-` + strconv.Itoa(len(requests)) + `"}`))
@@ -433,8 +436,8 @@ func TestAnnouncePostsFeedThenStory(t *testing.T) {
 		if children[0].Get("video_url") == "" {
 			t.Error("the carousel's first child is not the anthem; the post opens with the fanfare")
 		}
-		if children[0].Has("media_type") {
-			t.Errorf("a video carousel child must carry no media_type, got %q",
+		if children[0].Get("media_type") != "VIDEO" {
+			t.Errorf("a video carousel child needs media_type=VIDEO, got %q",
 				children[0].Get("media_type"))
 		}
 	} else if len(leadChildren) != 0 {
@@ -625,6 +628,31 @@ type recordedCall struct {
 	Body string
 }
 
+// igContainerIsWellFormed answers a malformed container the way Instagram
+// does, so a fake cannot accept a request the real endpoint refuses.
+//
+// The rule worth enforcing: a carousel child carrying a video_url has to say
+// media_type=VIDEO. Without it the API presumes an image child and answers
+// "The parameter image_url is required", which is how rc.8's feed post failed
+// while every test went green.
+func igContainerIsWellFormed(w http.ResponseWriter, body string) bool {
+	v, err := url.ParseQuery(body)
+	if err != nil {
+		w.WriteHeader(http.StatusBadRequest)
+		return false
+	}
+	if v.Get("is_carousel_item") != "true" || v.Get("video_url") == "" {
+		return true
+	}
+	if v.Get("media_type") != "VIDEO" {
+		w.WriteHeader(http.StatusBadRequest)
+		_, _ = w.Write([]byte(
+			`{"error":{"message":"The parameter image_url is required.","type":"IGApiException","code":100}}`))
+		return false
+	}
+	return true
+}
+
 func readBody(r *http.Request) string {
 	buf := make([]byte, 1<<20)
 	n, _ := r.Body.Read(buf)
@@ -671,6 +699,9 @@ func TestSmokeHostileChangelog(t *testing.T) {
 	srv = httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		switch {
 		case strings.HasSuffix(r.URL.Path, "/ig-user/media"):
+			if !igContainerIsWellFormed(w, readBody(r)) {
+				return
+			}
 			_, _ = w.Write([]byte(`{"id":"c1"}`))
 		case strings.HasSuffix(r.URL.Path, "/c1"):
 			_, _ = w.Write([]byte(`{"status_code":"FINISHED"}`))

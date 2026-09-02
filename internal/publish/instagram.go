@@ -174,16 +174,22 @@ func (i *Instagram) carousel(ctx context.Context, leadURL string, urls []string,
 			return Result{}, fmt.Errorf(
 				"instagram needs a public URL for the lead video; configure stage.mode")
 		}
-		// A video carousel child is video_url plus is_carousel_item, and
-		// nothing else. media_type names a container kind rather than a media
-		// kind, and its documented values are CAROUSEL, REELS and STORIES:
-		// VIDEO is no longer one of them, and REELS is refused in a carousel
-		// outright. The kind is inferred from video_url being the URL that was
-		// sent. No caption either, which Meta does not accept on a child.
+		// media_type=VIDEO, because the endpoint says so. The reference's enum
+		// for this parameter lists CAROUSEL, REELS and STORIES and omits VIDEO
+		// entirely, which reads as "do not send it" — and sending nothing gets
+		// a 400 IGApiException code 100, "The parameter image_url is required"
+		// (fbtrace A0MpoozUBsHxq-KQTcd9gcG, rc.8's announce run). Without a
+		// media_type the API presumes an image child and asks for the
+		// parameter an image child would have. Behaviour wins over the
+		// reference: the documentation is wrong here, and this is the shape
+		// that posts.
+		//
+		// No caption, which Meta does not accept on a child.
 		id, err := i.container(ctx, url.Values{
 			"access_token":     {i.cfg.Token},
 			"video_url":        {leadURL},
 			"is_carousel_item": {"true"},
+			"media_type":       {"VIDEO"},
 		})
 		if err != nil {
 			return Result{}, fmt.Errorf("the lead video: %w", err)
