@@ -1,5 +1,172 @@
 # Changelog
 
+## v1.0.0-rc.3 (2026-09-02)
+
+### Features
+
+- the release announces itself as a carousel ([34535f2](https://github.com/yohimik/crier/commit/34535f22d56798cc8f0dc7b6e3ff838b468112ff)) (by yohimik, Claude Fable 5)
+  The card was one page, and a changelog was cut to two or three entries a
+  section to make it fit. That was the constraint the whole card was designed
+  around, and it is gone.
+
+  Page one is the cover: the version badge a thumbnail has to carry, the lede,
+  and the three install routes pinned to the bottom edge. The changelog carries
+  on across the pages after it, under a small version badge and a footer that
+  numbers the page. Both are drawn in the page margins, so they repeat without
+  being written into the flow, and the first page suppresses them because it
+  carries its own badge and because "1 / 1" on a short release says nothing.
+
+  Each pass turns those pages into what its surface takes. The feed post is one
+  carousel. The story pass posts one story per page, in order, each live before
+  the next is created. Neither is a flag: crier works it out from the platform.
+  Stories have no cover-page opt-out — announcing a release without saying what
+  is in it is not a saving worth making.
+
+  notes.sh keeps a ceiling of twenty entries a section, which is a guard against
+  absurdity rather than a design constraint: past it the render would exceed
+  render.pages-max and be refused outright, and a release with sixty entries in
+  one section is not one anybody reads to the end of.
+
+  The end-to-end test now asserts the whole shape against a fake Graph API: a
+  child container per page, one parent listing them in order, one publish, and
+  then a story per page. The committed preview is both pages.
+
+- the last three platforms, and where each number came from ([1ddab98](https://github.com/yohimik/crier/commit/1ddab98be19e959cf2bf613c828b1704e81c538f)) (by yohimik, Claude Fable 5)
+  LinkedIn takes two to twenty as a multi-image post. One image is a different
+  shape entirely — content.media rather than content.multiImage, and a
+  multiImage of one is refused — so the shape follows the batch size rather than
+  a flag. TikTok's photo post was already a list of URLs, so several pages are
+  more entries in the request it always sent, up to the documented thirty-five.
+
+  Reddit stays at one file per post on purpose. It has galleries, but the only
+  way to make one is an endpoint Reddit's own web client uses and Reddit
+  documents nowhere, with no published limit and no promise it keeps working.
+  Several ordinary posts that will still be there next month beat one gallery
+  built on that.
+
+  The numbers are now sorted into the ones a platform documents and the ones
+  crier chose. Instagram's ten, Telegram's two-to-ten, x's four, LinkedIn's
+  twenty and TikTok's thirty-five are the platform's own words. Facebook,
+  Discord and Slack document the mechanism and no limit on it, so ten is crier's
+  ceiling rather than theirs, and the comments say so. Mastodon's four is the
+  instance's, advertised as max_media_attachments and merely defaulted to four,
+  so crier assumes the conservative number.
+
+  One test lists every capacity with the source of each, so a number that
+  changes without that list changing is a post that would silently start
+  splitting.
+
+- the platforms that take several files now do ([21f8ef6](https://github.com/yohimik/crier/commit/21f8ef6a412af7e61a09a0a1f5e3dec21a9a7955)) (by yohimik, Claude Fable 5)
+  Seven of the ten accept more than one file in a post, and each does it
+  differently. Every one of them keeps the page order.
+
+  Instagram builds a carousel: a child container per image, a parent that lists
+  them, one publish. The caption belongs to the parent, which is what makes a
+  five-page changelog one entry in the feed rather than five. Stories have no
+  carousel at all, so a story run stays at one file and becomes one story per
+  page, published in order.
+
+  Facebook uploads each photo unpublished and attaches the ids to one feed post.
+  Telegram sends a media group, with the caption on the first item because
+  Telegram shows an album's caption once; a batch of one still goes through
+  sendPhoto, since a media group has a minimum of two. x and Mastodon upload in
+  page order and list the ids. Discord numbers its file parts. Slack uploads each
+  file and shares the lot in one completeUploadExternal, which is what makes them
+  one message.
+
+  A custom platform gets CRIER_ARTIFACTS and CRIER_URLS, one path per line
+  because a path may contain a space, plus a count and the post and page numbers.
+  Its capacity is whatever max-attachments says, since the command is the
+  platform and there is no API here to know better.
+
+  The e2e suite proves the three shapes against the fakes: sequential stories,
+  one carousel, and a four-cap split. One scenario runs all three platforms
+  together and asserts each saw the same five pages in the same order. It is in
+  the smoke subset, so the release build proves it against the shipped bytes.
+
+  LinkedIn, Reddit and TikTok still take one file each. They follow.
+
+- a page list becomes a sequence of posts ([e1754f0](https://github.com/yohimik/crier/commit/e1754f0b7e86c9fc18b1f1afe921b09feab82112)) (by yohimik, Claude Fable 5)
+  The run has one ordered page list. Every platform receives it whole, in order,
+  and the only thing a platform may do to it is cut it into the sizes it accepts.
+  Nothing reorders, skips, merges or dedupes pages. That is what makes a carousel
+  at one platform and a run of single posts at another tell the same story in the
+  same sequence.
+
+  Needs.MaxAttachments declares how many files a platform takes in one post, with
+  zero read as one. Every platform still declares one, so today a five-page
+  document is five posts everywhere; raising the numbers and implementing the
+  multi-file calls is the next commit. publish.<platform>.max-attachments lowers
+  it, and only lowers it: asking a platform for more than it takes would only be
+  refused by the platform, which is a worse way to find out.
+
+  A platform's posts go out one at a time, each finished before the next begins.
+  That is not caution. Several platforms order a feed by when a post completed,
+  so publishing two of one sequence at once is how a two-part post turns up back
+  to front. A post that fails stops the ones after it and the outcome says how
+  far it got: a gap in the middle of a sequence is worse than a short sequence,
+  because a reader cannot tell it happened. Platforms still run alongside each
+  other; the sequencing is within one.
+
+  Captions are rendered once per post rather than once per run, with .Post,
+  .Posts, .Page and .Pages bound, so one line of configuration can write "2 of
+  3". They read 1 of 1 when nothing paginated, so a caption that mentions them is
+  safe to write either way.
+
+- keep every page a document lays out into ([8c35002](https://github.com/yohimik/crier/commit/8c35002231ca0f7c0b471d088fc8f88755f9269a)) (by yohimik, Claude Fable 5)
+  Laying out was always producing pages. crier kept the first and refused the
+  rest, so a changelog too long for one card was an error telling you to shorten
+  it.
+
+  It is a post now. A run produces one ordered page list, and that list is what
+  every platform receives: same pages, same order, everywhere. The fit is applied
+  per page, so a carousel is a set of pictures the same shape rather than one
+  fitted picture and four that were not. Staging gives each page an address of
+  its own, because a platform that fetches by URL fetches every page.
+
+  render.pages-max, default 10, refuses a document past it. The check runs after
+  the layout, since the count is not knowable until the content has flowed: a
+  template with a loop that never ends fails here rather than at the platform,
+  which would have taken the first ten and said nothing about the rest. The hard
+  ceiling is 20, above every platform's own carousel limit bar Reddit's.
+
+  A document that still fits on one page produces one page with the file name it
+  always had, so nothing downstream has to learn about pagination to keep
+  working. `crier render` writes the whole set, numbered when there is more than
+  one.
+
+  Nothing publishes more than one page yet. That is the next commit.
+
+### Fixes
+
+- the page margin is the template's to choose ([fdd258c](https://github.com/yohimik/crier/commit/fdd258cdd14ea29165a21e52f275b5306ae8e676)) (by yohimik, Claude Fable 5)
+  crier appended its page rule after the document's own styles, and that rule
+  carried two declarations: the size and a zero margin. The size belongs there.
+  Putting it last is what makes --render-width win over a rule the template
+  happens to carry.
+
+  The margin did not belong there. Appended last it overruled whatever margin the
+  template asked for, and a page's margin boxes draw in the page margin. With the
+  margin forced to zero they had no room: a running header and footer came out
+  clipped to a sliver, straddling the page edge. A paginated template could not
+  have worked, which is why this surfaced while verifying paged media at all.
+
+  The rule is split across the document now. The margin goes first, as a default
+  a template can overrule. The size still goes last, where it cannot be. A
+  template that says nothing still gets an edge-to-edge page, because that is
+  what a social image is.
+
+  Verified through the raster backend: page margin boxes paint, the page counters
+  resolve, the first-page selector picks page one, running headers from content
+  work, and a card that would straddle a page break moves whole. A three-page
+  golden pins the lot.
+
+### Authors
+
+- yohimik
+- Claude Fable 5
+
+
 ## v1.0.0-rc.2 (2026-09-01)
 
 ### Fixes
