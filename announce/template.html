@@ -122,11 +122,15 @@
   .section ul { margin: 0; padding: 0; list-style: none }
   .section li {
     font-size: 25px; line-height: 1.45; color: #8ff0bd;
-    /* A release subject is as long as somebody wrote it. One line each,
-       ellipsised — see docs/templates/text-overflow.md. Pagination gives the
-       card more room for entries, not for longer ones: a wall of wrapped
-       prose is not what anybody reads a release card for. */
-    overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+    margin-bottom: 6px;
+    /* A release subject is as long as somebody wrote it, and the card is
+       paginated, so long ones wrap: up to three lines each, then the
+       multi-line clamp from docs/templates/text-overflow.md. An unbroken
+       run with no spaces in it breaks anywhere rather than escaping the
+       card. A long entry costing three lines is what pushes its neighbours
+       onto the next page, which is the point of having pages. */
+    overflow: hidden; overflow-wrap: break-word;
+    max-lines: 3; continue: discard; block-ellipsis: auto;
     break-inside: avoid;
   }
   .section li:before { content: "- "; color: #2f7f56 }
