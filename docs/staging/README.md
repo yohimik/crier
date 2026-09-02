@@ -1,6 +1,6 @@
 # Staging
 
-Instagram and TikTok's photo flow will not accept file uploads. They require a **public URL** and fetch the file themselves from their own servers. Staging is how a rendered file gets this URL.
+Instagram, Threads and TikTok's photo flow will not accept file uploads. They require a **public URL** and fetch the file themselves from their own servers. Staging is how a rendered file gets this URL.
 
 Every other platform accepts raw bytes. You do not need staging if your project only publishes to those platforms.
 

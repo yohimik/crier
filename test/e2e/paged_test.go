@@ -560,3 +560,162 @@ func TestVKLoweredCapSplitsTheWall(t *testing.T) {
 		}
 	}
 }
+
+// threadsContainerBodies is every Threads container creation, in the order they
+// were made. The publish endpoint ends in "threads_publish", so a suffix match
+// on "/threads" alone would swallow it.
+func threadsContainerBodies(f *fakes) []request {
+	var out []request
+	for _, r := range f.all() {
+		if r.Method == "POST" && strings.HasSuffix(r.Path, "/th-user/threads") {
+			out = append(out, r)
+		}
+	}
+	return out
+}
+
+// TestThreadsPagesBecomeOneCarousel: five pages are one entry on the feed
+// rather than five, and the children are listed in page order.
+//
+// The fake mints each container id and refuses a parent naming anything it did
+// not create, so the children list wall the parent carries is a readout of the
+// containers this run actually made.
+func TestThreadsPagesBecomeOneCarousel(t *testing.T) {
+	f := newFakes(t)
+	addr := freeAddr(t)
+	dir := newPagedProject(t, strings.Join([]string{
+		"  threads:",
+		"    enabled: true",
+		"    api-base-url: " + f.URL + "/threads",
+		"    token: threads-token",
+		"    user-id: th-user",
+		"    poll-interval: 1ms",
+		"    poll-timeout: 5s",
+		"    caption: \"part {{.Post}} of {{.Posts}}\"",
+	}, "\n")+"\nstage:\n  mode: server\n  server:\n    listen: "+addr+
+		"\n    public-url: http://"+addr+"\n")
+
+	if res := crier(t, dir, nil, "publish"); res.Code != exitOK {
+		t.Fatalf("code=%d stderr=%s", res.Code, res.Stderr)
+	}
+
+	if n := len(f.findAll("/threads/th-user/threads_publish")); n != 1 {
+		t.Fatalf("threads published %d times, want one carousel", n)
+	}
+	containers := threadsContainerBodies(f)
+	if len(containers) != 6 {
+		t.Fatalf("threads created %d containers, want five children and a parent", len(containers))
+	}
+	for i, c := range containers[:5] {
+		form, err := url.ParseQuery(c.Body)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if form.Get("is_carousel_item") != "true" {
+			t.Errorf("container %d is not a carousel item: %s", i+1, c.Body)
+		}
+		if form.Get("media_type") != "IMAGE" {
+			t.Errorf("container %d media_type = %q", i+1, form.Get("media_type"))
+		}
+		if _, ok := form["text"]; ok {
+			t.Errorf("container %d carried text, which a child does not take: %s", i+1, c.Body)
+		}
+	}
+	if got := joined(pageNumbersFromURLs(containers[:5])); got != "1,2,3,4,5" {
+		t.Errorf("the children are %q, want 1,2,3,4,5", got)
+	}
+
+	parent, err := url.ParseQuery(containers[5].Body)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if parent.Get("media_type") != "CAROUSEL" {
+		t.Errorf("the parent is not a carousel: %s", containers[5].Body)
+	}
+	if parent.Get("children") != "th-c1,th-c2,th-c3,th-c4,th-c5" {
+		t.Errorf("children = %q, want the containers in page order", parent.Get("children"))
+	}
+	// The caption belongs to the parent, and a carousel is one post of one.
+	if parent.Get("text") != "part 1 of 1" {
+		t.Errorf("the parent's text = %q", parent.Get("text"))
+	}
+}
+
+// TestThreadsASinglePageIsNotACarousel is the rule Instagram does not share: a
+// CAROUSEL container naming one child is refused, so a one-page run has to post
+// as plain media. The fake refuses a one-child carousel too, so a regression
+// here is a failed run rather than a passing test.
+func TestThreadsASinglePageIsNotACarousel(t *testing.T) {
+	f := newFakes(t)
+	addr := freeAddr(t)
+	dir := newProject(t, strings.Join([]string{
+		"  threads:",
+		"    enabled: true",
+		"    api-base-url: " + f.URL + "/threads",
+		"    token: threads-token",
+		"    user-id: th-user",
+		"    poll-interval: 1ms",
+		"    poll-timeout: 5s",
+	}, "\n")+"\nstage:\n  mode: server\n  server:\n    listen: "+addr+
+		"\n    public-url: http://"+addr+"\n")
+
+	if res := crier(t, dir, nil, "publish"); res.Code != exitOK {
+		t.Fatalf("code=%d stderr=%s", res.Code, res.Stderr)
+	}
+	containers := threadsContainerBodies(f)
+	if len(containers) != 1 {
+		t.Fatalf("threads created %d containers for one page, want one", len(containers))
+	}
+	form, err := url.ParseQuery(containers[0].Body)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if form.Get("media_type") != "IMAGE" {
+		t.Errorf("media_type = %q, want IMAGE and never CAROUSEL", form.Get("media_type"))
+	}
+	for _, key := range []string{"children", "is_carousel_item"} {
+		if _, ok := form[key]; ok {
+			t.Errorf("a single page carried %s: %s", key, containers[0].Body)
+		}
+	}
+}
+
+// TestThreadsLoweredCapSplitsTheCarousel: max-attachments lowers the cap, and a
+// page list longer than it becomes several posts in a row rather than a
+// truncated one.
+func TestThreadsLoweredCapSplitsTheCarousel(t *testing.T) {
+	f := newFakes(t)
+	addr := freeAddr(t)
+	dir := newPagedProject(t, strings.Join([]string{
+		"  threads:",
+		"    enabled: true",
+		"    api-base-url: " + f.URL + "/threads",
+		"    token: threads-token",
+		"    user-id: th-user",
+		"    poll-interval: 1ms",
+		"    poll-timeout: 5s",
+		"    max-attachments: 3",
+	}, "\n")+"\nstage:\n  mode: server\n  server:\n    listen: "+addr+
+		"\n    public-url: http://"+addr+"\n")
+
+	if res := crier(t, dir, nil, "publish"); res.Code != exitOK {
+		t.Fatalf("code=%d stderr=%s", res.Code, res.Stderr)
+	}
+	if n := len(f.findAll("/threads/th-user/threads_publish")); n != 2 {
+		t.Fatalf("threads published %d times, want two posts", n)
+	}
+	// Three pages then two: both are carousels, because two is still two.
+	containers := threadsContainerBodies(f)
+	if len(containers) != 7 {
+		t.Fatalf("threads created %d containers, want 3+1 then 2+1", len(containers))
+	}
+	for i, want := range map[int]string{3: "th-c1,th-c2,th-c3", 6: "th-c5,th-c6"} {
+		form, err := url.ParseQuery(containers[i].Body)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if form.Get("media_type") != "CAROUSEL" || form.Get("children") != want {
+			t.Errorf("container %d = %s, want a carousel of %q", i+1, containers[i].Body, want)
+		}
+	}
+}

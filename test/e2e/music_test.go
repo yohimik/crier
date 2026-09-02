@@ -278,7 +278,7 @@ func TestLeadVideoOpensTheTelegramAlbum(t *testing.T) {
 	}
 }
 
-// TestLeadVideoIsRefusedWhereItCannotWork: nine of the eleven post pictures or a
+// TestLeadVideoIsRefusedWhereItCannotWork: ten of the twelve post pictures or a
 // video and never both, and the error says which and why.
 func TestLeadVideoIsRefusedWhereItCannotWork(t *testing.T) {
 	f := newFakes(t)

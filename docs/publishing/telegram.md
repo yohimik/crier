@@ -1,6 +1,6 @@
 # Telegram
 
-This is the simplest of the eleven. It requires one multipart request. There is no container and no polling. It takes the bytes rather than a URL.
+This is the simplest of the twelve. It requires one multipart request. There is no container and no polling. It takes the bytes rather than a URL.
 
 ## Setting it up
 

@@ -324,6 +324,8 @@ func validatePublish(p *Publish) []error {
 		{"publish.mastodon.poll-timeout", p.Mastodon.PollTimeout},
 		{"publish.reddit.poll-interval", p.Reddit.PollInterval},
 		{"publish.reddit.poll-timeout", p.Reddit.PollTimeout},
+		{"publish.threads.poll-interval", p.Threads.PollInterval},
+		{"publish.threads.poll-timeout", p.Threads.PollTimeout},
 	} {
 		if err := checkDuration(d.key, d.val, true); err != nil {
 			errs = append(errs, err)
@@ -361,7 +363,7 @@ func validatePublish(p *Publish) []error {
 }
 
 // MusicOf returns a platform's own audio setting, or nil when the name is not
-// one of the eleven built-in platforms.
+// one of the twelve built-in platforms.
 //
 // A custom platform has none. Its command decides what it sends, so an audio
 // file crier attached for it would be a file the command never sees.
@@ -389,6 +391,8 @@ func MusicOf(p *Publish, name string) *Music {
 		return &p.Slack.Music
 	case "vk":
 		return &p.VK.Music
+	case "threads":
+		return &p.Threads.Music
 	default:
 		return nil
 	}
@@ -400,7 +404,7 @@ func MusicOf(p *Publish, name string) *Music {
 //
 // The last clause is what keeps a global setting from being a mistake. Someone
 // naming one file for the whole run means it for the platforms that can take
-// it, not as an instruction the other eight have to refuse.
+// it, not as an instruction the other nine have to refuse.
 func MusicFileFor(p *Publish, name string) string {
 	if !CanCarryMusic(name) {
 		return ""
@@ -412,7 +416,7 @@ func MusicFileFor(p *Publish, name string) string {
 }
 
 // LeadVideoOf returns a platform's opening clip, or nil when the name is not
-// one of the eleven built-in platforms.
+// one of the twelve built-in platforms.
 func LeadVideoOf(p *Publish, name string) *LeadVideo {
 	switch name {
 	case "instagram":
@@ -437,6 +441,8 @@ func LeadVideoOf(p *Publish, name string) *LeadVideo {
 		return &p.Slack.LeadVideo
 	case "vk":
 		return &p.VK.LeadVideo
+	case "threads":
+		return &p.Threads.LeadVideo
 	default:
 		return nil
 	}
@@ -485,6 +491,8 @@ func LayoutOf(p *Publish, name string) *Layout {
 		return &p.Slack.Layout
 	case "vk":
 		return &p.VK.Layout
+	case "threads":
+		return &p.Threads.Layout
 	default:
 		if c := CustomOf(p, name); c != nil {
 			return &c.Layout

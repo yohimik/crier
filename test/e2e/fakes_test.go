@@ -17,7 +17,7 @@ import (
 
 // fakes is one server standing in for every platform crier can post to.
 //
-// One server rather than eleven because every base URL is configurable: the
+// One server rather than twelve because every base URL is configurable: the
 // contract each platform's fake enforces is the point, not the host it lives
 // on.
 type fakes struct {
@@ -30,6 +30,11 @@ type fakes struct {
 	// vkPhotos numbers VK's photo uploads, so the blob a save call forwards
 	// can be traced back to the upload that produced it.
 	vkPhotos int
+	// threadsContainers is every Threads container this fake minted, keyed by
+	// the id it handed out, so a publish or a carousel can be checked against
+	// what was actually created rather than against a string.
+	threadsContainers map[string]url.Values
+	threadsPosts      int
 }
 
 type request struct {
@@ -42,7 +47,7 @@ type request struct {
 
 func newFakes(t *testing.T) *fakes {
 	t.Helper()
-	f := &fakes{}
+	f := &fakes{threadsContainers: map[string]url.Values{}}
 	f.Server = httptest.NewServer(http.HandlerFunc(f.serve))
 	f.uploadHost = f.URL
 	t.Cleanup(f.Close)
@@ -90,7 +95,7 @@ func (f *fakes) count(fragment string) int {
 }
 
 // serve routes by path prefix. Every platform gets a namespace of its own so
-// the config can point eleven base URLs at one server.
+// the config can point twelve base URLs at one server.
 func (f *fakes) serve(w http.ResponseWriter, r *http.Request) {
 	req := f.record(r)
 	path := req.Path
@@ -333,6 +338,15 @@ func (f *fakes) serve(w http.ResponseWriter, r *http.Request) {
 	case strings.HasPrefix(path, "/vk-video-upload"):
 		writeJSON(w, map[string]any{"size": 1024, "video_id": 77})
 
+	// --- threads ----------------------------------------------------------
+	//
+	// Instagram's shape on another host: a container, a status poll, a publish
+	// that names the container. One prefix covers the identity endpoint too,
+	// because the token travels in the query there and the shared bad-token
+	// rule at the top cannot see it.
+	case strings.HasPrefix(path, "/threads/"):
+		f.serveThreads(w, req)
+
 	default:
 		http.Error(w, "no fake for "+path, http.StatusNotFound)
 	}
@@ -428,6 +442,136 @@ func (f *fakes) serveVK(w http.ResponseWriter, req request) {
 	}
 }
 
+// threadsUser is the account the Threads fake posts as.
+const threadsUser = "th-user"
+
+// serveThreads is the whole Threads surface, and the binding contract for the
+// publisher.
+//
+// The linkage is what is enforced rather than merely answered. A container's id
+// is minted here, threads_publish only works when it names one of them, a
+// CAROUSEL parent only works when every child it lists was created as a
+// carousel item, and a carousel of fewer than two children is refused the way
+// the real API refuses it. So a post assembled out of the wrong pieces shows up
+// as a failed run rather than as a passing test.
+func (f *fakes) serveThreads(w http.ResponseWriter, req request) {
+	rest := strings.TrimPrefix(req.Path, "/threads/")
+	form, _ := url.ParseQuery(req.Body)
+	query, _ := url.ParseQuery(req.Query)
+
+	// The token travels in the body on a POST and in the query on a GET, so
+	// neither reaches the header the shared bad-token rule reads.
+	token := form.Get("access_token")
+	if token == "" {
+		token = query.Get("access_token")
+	}
+	if token == "bad-token" {
+		w.WriteHeader(http.StatusUnauthorized)
+		writeJSON(w, map[string]any{"error": map[string]any{
+			"message": "Invalid OAuth access token.", "type": "OAuthException", "code": 190,
+		}})
+		return
+	}
+
+	switch {
+	case rest == "me":
+		writeJSON(w, map[string]any{"id": threadsUser, "username": "crier_threads"})
+	case rest == threadsUser+"/threads":
+		f.threadsContainer(w, form)
+	case rest == threadsUser+"/threads_publish":
+		f.threadsPublish(w, form)
+	case strings.HasPrefix(rest, "th-c"):
+		f.mu.Lock()
+		_, ok := f.threadsContainers[rest]
+		f.mu.Unlock()
+		if !ok {
+			threadsRefuse(w, "container "+rest+" was never created")
+			return
+		}
+		writeJSON(w, map[string]any{"status": "FINISHED"})
+	case strings.HasPrefix(rest, "th-post-"):
+		writeJSON(w, map[string]any{
+			"permalink": "https://www.threads.net/@crier_threads/post/" +
+				strings.TrimPrefix(rest, "th-post-"),
+		})
+	default:
+		http.Error(w, "no threads fake for "+req.Path, http.StatusNotFound)
+	}
+}
+
+// threadsContainer mints one container, after checking it is a shape Threads
+// would accept.
+func (f *fakes) threadsContainer(w http.ResponseWriter, form url.Values) {
+	switch form.Get("media_type") {
+	case "IMAGE":
+		if form.Get("image_url") == "" {
+			threadsRefuse(w, "an IMAGE container with no image_url")
+			return
+		}
+	case "VIDEO":
+		if form.Get("video_url") == "" {
+			threadsRefuse(w, "a VIDEO container with no video_url")
+			return
+		}
+	case "CAROUSEL":
+		children := strings.Split(form.Get("children"), ",")
+		if len(children) < 2 {
+			threadsRefuse(w, fmt.Sprintf("a carousel of %d children; threads takes at least two",
+				len(children)))
+			return
+		}
+		f.mu.Lock()
+		for _, id := range children {
+			child, ok := f.threadsContainers[id]
+			if !ok {
+				f.mu.Unlock()
+				threadsRefuse(w, "the carousel names container "+id+", which was never created")
+				return
+			}
+			if child.Get("is_carousel_item") != "true" {
+				f.mu.Unlock()
+				threadsRefuse(w, "the carousel names container "+id+", which is not a carousel item")
+				return
+			}
+		}
+		f.mu.Unlock()
+	default:
+		threadsRefuse(w, "media_type "+form.Get("media_type"))
+		return
+	}
+
+	f.mu.Lock()
+	id := fmt.Sprintf("th-c%d", len(f.threadsContainers)+1)
+	f.threadsContainers[id] = form
+	f.mu.Unlock()
+	writeJSON(w, map[string]any{"id": id})
+}
+
+// threadsPublish turns a container into a post, and only a container.
+func (f *fakes) threadsPublish(w http.ResponseWriter, form url.Values) {
+	f.mu.Lock()
+	container, ok := f.threadsContainers[form.Get("creation_id")]
+	f.mu.Unlock()
+	if !ok {
+		threadsRefuse(w, "creation_id "+form.Get("creation_id")+" names no container")
+		return
+	}
+	if container.Get("is_carousel_item") == "true" {
+		threadsRefuse(w, "a carousel child cannot be published on its own")
+		return
+	}
+	f.mu.Lock()
+	f.threadsPosts++
+	n := f.threadsPosts
+	f.mu.Unlock()
+	writeJSON(w, map[string]any{"id": fmt.Sprintf("th-post-%d", n)})
+}
+
+func threadsRefuse(w http.ResponseWriter, why string) {
+	w.WriteHeader(http.StatusBadRequest)
+	writeJSON(w, map[string]any{"error": map[string]any{"message": why, "code": 100}})
+}
+
 func writeJSON(w http.ResponseWriter, v any) {
 	w.Header().Set("Content-Type", "application/json")
 	_ = json.NewEncoder(w).Encode(v)
@@ -476,6 +620,12 @@ func (f *fakes) platformConfig() string {
     api-base-url: %[1]s/vk
     token: vk-token
     owner-id: -123
+  threads:
+    api-base-url: %[1]s/threads
+    token: threads-token
+    user-id: th-user
+    poll-interval: 1ms
+    poll-timeout: 5s
   reddit:
     api-base-url: %[1]s/reddit
     auth-base-url: %[1]s/reddit-auth

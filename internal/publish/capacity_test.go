@@ -31,6 +31,7 @@ func TestEveryPlatformDeclaresItsCapacity(t *testing.T) {
 	p.Reddit.Subreddit, p.Reddit.Title = "r", "t"
 	p.Slack.Token, p.Slack.Channel = "xoxb-t", "C1"
 	p.VK.Token, p.VK.OwnerID = "t", -1
+	p.Threads.Token, p.Threads.UserID = "t", "u"
 
 	want := map[string]int{
 		// Documented by the platform.
@@ -38,6 +39,7 @@ func TestEveryPlatformDeclaresItsCapacity(t *testing.T) {
 		"telegram":  10, // sendMediaGroup, "must include 2-10 items"
 		"x":         4,  // media_ids, maxItems 4
 		"linkedin":  20, // multiImage, "minimum of 2 and maximum of 20"
+		"threads":   20, // a carousel holds 20, and refuses fewer than 2
 		"tiktok":    35, // photo_images, "up to 35 photo content URLs"
 		// crier's own ceiling, where the platform documents the mechanism and
 		// no limit on it.
@@ -62,6 +64,7 @@ func TestEveryPlatformDeclaresItsCapacity(t *testing.T) {
 		p.Reddit.Enabled = name == "reddit"
 		p.Slack.Enabled = name == "slack"
 		p.VK.Enabled = name == "vk"
+		p.Threads.Enabled = name == "threads"
 
 		pubs, err := Build(&cfg, testDeps(t))
 		if err != nil {

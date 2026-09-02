@@ -579,7 +579,7 @@ func enableAll(f *fakes, extra string) string {
 	return strings.Join(out, "\n") + extra
 }
 
-// TestSmokePublishToEveryPlatform is in the release smoke subset: eleven
+// TestSmokePublishToEveryPlatform is in the release smoke subset: twelve
 // publishers fanned out against fakes, which is the one test that touches
 // every platform's request shape.
 func TestSmokePublishToEveryPlatform(t *testing.T) {
@@ -602,8 +602,8 @@ func TestSmokePublishToEveryPlatform(t *testing.T) {
 	if err := json.Unmarshal([]byte(res.Stdout), &rep); err != nil {
 		t.Fatalf("%v\n%s", err, res.Stdout)
 	}
-	if len(rep.Results) != 11 {
-		t.Fatalf("published to %d platforms, want 11: %+v", len(rep.Results), rep.Results)
+	if len(rep.Results) != 12 {
+		t.Fatalf("published to %d platforms, want 12: %+v", len(rep.Results), rep.Results)
 	}
 	for _, r := range rep.Results {
 		if !r.OK {
@@ -620,6 +620,7 @@ func TestSmokePublishToEveryPlatform(t *testing.T) {
 		"/slack/files.getUploadURLExternal", "/slack-upload", "/slack/files.completeUploadExternal",
 		"/vk/method/photos.getWallUploadServer", "/vk-photo-upload",
 		"/vk/method/photos.saveWallPhoto", "/vk/method/wall.post",
+		"/threads/th-user/threads", "/threads/th-user/threads_publish",
 	} {
 		if _, ok := f.find(fragment); !ok {
 			t.Errorf("no request reached %s", fragment)
@@ -1377,7 +1378,7 @@ token = "tok"
 
 // --- ping ------------------------------------------------------------------
 
-// TestPingChecksEveryEnabledPlatform is the safe setup check: nine identity
+// TestPingChecksEveryEnabledPlatform is the safe setup check: twelve identity
 // endpoints, no post anywhere.
 func TestPingChecksEveryEnabledPlatform(t *testing.T) {
 	f := newFakes(t)
@@ -1398,8 +1399,8 @@ func TestPingChecksEveryEnabledPlatform(t *testing.T) {
 	if err := json.Unmarshal([]byte(res.Stdout), &rep); err != nil {
 		t.Fatalf("%v\n%s", err, res.Stdout)
 	}
-	if len(rep.Results) != 11 {
-		t.Fatalf("checked %d targets, want 11: %+v", len(rep.Results), rep.Results)
+	if len(rep.Results) != 12 {
+		t.Fatalf("checked %d targets, want 12: %+v", len(rep.Results), rep.Results)
 	}
 	for _, r := range rep.Results {
 		if !r.OK {
@@ -1416,7 +1417,7 @@ func TestPingChecksEveryEnabledPlatform(t *testing.T) {
 		"/instagram/ig-user", "/facebook/fb-page",
 		"/tiktok/v2/post/publish/creator_info/query/",
 		"/linkedin/v2/userinfo", "/reddit/api/v1/me", "/slack/auth.test",
-		"/vk/method/groups.getById",
+		"/vk/method/groups.getById", "/threads/me",
 	} {
 		if _, ok := f.find(fragment); !ok {
 			t.Errorf("ping did not reach %s", fragment)
@@ -1431,6 +1432,7 @@ func TestPingChecksEveryEnabledPlatform(t *testing.T) {
 		"/linkedin/rest/posts", "/reddit/api/submit",
 		"/slack/files.getUploadURLExternal", "/slack/files.completeUploadExternal",
 		"/vk/method/wall.post", "/vk/method/photos.getWallUploadServer",
+		"/threads/th-user/threads", "/threads/th-user/threads_publish",
 	} {
 		if _, ok := f.find(fragment); ok {
 			t.Errorf("ping posted something: %s was called", fragment)
@@ -1454,8 +1456,8 @@ func TestPingWithOneBadTokenIsExitFour(t *testing.T) {
 	if !strings.Contains(res.Stderr, "x") {
 		t.Errorf("the failure should be logged: %s", res.Stderr)
 	}
-	// The other ten still reported.
-	if strings.Count(res.Stdout, "ok") < 10 {
+	// The other eleven still reported.
+	if strings.Count(res.Stdout, "ok") < 11 {
 		t.Errorf("the other platforms should still have been checked:\n%s", res.Stdout)
 	}
 }
@@ -2138,6 +2140,190 @@ func TestVKOwnerIDIsRequired(t *testing.T) {
 		t.Fatalf("code=%d stderr=%s", res.Code, res.Stderr)
 	}
 	if !strings.Contains(res.Stderr, "publish.vk.owner-id") {
+		t.Errorf("the error should name the key to fix: %s", res.Stderr)
+	}
+}
+
+// TestThreadsContainerFlowPostsOnePost is the flow end to end through the real
+// binary: a container built from a staged URL, a status poll, and a publish
+// that names the container the poll finished. The fake mints the container id
+// and refuses a publish that names anything else, so the linkage is proved
+// rather than asserted.
+//
+// The base URL comes from the environment here rather than from the file,
+// because that layer is the one an operator actually points at a staging host
+// and the one a typo in the key name would leave silently unused.
+func TestThreadsContainerFlowPostsOnePost(t *testing.T) {
+	f := newFakes(t)
+	addr := freeAddr(t)
+	dir := newProject(t, strings.Join([]string{
+		"  caption: \"{{ .title }} {{ .version }} via {{ .Platform }}\"",
+		"  threads:",
+		"    enabled: true",
+		"    token: threads-token",
+		"    user-id: th-user",
+		"    poll-interval: 1ms",
+		"    poll-timeout: 5s",
+	}, "\n")+"\nstage:\n  mode: server\n  server:\n    listen: "+addr+
+		"\n    public-url: http://"+addr+"\n")
+
+	res := crier(t, dir, []string{"CRIER_PUBLISH_THREADS_API_BASE_URL=" + f.URL + "/threads"},
+		"publish", "--json")
+	if res.Code != exitOK {
+		t.Fatalf("code=%d stderr=%s", res.Code, res.Stderr)
+	}
+	var rep struct {
+		Results []struct {
+			Platform string            `json:"platform"`
+			OK       bool              `json:"ok"`
+			ID       string            `json:"id"`
+			URL      string            `json:"url"`
+			Extra    map[string]string `json:"extra"`
+			Error    string            `json:"error"`
+		} `json:"results"`
+	}
+	if err := json.Unmarshal([]byte(res.Stdout), &rep); err != nil {
+		t.Fatalf("%v\n%s", err, res.Stdout)
+	}
+	if len(rep.Results) != 1 || !rep.Results[0].OK {
+		t.Fatalf("results = %+v", rep.Results)
+	}
+	if rep.Results[0].ID != "th-post-1" {
+		t.Errorf("result = %+v", rep.Results[0])
+	}
+	if rep.Results[0].URL != "https://www.threads.net/@crier_threads/post/1" {
+		t.Errorf("url = %q, want the permalink threads named", rep.Results[0].URL)
+	}
+	if rep.Results[0].Extra["containerId"] != "th-c1" {
+		t.Errorf("extra = %v, want the container it was published from", rep.Results[0].Extra)
+	}
+
+	// Step one: the container names the kind, the staged URL, and the caption
+	// rendered for this platform.
+	container, ok := f.find("/threads/th-user/threads")
+	if !ok {
+		t.Fatal("no container was created")
+	}
+	form, err := url.ParseQuery(container.Body)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if form.Get("media_type") != "IMAGE" {
+		t.Errorf("media_type = %q, want IMAGE", form.Get("media_type"))
+	}
+	if !strings.HasPrefix(form.Get("image_url"), "http://"+addr) {
+		t.Errorf("image_url = %q, want the stage server's own address", form.Get("image_url"))
+	}
+	if form.Get("text") != "end to end 9.9.9 via threads" {
+		t.Errorf("text = %q, want the caption rendered for threads", form.Get("text"))
+	}
+	if form.Get("access_token") != "threads-token" {
+		t.Errorf("the token did not go out: %q", container.Body)
+	}
+
+	// Step two: the poll asked for the field the reason arrives in.
+	status, ok := f.find("/threads/th-c1")
+	if !ok {
+		t.Fatal("the container was never polled")
+	}
+	if !strings.Contains(status.Query, "error_message") {
+		t.Errorf("the poll query = %q", status.Query)
+	}
+
+	// Step three: the publish names that container and nothing else.
+	done, ok := f.find("/threads/th-user/threads_publish")
+	if !ok {
+		t.Fatal("nothing was published")
+	}
+	published, err := url.ParseQuery(done.Body)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if published.Get("creation_id") != "th-c1" {
+		t.Errorf("creation_id = %q", published.Get("creation_id"))
+	}
+}
+
+// TestThreadsBadTokenIsReported: ping says so without posting, and a run that
+// went ahead anyway fails rather than reporting a post nobody made.
+func TestThreadsBadTokenIsReported(t *testing.T) {
+	f := newFakes(t)
+	dir := newProject(t, strings.Join([]string{
+		"  threads:",
+		"    enabled: true",
+		"    api-base-url: " + f.URL + "/threads",
+		"    token: bad-token",
+		"    user-id: th-user",
+		"    poll-interval: 1ms",
+		"    poll-timeout: 5s",
+	}, "\n")+"\nstage:\n  mode: url\n  url: "+f.URL+"/staged/image.jpg\n")
+
+	res := crier(t, dir, nil, "ping")
+	if res.Code != exitPublish {
+		t.Fatalf("ping: code=%d stdout=%s stderr=%s", res.Code, res.Stdout, res.Stderr)
+	}
+	if !strings.Contains(res.Stdout, "threads") || !strings.Contains(res.Stdout, "failed") {
+		t.Errorf("the table should name the platform:\n%s", res.Stdout)
+	}
+	if !strings.Contains(res.Stderr, "Invalid OAuth access token") {
+		t.Errorf("the reason should reach the log: %s", res.Stderr)
+	}
+	if _, ok := f.find("/threads/th-user/threads_publish"); ok {
+		t.Error("ping published something")
+	}
+
+	res = crier(t, dir, nil, "publish")
+	if res.Code != exitPublish {
+		t.Fatalf("publish: code=%d stderr=%s", res.Code, res.Stderr)
+	}
+}
+
+// TestThreadsWithOneBadTokenIsExitFour is the partial case: the other platforms
+// still get the post, and the report says which one did not.
+func TestThreadsWithOneBadTokenIsExitFour(t *testing.T) {
+	f := newFakes(t)
+	dir := newProject(t, strings.Join([]string{
+		"  telegram:",
+		"    enabled: true",
+		"    api-base-url: " + f.URL,
+		"    token: tg-token",
+		"    chat-id: \"@crier\"",
+		"  threads:",
+		"    enabled: true",
+		"    api-base-url: " + f.URL + "/threads",
+		"    token: bad-token",
+		"    user-id: th-user",
+		"    poll-interval: 1ms",
+		"    poll-timeout: 5s",
+	}, "\n")+"\nstage:\n  mode: url\n  url: "+f.URL+"/staged/image.jpg\n")
+
+	res := crier(t, dir, nil, "publish")
+	if res.Code != exitPartial {
+		t.Fatalf("code=%d stdout=%s stderr=%s", res.Code, res.Stdout, res.Stderr)
+	}
+	if !strings.Contains(res.Stdout, "threads") || !strings.Contains(res.Stdout, "failed") {
+		t.Errorf("the failing platform should be named:\n%s", res.Stdout)
+	}
+	if _, ok := f.find("/sendPhoto"); !ok {
+		t.Error("telegram should still have got the post")
+	}
+}
+
+// TestThreadsUserIDIsRequired: the token alone does not say which account the
+// container endpoint belongs to, and guessing it is not on offer.
+func TestThreadsUserIDIsRequired(t *testing.T) {
+	dir := newProject(t, strings.Join([]string{
+		"  threads:",
+		"    enabled: true",
+		"    api-base-url: https://threads.example",
+		"    token: threads-token",
+	}, "\n")+"\nstage:\n  mode: url\n  url: https://cdn.example/card.jpg\n")
+
+	res := crier(t, dir, nil, "publish")
+	if res.Code != exitConfig {
+		t.Fatalf("code=%d stderr=%s", res.Code, res.Stderr)
+	}
+	if !strings.Contains(res.Stderr, "publish.threads.user-id") {
 		t.Errorf("the error should name the key to fix: %s", res.Stderr)
 	}
 }

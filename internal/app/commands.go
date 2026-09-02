@@ -276,7 +276,7 @@ func (a App) runPublish(ctx context.Context, args []string) error {
 
 	// A clip a platform cannot take is a configuration mistake, and saying so
 	// before anything is rendered saves the whole render. A GIF is checked
-	// separately from an MP4 because four platforms take one and not the
+	// separately from an MP4 because five platforms take one and not the
 	// other.
 	if cfg.Render.Video.Enabled || mode == ModeEncodeFrames {
 		kind := render.KindVideo
@@ -664,6 +664,7 @@ func enableOnly(cfg *config.Config, name string) {
 	p.Reddit.Enabled = name == "reddit"
 	p.Slack.Enabled = name == "slack"
 	p.VK.Enabled = name == "vk"
+	p.Threads.Enabled = name == "threads"
 }
 
 // --- config ----------------------------------------------------------------

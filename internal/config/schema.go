@@ -192,9 +192,10 @@ type Publish struct {
 	Reddit    Reddit
 	Slack     Slack
 	VK        VK
+	Threads   Threads
 
 	// Custom are script-backed platforms, keyed by the name the configuration
-	// gave them. They are peers of the eleven above: they take part in the
+	// gave them. They are peers of the twelve above: they take part in the
 	// fan-out, in the render variants, in caption templating, in `crier ping`
 	// and in a dry run.
 	//
@@ -394,6 +395,26 @@ type VK struct {
 	// positive for a user.
 	OwnerID int
 	Caption string
+}
+
+// Threads configures the Threads publisher.
+//
+// It looks like Instagram's and is not interchangeable with it. The token is a
+// Threads token, issued from the Threads use case with the threads_basic and
+// threads_content_publish scopes, and UserID is the Threads account's own id
+// rather than the linked Instagram professional account's.
+type Threads struct {
+	Layout
+	Music
+	LeadVideo
+
+	Enabled      bool
+	APIBaseURL   string
+	Token        string
+	UserID       string
+	Caption      string
+	PollInterval string
+	PollTimeout  string
 }
 
 // Reddit configures the Reddit publisher.

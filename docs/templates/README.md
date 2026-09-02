@@ -50,7 +50,7 @@ render:
 ```
 
 ```sh
-CARD_TITLE="crier ships v1" CARD_SUBTITLE="One template, eleven platforms." crier render
+CARD_TITLE="crier ships v1" CARD_SUBTITLE="One template, twelve platforms." crier render
 ```
 
 The mapping is deliberately dull: strip the prefix, lower-case what is left, and keep the underscores:

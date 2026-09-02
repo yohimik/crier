@@ -16,7 +16,7 @@ Publishing is the default action when you provide no command. Running `crier` is
 4. **Variants are rendered.** Platforms that agree on their overlays and size share one render. See [overlays](../templates/overlays.md).
 5. **Formats are encoded**: the configured one, plus whatever a platform insists on. Instagram takes JPEG and nothing else.
 6. **Staging**, if any enabled platform can only be given a URL. See [staging](../staging/README.md).
-7. **The fan-out**, `publish.concurrency` at a time. One platform's failure never cancels another's. The whole point of posting to eleven places is that ten of them still get the post when the eleventh is down.
+7. **The fan-out**, `publish.concurrency` at a time. One platform's failure never cancels another's. The whole point of posting to twelve places is that eleven of them still get the post when the twelfth is down.
 8. **The report**, on standard output.
 9. **Cleanup**: staged objects deleted, the local server stopped, the tunnel killed, temporary files removed. This runs on a context of its own, so it happens even after Ctrl-C.
 
@@ -77,7 +77,7 @@ The call that actually creates the post does not get that treatment. A 5xx from 
 | [Instagram](./instagram.md) | no | **yes** | yes | JPEG only, and Meta fetches the URL itself |
 | [Facebook](./facebook.md) | yes | optional | yes | Page posts and stories |
 | [TikTok](./tiktok.md) | video only | photos | yes | app audit required |
-| [Telegram](./telegram.md) | yes | no | yes | the simplest of the eleven |
+| [Telegram](./telegram.md) | yes | no | yes | the simplest of the twelve |
 | [X](./x.md) | yes | no | yes | paid API tier |
 | [Mastodon](./mastodon.md) | yes | no | yes | per-instance token |
 | [Discord](./discord.md) | yes | no | yes | the webhook URL is the credential |
@@ -85,6 +85,7 @@ The call that actually creates the post does not get that treatment. A 5xx from 
 | [Reddit](./reddit.md) | yes | link mode | yes | descriptive User-Agent required |
 | [Slack](./slack.md) | yes | no | yes | bot token, and the bot must be in the channel |
 | [VK](./vk.md) | yes | no | yes | one token, and the sign of the owner id picks the wall |
+| [Threads](./threads.md) | no | **yes** | yes | its own token, and a carousel needs two items |
 
 ## Four ways in
 
@@ -98,7 +99,7 @@ You can set `publish.<platform>.fit` to `cover`, `contain` or `stretch`. This is
 
 ## Animated GIFs
 
-Seven of the eleven platforms accept them: Telegram, Discord, Mastodon, X, Reddit, Slack and VK. Instagram, Facebook, TikTok and LinkedIn do not. A `gif` aimed at one of them is refused before anything is rendered. You can find the table and how each of the seven wants it in [video](../rendering/video.md#which-platforms-take-which).
+Seven of the twelve platforms accept them: Telegram, Discord, Mastodon, X, Reddit, Slack and VK. Instagram, Facebook, TikTok, LinkedIn and Threads do not. A `gif` aimed at one of them is refused before anything is rendered. You can find the table and how each of the seven wants it in [video](../rendering/video.md#which-platforms-take-which).
 
 ## A track with the post
 
@@ -106,7 +107,7 @@ Discord, Slack and Telegram accept an audio file, and TikTok can add a track it 
 
 ## A platform crier does not have
 
-Any shell command can be one. `publish.custom.<name>` defines a script-backed platform. It is a peer of the eleven above. It has the same fan-out, same overlays, and same caption templating. It also has the same `crier ping`. See [custom platforms](./custom.md).
+Any shell command can be one. `publish.custom.<name>` defines a script-backed platform. It is a peer of the twelve above. It has the same fan-out, same overlays, and same caption templating. It also has the same `crier ping`. See [custom platforms](./custom.md).
 
 ## Check a setup before you post
 

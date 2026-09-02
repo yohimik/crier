@@ -293,6 +293,37 @@ publish:
     token: "<your-token>"
     # render width for telegram; 0 inherits render.width
     width: 0
+  threads:
+    # Threads API base URL
+    api-base-url: "https://graph.threads.net/v1.0"
+    # Threads specific post text
+    caption: ""
+    # publish to Threads
+    enabled: false
+    # how the render is made to match threads's frame: none, cover, contain or stretch; anything but none needs width and height
+    fit: "none"
+    # hex colour behind a contain letterbox for threads, and what transparency is flattened onto
+    fit-background: "#ffffff"
+    # render height for threads; 0 inherits render.height
+    height: 0
+    # not available: a threads post is pictures or a video and never both, so a value here is refused rather than ignored
+    lead-video: ""
+    # post at most this many pages to threads at once; 0 uses the platform's own limit, which is also the ceiling
+    max-attachments: 0
+    # not available: threads has no API for attaching an audio file, so a value here is refused rather than ignored
+    music-file: ""
+    # template overlays applied for threads only, after the global ones
+    overlay: []
+    # how often the media container status is polled
+    poll-interval: "2s"
+    # how long to wait for the media container to be ready
+    poll-timeout: "2m"
+    # Threads access token, with the threads_basic and threads_content_publish scopes; an Instagram token is not one
+    token: "<your-token>"
+    # Threads account user id, as /me reports it
+    user-id: ""
+    # render width for threads; 0 inherits render.width
+    width: 0
   tiktok:
     # TikTok Content Posting API base URL
     api-base-url: "https://open.tiktokapis.com"

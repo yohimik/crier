@@ -104,19 +104,20 @@ This requires a layout pass per frame. Three seconds at thirty frames a second i
 | [Reddit](../publishing/reddit.md) | yes | yes | the lease flow with `image/gif`, submitted as an image |
 | [Slack](../publishing/slack.md) | yes | yes | a file like any other, played inline |
 | [VK](../publishing/vk.md) | yes | yes | the document methods, because a saved photo would be a still |
+| [Threads](../publishing/threads.md) | yes | **no** | none |
 | [Instagram](../publishing/instagram.md) | yes | **no** | none |
 | [Facebook](../publishing/facebook.md) | yes | **no** | none |
 | [TikTok](../publishing/tiktok.md) | yes | **no** | none |
 | [LinkedIn](../publishing/linkedin.md) | yes | **no** | none |
 
-Sending a GIF to one of these four is a configuration error. The system names the error and refuses it before anything is rendered:
+Sending a GIF to one of these five is a configuration error. The system names the error and refuses it before anything is rendered:
 
 ```
 crier: render.video.enabled is set but linkedin cannot post an animated GIF;
 disable it, or set render.video.format
 ```
 
-These four are not an oversight. Their APIs only support animations if you upload an MP4. If crier produced an MP4 while the configuration says `gif`, that would be worse than just saying no.
+These five are not an oversight. Their APIs only support animations if you upload an MP4. If crier produced an MP4 while the configuration says `gif`, that would be worse than just saying no.
 
 ## Publishing a video
 

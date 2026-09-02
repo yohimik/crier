@@ -95,6 +95,7 @@ var Platforms = []string{
 	"slack",
 	"mastodon", "discord", "linkedin", "reddit",
 	"vk",
+	"threads",
 }
 
 // MusicPlatforms are the platforms whose API can carry an audio file beside
@@ -328,10 +329,20 @@ var registry = []Descriptor{
 	{Key: "publish.vk.owner-id", Kind: KindInt,
 		Usage: "wall the post lands on: negative for a community, such as -123456, positive for a user"},
 	{Key: "publish.vk.caption", Kind: KindString, Usage: "VK specific post text"},
+
+	{Key: "publish.threads.enabled", Kind: KindBool, Usage: "publish to Threads"},
+	{Key: "publish.threads.api-base-url", Kind: KindString, Default: "https://graph.threads.net/v1.0", Usage: "Threads API base URL"},
+	{Key: "publish.threads.token", Kind: KindString, Secret: true,
+		Usage: "Threads access token, with the threads_basic and threads_content_publish scopes; " +
+			"an Instagram token is not one"},
+	{Key: "publish.threads.user-id", Kind: KindString, Usage: "Threads account user id, as /me reports it"},
+	{Key: "publish.threads.caption", Kind: KindString, Usage: "Threads specific post text"},
+	{Key: "publish.threads.poll-interval", Kind: KindDuration, Default: "2s", Usage: "how often the media container status is polled"},
+	{Key: "publish.threads.poll-timeout", Kind: KindDuration, Default: "2m", Usage: "how long to wait for the media container to be ready"},
 }
 
 // layoutDescriptors are the three keys every platform has for overriding what
-// gets rendered for it. They are generated rather than written out eleven
+// gets rendered for it. They are generated rather than written out twelve
 // times, because a platform silently missing one would be a hole nobody
 // notices.
 func layoutDescriptors(platform string) []Descriptor {

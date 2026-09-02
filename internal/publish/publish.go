@@ -29,8 +29,8 @@ import (
 // Needs is what a publisher requires of the pipeline.
 type Needs struct {
 	// URL says the platform will not take bytes: it fetches the media from a
-	// public URL of its own accord. Instagram and TikTok's pull mode are the
-	// two, and they are the reason internal/stage exists.
+	// public URL of its own accord. Instagram, Threads and TikTok's pull mode
+	// are the three, and they are the reason internal/stage exists.
 	URL bool
 	// Formats are the image formats the platform accepts, in order of
 	// preference. The pipeline encodes the union of what every enabled
@@ -194,6 +194,7 @@ var registry = map[string]constructor{
 	"reddit":    newReddit,
 	"slack":     newSlack,
 	"vk":        newVK,
+	"threads":   newThreads,
 }
 
 // Names are every platform crier knows, sorted.
@@ -250,6 +251,8 @@ func enabledIn(cfg *config.Config, name string) bool {
 		return p.Slack.Enabled
 	case "vk":
 		return p.VK.Enabled
+	case "threads":
+		return p.Threads.Enabled
 	default:
 		if c := config.CustomOf(p, name); c != nil {
 			return c.Enabled
@@ -503,8 +506,8 @@ func (r Report) Err() error {
 // RunAll publishes to every platform, a bounded number at a time.
 //
 // One platform's failure never cancels another's: the whole point of posting
-// to eleven places is that ten of them still get the post when the eleventh is
-// down. The context is passed through unchanged, so a cancelled run does stop
+// to twelve places is that eleven of them still get the post when the twelfth
+// is down. The context is passed through unchanged, so a cancelled run does stop
 // everything.
 func RunAll(ctx context.Context, jobs []Job, concurrency int, log zerolog.Logger) Report {
 	if concurrency < 1 {
