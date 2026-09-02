@@ -118,9 +118,8 @@ func (d *Discord) Publish(ctx context.Context, in Input) (Result, error) {
 		parts = append(parts, httpx.FilePart(fmt.Sprintf("files[%d]", n), a.Path, a.ContentType))
 	}
 	if d.music.Attached() {
-		if d.music.Size > DiscordUploadLimit {
-			return Result{}, fmt.Errorf("%s is %s, which is over discord's limit of %s",
-				d.music.Path, humanSize(d.music.Size), humanSize(DiscordUploadLimit))
+		if err := checkSizeOf(d.music.Path, d.music.Size, DiscordUploadLimit, "discord"); err != nil {
+			return Result{}, err
 		}
 		// The audio comes last, so it reads as an addition to the pictures
 		// rather than as the first thing in the message.

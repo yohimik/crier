@@ -27,6 +27,7 @@ const TelegramVideoLimit = 50 << 20
 type Telegram struct {
 	cfg    config.Telegram
 	music  AudioFile
+	lead   VideoFile
 	client *httpx.Client
 	log    zerolog.Logger
 }
@@ -54,7 +55,11 @@ func newTelegram(cfg *config.Config, d Deps) (Publisher, error) {
 			Str("format", music.Format).
 			Msg("telegram documents mp3 and m4a for a music player; this may arrive as a plain file")
 	}
-	return &Telegram{cfg: c, music: music, client: d.Client, log: d.Logger}, nil
+	lead, err := LeadVideoFor(cfg, "telegram")
+	if err != nil {
+		return nil, err
+	}
+	return &Telegram{cfg: c, music: music, lead: lead, client: d.Client, log: d.Logger}, nil
 }
 
 // telegramPlaysInline reports whether the Bot API names this container as one
@@ -71,8 +76,16 @@ func (t *Telegram) Name() string { return "telegram" }
 const TelegramGroupMax = 10
 
 // Needs implements Publisher.
+//
+// A lead video is one of the album's ten items, so a run that opens with one
+// declares nine pages per post. The audio takes nothing away: it is a message
+// of its own, so an album can carry both a lead video and the track after it.
 func (t *Telegram) Needs() Needs {
-	return Needs{Formats: imageFormats, Kinds: imageVideoAndGIF, MaxAttachments: TelegramGroupMax}
+	max := TelegramGroupMax
+	if t.lead.Attached() {
+		max--
+	}
+	return Needs{Formats: imageFormats, Kinds: imageVideoAndGIF, MaxAttachments: max}
 }
 
 // telegramResponse is the envelope every Bot API method returns.
@@ -104,7 +117,10 @@ func (t *Telegram) Publish(ctx context.Context, in Input) (Result, error) {
 
 // post sends the pictures themselves.
 func (t *Telegram) post(ctx context.Context, in Input) (Result, error) {
-	if arts := in.Sequence(); len(arts) > 1 {
+	// A lead video makes an album of any post: the clip and the card are two
+	// items, and a media group takes exactly the mix of photo and video that
+	// this is.
+	if arts := in.Sequence(); len(arts) > 1 || t.lead.Attached() {
 		return t.mediaGroup(ctx, arts, in.Caption)
 	}
 	method, field := "sendPhoto", "photo"
@@ -181,17 +197,45 @@ type telegramMedia struct {
 // The files ride along as ordinary multipart parts and the media array points
 // at them by name, which is what the attach:// scheme is for.
 //
+// A lead video is the album's first entry, an InputMediaVideo among the
+// photos. A media group is the one Telegram shape that mixes the two, which is
+// why the clip can open the album here and cannot open anything at eight of
+// the ten platforms.
+//
 // Only the first item carries the caption. The Bot API has no caption of its
 // own for a group — the caption belongs to an item — and every client shows an
 // album's caption from the first one, so putting it anywhere else hides it.
+// With a lead video the first item is the clip, so the caption travels with it
+// and appears under the album exactly as before.
 func (t *Telegram) mediaGroup(ctx context.Context, arts []render.Artifact, caption string) (Result, error) {
-	if len(arts) > TelegramGroupMax {
+	items := len(arts)
+	if t.lead.Attached() {
+		items++
+	}
+	if items > TelegramGroupMax {
+		if t.lead.Attached() {
+			return Result{}, fmt.Errorf(
+				"a telegram media group holds %d items and this post has %d pages plus the lead video; "+
+					"lower publish.telegram.max-attachments", TelegramGroupMax, len(arts))
+		}
 		return Result{}, fmt.Errorf("a telegram media group holds %d items and this post has %d",
 			TelegramGroupMax, len(arts))
 	}
 
 	parts := []httpx.Part{httpx.Field("chat_id", t.cfg.ChatID)}
-	media := make([]telegramMedia, 0, len(arts))
+	media := make([]telegramMedia, 0, items)
+	if t.lead.Attached() {
+		if err := checkSizeOf(t.lead.Path, t.lead.Size, TelegramVideoLimit, "telegram"); err != nil {
+			return Result{}, err
+		}
+		parts = append(parts, t.lead.Part("lead"))
+		m := telegramMedia{Type: "video", Media: "attach://lead", Caption: caption}
+		media = append(media, m)
+		// The caption belongs to the album's first item, and that is now the
+		// clip, so the pictures carry none.
+		caption = ""
+		t.log.Debug().Str("video", t.lead.Name).Msg("the telegram album opens with the lead video")
+	}
 	for n, a := range arts {
 		if a.Kind != render.KindImage {
 			return Result{}, fmt.Errorf("a telegram media group takes photos; item %d is %s", n+1, a.Kind)

@@ -257,6 +257,12 @@ type Artifacts struct {
 
 	// PosterURL is where the poster was staged.
 	PosterURL string
+
+	// LeadVideoURLs is where each platform's opening clip was staged, keyed by
+	// platform. It is per-platform rather than per-variant because the clip is:
+	// two platforms sharing a render may open their posts with different
+	// files, and only the platforms that fetch by URL need an address at all.
+	LeadVideoURLs map[string]string
 }
 
 // First is the first page, or an empty one when nothing was encoded.
@@ -932,6 +938,57 @@ func (p *Pipeline) Stage(ctx context.Context, stager stage.Stager, a *Artifacts,
 		p.onCleanup(posterObj.Remove)
 	}
 	return nil
+}
+
+// StageLeadVideos makes each platform's opening clip reachable by a URL.
+//
+// Only for the platforms that fetch rather than accept an upload, which is
+// Instagram alone today: Telegram takes the bytes, so staging its clip would
+// be an upload nobody reads. Two platforms naming the same file stage it once,
+// because the object is the same object.
+func (p *Pipeline) StageLeadVideos(ctx context.Context, stager stage.Stager,
+	a *Artifacts, publishers []publish.Publisher,
+) error {
+	byPath := map[string]string{}
+	for _, pub := range publishers {
+		if !pub.Needs().URL {
+			continue
+		}
+		path := config.LeadVideoFor(&p.cfg.Publish, pub.Name())
+		if path == "" {
+			continue
+		}
+		if url, done := byPath[path]; done {
+			p.setLeadVideoURL(a, pub.Name(), url)
+			continue
+		}
+		video, err := publish.SniffVideo(path)
+		if err != nil {
+			return failf(ExitConfig, "publish.%s.lead-video: %v", pub.Name(), err)
+		}
+		obj, err := stager.Stage(ctx, stage.Asset{
+			Path:        video.Path,
+			ContentType: video.ContentType,
+			Name:        video.Name,
+			Size:        video.Size,
+		})
+		if err != nil {
+			return fail(ExitStaging, fmt.Errorf("the %s lead video: %w", pub.Name(), err))
+		}
+		p.onCleanup(obj.Remove)
+		byPath[path] = obj.URL
+		p.setLeadVideoURL(a, pub.Name(), obj.URL)
+		p.log.Debug().Str("platform", pub.Name()).Str("video", video.Name).
+			Str("url", obj.URL).Msg("staged a lead video")
+	}
+	return nil
+}
+
+func (p *Pipeline) setLeadVideoURL(a *Artifacts, platform, url string) {
+	if a.LeadVideoURLs == nil {
+		a.LeadVideoURLs = map[string]string{}
+	}
+	a.LeadVideoURLs[platform] = url
 }
 
 func videoAsset(a *render.Artifact) stage.Asset {

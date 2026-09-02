@@ -392,6 +392,11 @@ func (a App) runPublish(ctx context.Context, args []string) error {
 			if err := p.Stage(ctx, stager, &arts, needsURL, needsPoster); err != nil {
 				return err
 			}
+			// The opening clip is staged per platform rather than per variant:
+			// it is the operator's own file, not something this render made.
+			if err := p.StageLeadVideos(ctx, stager, &arts, group); err != nil {
+				return err
+			}
 		}
 
 		vr := VariantReport{Name: v.Name(), Platforms: v.Platforms, URL: arts.URL(), Pages: len(arts.Pages)}

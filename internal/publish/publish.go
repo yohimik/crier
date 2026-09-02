@@ -100,6 +100,11 @@ type Input struct {
 	Page, Pages int
 	// Caption is the already-rendered post text.
 	Caption string
+	// LeadVideoURL is where the post's opening clip can be fetched, set for the
+	// platforms that need a URL rather than the bytes. The clip itself is the
+	// publisher's own, resolved when it was built; only its staged address has
+	// to travel with the post.
+	LeadVideoURL string
 	// Poster is a still image that goes with a video, for the platforms that
 	// insist on one.
 	Poster *render.Artifact
@@ -641,11 +646,18 @@ func require(value, key string) error {
 // sent. A 30 megabyte video and a slow connection is a long wait for a
 // rejection crier could have predicted.
 func checkSize(a render.Artifact, limit int64, platform string) error {
-	if limit <= 0 || a.Size <= limit {
+	return checkSizeOf(a.Path, a.Size, limit, platform)
+}
+
+// checkSizeOf is checkSize for a file that is not a rendered artifact: an
+// audio attachment or a lead video, which are the operator's own files rather
+// than anything crier drew.
+func checkSizeOf(path string, size, limit int64, platform string) error {
+	if limit <= 0 || size <= limit {
 		return nil
 	}
 	return fmt.Errorf("%s is %s, which is over %s's limit of %s",
-		a.Path, humanSize(a.Size), platform, humanSize(limit))
+		path, humanSize(size), platform, humanSize(limit))
 }
 
 func humanSize(n int64) string {

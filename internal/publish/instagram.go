@@ -24,6 +24,7 @@ import (
 // and why a laptop needs a tunnel.
 type Instagram struct {
 	cfg    config.Instagram
+	lead   VideoFile
 	client *httpx.Client
 	log    zerolog.Logger
 }
@@ -39,8 +40,23 @@ func newInstagram(cfg *config.Config, d Deps) (Publisher, error) {
 	if err := require(c.UserID, "publish.instagram.user-id"); err != nil {
 		return nil, err
 	}
-	return &Instagram{cfg: c, client: d.Client, log: d.Logger}, nil
+	lead, err := LeadVideoFor(cfg, "instagram")
+	if err != nil {
+		return nil, err
+	}
+	if lead.Attached() && c.Story {
+		// A story has no carousel to open, so there is nothing for a lead
+		// video to lead. Refusing the run would be officious when the same
+		// configuration file drives a feed pass and a story pass; saying so is
+		// not, because a clip that silently goes nowhere reads as a crier bug.
+		d.Logger.Warn().Str("platform", "instagram").Str("video", lead.Name).
+			Msg("stories have no carousel, so the lead video is not posted in a story pass")
+	}
+	return &Instagram{cfg: c, lead: lead, client: d.Client, log: d.Logger}, nil
 }
+
+// leads reports whether this post opens with a clip. A story never does.
+func (i *Instagram) leads() bool { return i.lead.Attached() && !i.cfg.Story }
 
 // Name implements Publisher.
 func (i *Instagram) Name() string { return "instagram" }
@@ -56,10 +72,16 @@ const IGCarouselMax = 10
 // Stories API has no carousel at all, so a paged run becomes one story per
 // page. Those are published in order, one finished before the next begins,
 // because a story reel is ordered by when each story was published.
+// A lead video is one of the carousel's ten items, so a run that opens with
+// one declares nine pages per post. Reserving the slot is what lets a long
+// document paginate into carousels that fit.
 func (i *Instagram) Needs() Needs {
 	n := Needs{URL: true, Formats: []config.Format{config.JPEG}, Kinds: imageAndVideo}
 	if !i.cfg.Story {
 		n.MaxAttachments = IGCarouselMax
+		if i.leads() {
+			n.MaxAttachments--
+		}
 	}
 	return n
 }
@@ -92,8 +114,10 @@ func (i *Instagram) Publish(ctx context.Context, in Input) (Result, error) {
 	}
 	caption := i.captionFor(in.Caption)
 
-	if len(urls) > 1 {
-		return i.carousel(ctx, urls, caption)
+	// A lead video makes a carousel of any post, including a single-page one:
+	// the clip and the card are two items, and two items is a carousel.
+	if len(urls) > 1 || i.leads() {
+		return i.carousel(ctx, in.LeadVideoURL, urls, caption)
 	}
 
 	form := url.Values{"access_token": {i.cfg.Token}}
@@ -126,8 +150,17 @@ func (i *Instagram) Publish(ctx context.Context, in Input) (Result, error) {
 // A child that fails leaves the ones before it behind. They are unpublished
 // containers and expire on their own in 24 hours, so the cost of stopping is a
 // log line rather than a half-posted carousel.
-func (i *Instagram) carousel(ctx context.Context, urls []string, caption string) (Result, error) {
-	if len(urls) > IGCarouselMax {
+func (i *Instagram) carousel(ctx context.Context, leadURL string, urls []string, caption string) (Result, error) {
+	items := len(urls)
+	if i.leads() {
+		items++
+	}
+	if items > IGCarouselMax {
+		if i.leads() {
+			return Result{}, fmt.Errorf(
+				"an instagram carousel holds %d items and this post has %d pages plus the lead video; "+
+					"lower publish.instagram.max-attachments", IGCarouselMax, len(urls))
+		}
 		return Result{}, fmt.Errorf("an instagram carousel holds %d images and this post has %d",
 			IGCarouselMax, len(urls))
 	}
@@ -135,7 +168,31 @@ func (i *Instagram) carousel(ctx context.Context, urls []string, caption string)
 		return Result{}, fmt.Errorf("instagram stories have no carousel; each page posts as its own story")
 	}
 
-	children := make([]string, 0, len(urls))
+	children := make([]string, 0, items)
+	if i.leads() {
+		if leadURL == "" {
+			return Result{}, fmt.Errorf(
+				"instagram needs a public URL for the lead video; configure stage.mode")
+		}
+		// A video carousel child is video_url plus is_carousel_item, and
+		// nothing else. media_type names a container kind rather than a media
+		// kind, and its documented values are CAROUSEL, REELS and STORIES:
+		// VIDEO is no longer one of them, and REELS is refused in a carousel
+		// outright. The kind is inferred from video_url being the URL that was
+		// sent. No caption either, which Meta does not accept on a child.
+		id, err := i.container(ctx, url.Values{
+			"access_token":     {i.cfg.Token},
+			"video_url":        {leadURL},
+			"is_carousel_item": {"true"},
+		})
+		if err != nil {
+			return Result{}, fmt.Errorf("the lead video: %w", err)
+		}
+		children = append(children, id)
+		i.log.Debug().Str("container", id).Str("video", i.lead.Name).
+			Msg("created the instagram carousel's lead video child")
+	}
+
 	for n, u := range urls {
 		form := url.Values{
 			"access_token":     {i.cfg.Token},
@@ -163,8 +220,8 @@ func (i *Instagram) carousel(ctx context.Context, urls []string, caption string)
 	if err != nil {
 		return Result{}, fmt.Errorf("creating the carousel container: %w", err)
 	}
-	i.log.Debug().Int("images", len(children)).Str("container", parent).
-		Msg("created an instagram carousel")
+	i.log.Debug().Int("items", len(children)).Bool("opensWithVideo", i.leads()).
+		Str("container", parent).Msg("created an instagram carousel")
 
 	res, err := i.publishContainer(ctx, parent)
 	if err != nil {

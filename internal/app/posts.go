@@ -54,7 +54,11 @@ func PostsFor(engine *template.Engine, cfg *config.Config, pub publish.Publisher
 			Caption:   caption,
 			Poster:    arts.Poster,
 			PosterURL: arts.PosterURL,
-			Post:      at.Post, Posts: at.Posts,
+			// Every post of a sequence opens with the clip, not only the first.
+			// A reader meets each post on its own, and one that began with a
+			// page out of the middle would be the only one without an opening.
+			LeadVideoURL: arts.LeadVideoURLs[pub.Name()],
+			Post:         at.Post, Posts: at.Posts,
 			Page: at.Page, Pages: at.Pages,
 		}
 		if len(b.URLs) > 0 {

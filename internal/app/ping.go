@@ -58,10 +58,11 @@ func (a App) runPing(ctx context.Context, args []string) error {
 			strings.Join(config.Platforms, ", "))
 	}
 
-	// The audio is checked first, and on its own. Building a publisher refuses
-	// a file that is not audio, so a check that ran after the build would never
-	// be reached by the very configuration it exists to explain.
-	music := pingMusic(cfg)
+	// The operator's own files are checked first, and on their own. Building a
+	// publisher refuses a file that is not audio or is not an MP4, so a check
+	// that ran after the build would never be reached by the very configuration
+	// it exists to explain.
+	files := append(pingMusic(cfg), pingLeadVideos(cfg)...)
 
 	// The same constructors publish uses, so a configuration ping accepts is a
 	// configuration publish would get as far as the network with.
@@ -72,8 +73,8 @@ func (a App) runPing(ctx context.Context, args []string) error {
 		// The rows go out anyway: "music failed: jingle.mp3 does not begin like
 		// an audio file" says which line to change, and the joined build error
 		// underneath says the rest.
-		if len(music) > 0 {
-			_ = a.printPing(PingReport{Results: music}, asJSON)
+		if len(files) > 0 {
+			_ = a.printPing(PingReport{Results: files}, asJSON)
 		}
 		return fail(ExitConfig, err)
 	}
@@ -92,10 +93,10 @@ func (a App) runPing(ctx context.Context, args []string) error {
 		})
 	}
 
-	// The audio, for the same reason a token is checked: it is a thing that has
-	// to be right, and finding out from the platform means finding out after
-	// the post.
-	rep.Results = append(rep.Results, music...)
+	// The audio and the opening clip, for the same reason a token is checked:
+	// they are things that have to be right, and finding out from the platform
+	// means finding out after the post.
+	rep.Results = append(rep.Results, files...)
 
 	// Staging is checked too, because a bucket crier cannot write to fails a
 	// publish just as completely as a bad token does — and it fails after the
@@ -152,6 +153,28 @@ func pingMusic(cfg *config.Config) []PingResult {
 		}
 		row.OK = true
 		row.Account = c.Audio.Name
+		row.Note = c.Describe()
+		out = append(out, row)
+	}
+	return out
+}
+
+// pingLeadVideos checks the clips a configuration names, one row per platform.
+//
+// The same shape as the audio rows and for the same reason: building a
+// publisher refuses a clip that is not an MP4, so a check that ran after the
+// build would never be reached by the configuration it exists to explain.
+func pingLeadVideos(cfg *config.Config) []PingResult {
+	var out []PingResult
+	for _, c := range publish.CheckLeadVideos(cfg) {
+		row := PingResult{Target: "lead-video:" + c.Platform}
+		if c.Err != nil {
+			row.Error = c.Err.Error()
+			out = append(out, row)
+			continue
+		}
+		row.OK = true
+		row.Account = c.Video.Name
 		row.Note = c.Describe()
 		out = append(out, row)
 	}
