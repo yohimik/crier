@@ -1,5 +1,109 @@
 # Changelog
 
+## v1.0.0-rc.5 (2026-09-02)
+
+### Features
+
+- the release opens its story with a fanfare ([a5d3b9f](https://github.com/yohimik/crier/commit/a5d3b9f31ed63736fc5345d0a6ed19be23beb5de)) (by yohimik, Claude Fable 5)
+  A third announce pass: the cover page held for sixteen seconds as a
+  video story, with sixteen seconds of the 1812 Overture finale as its
+  soundtrack — a public-domain recording by the United States Marine Band,
+  provenance in announce/anthem.md. Video is the one way audio reaches
+  Instagram, which takes no audio file and no track id. The cover renders
+  once and is copied into frames: 384 identical layouts would cost
+  minutes, one copied 384 times costs a second.
+
+- ping checks the audio file, and publish says when nothing carries it ([79b8393](https://github.com/yohimik/crier/commit/79b83937ac281d528b8ee37df1cf410f15edb676)) (by yohimik, Claude Fable 5)
+  A row per configured music file: the file is there, it can be read, and
+  its first bytes are one of the four containers crier sends. The extension
+  is not consulted, because an image renamed to .mp3 is accepted by the
+  file system and refused by the platform, after the post.
+
+  The rows come before the publishers are built, since building one refuses
+  a file that is not audio — a check that ran after the build would never
+  be reached by the configuration it exists to explain.
+
+  A file no enabled platform can carry is a success with a note rather than
+  a failure. The file is fine. Publishing warns about the same finding, so
+  a run that enables Instagram and X and names a jingle says out loud that
+  the jingle is going nowhere.
+
+- three platforms carry the audio, each its own way ([4668bee](https://github.com/yohimik/crier/commit/4668bee7a454431a54f7462cea040eb79235ef67)) (by yohimik, Claude Fable 5)
+  Discord and Slack put the track in the same message as the pictures.
+  Discord takes it as another files[n] part; Slack gives it an upload slot
+  like any other file, and step three shares them together, which is what
+  makes them one message.
+
+  The audio takes one of the message's file slots, so both declare one
+  fewer page per post when music is configured. Reserving the slot is what
+  lets a long document paginate into messages that fit, rather than into a
+  message the platform refuses.
+
+  Telegram cannot do that. The Bot API groups audio only with audio, so a
+  track cannot join the album it belongs to. It goes out as its own
+  message, immediately after, in the same chat, which is what clients
+  render as a player under the pictures. That message failing is a warning
+  rather than a failure: the post is already out, and saying the platform
+  failed would be untrue.
+
+  TikTok gets auto_add_music in post_info for a photo direct post. It is
+  the only music setting any of these APIs offers, and it names no track.
+
+- the configuration can name an audio file ([96b28ae](https://github.com/yohimik/crier/commit/96b28ae9b2178b4ef485d8ab611e647e5d3bc409)) (by yohimik, Claude Fable 5)
+  publish.music-file names one audio file for the whole run, and
+  publish.<platform>.music-file overrides it for one platform. Both anchor
+  to the config file the way every other path key does.
+
+  The per-platform key exists for all ten platforms rather than only for
+  the three whose API can carry audio. A key that simply did not exist for
+  Instagram would answer "can I attach a track here" with an unknown-key
+  error, which reads like a typo; the key exists, its reference row says it
+  is not available, and a value in it is refused with the reason. Only
+  Discord, Slack and Telegram have an endpoint that takes an audio file at
+  all.
+
+  publish.tiktok.auto-add-music comes along beside it. It is the one music
+  setting any of these APIs offers, and it names no track: TikTok picks
+  one.
+
+- WWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWW ([23fc4a2](https://github.com/yohimik/crier/commit/23fc4a2fe1caea805e46cc3b25e1664f39a9c271)) (by yohimik, Claude Fable 5)
+  A deliberate hostile-changelog probe, and nothing else: this subject is
+  a hundred unbroken copies of the widest glyph the card's face carries,
+  here so the next release candidate has to ellipsise it on its own card,
+  in production, where the smoke suite's copy of the same monster already
+  passes. A changelog is what people wrote; the card has to survive that.
+
+### Fixes
+
+- ask again where a refusal created nothing ([5469a24](https://github.com/yohimik/crier/commit/5469a243a8bdfd1f3d74a4d62b9cff47643edd5b)) (by yohimik, Claude Fable 5)
+  Three platforms share Instagram's race between media processed and media
+  usable, and each now gets the treatment its own API earns:
+
+  - Mastodon refuses a status whose attachment is still processing with a
+    422 raised before any status exists; it is retried within the poll
+    budget. The message is localized per account, so a non-English
+    instance falls back to the never-repeat rule, which is the safe
+    direction to miss in.
+  - X answers a not-yet-consistent media id with the same 400 it uses for
+    a genuinely wrong one, and neither creates a tweet; the bounded retry
+    costs a permanent mistake the poll budget and then surfaces it
+    unchanged. Two new keys carry the budget.
+  - LinkedIn is the dangerous one: the post can be accepted with 201, sit
+    in PUBLISH_REQUESTED, and end PUBLISH_FAILED with nothing visible and
+    no error on any call crier made. Images now wait for AVAILABLE before
+    the post, the way videos always did.
+  - Reddit is the inverse and gets no retry at all: its failure signal can
+    arrive for a post that was nonetheless created.
+  - Slack blocks until ingestion finishes; TikTok fails inside its own
+    polled flow; Facebook photos are synchronous. Nothing to do on any of
+    the three.
+
+### Authors
+
+- yohimik
+- Claude Fable 5
+
+
 ## v1.0.0-rc.4 (2026-09-02)
 
 ### Fixes
