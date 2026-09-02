@@ -272,20 +272,27 @@ func TestComposeOrder(t *testing.T) {
 		Fonts: &Fonts{ExtraCSS: "@font-face{}"},
 	}
 	got := o.compose()
+	iMargin := strings.Index(got, "@page { margin: 0 }")
+	iHTML := strings.Index(got, "<body>x</body>")
 	iFont := strings.Index(got, "@font-face{}")
 	iCSS := strings.Index(got, "a{}")
-	iPage := strings.Index(got, "@page")
-	if iFont < 0 || iCSS < 0 || iPage < 0 {
+	iSize := strings.Index(got, "size: 10px 20px")
+	if iMargin < 0 || iHTML < 0 || iFont < 0 || iCSS < 0 || iSize < 0 {
 		t.Fatalf("compose = %q", got)
 	}
-	if iFont >= iCSS || iCSS >= iPage {
-		t.Errorf("wrong order: font=%d css=%d page=%d", iFont, iCSS, iPage)
+	// The margin default comes before the document so the document can overrule
+	// it; the size comes after so it cannot.
+	if iMargin >= iHTML || iHTML >= iFont || iFont >= iCSS || iCSS >= iSize {
+		t.Errorf("wrong order: margin=%d html=%d font=%d css=%d size=%d",
+			iMargin, iHTML, iFont, iCSS, iSize)
+	}
+	// The size rule carries the size and nothing else. A margin here would
+	// overrule the template's, leaving its page margin boxes nowhere to draw.
+	if rule := got[iSize:]; strings.Contains(rule, "margin") {
+		t.Errorf("the injected size rule sets a margin: %q", rule)
 	}
 	if strings.Contains(got, "<style>   </style>") {
 		t.Error("blank stylesheets should be skipped")
-	}
-	if !strings.Contains(got, "size: 10px 20px") {
-		t.Errorf("page rule missing: %q", got)
 	}
 }
 

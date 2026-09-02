@@ -31,7 +31,8 @@ type Options struct {
 	// BaseURL resolves the document's relative references.
 	BaseURL string
 	// Width and Height are the page size in CSS pixels. When both are zero the
-	// document's own @page rule decides.
+	// document's own page rule decides. They set the page size only: the page
+	// margin stays the document's to choose, and defaults to zero.
 	Width, Height int
 	// Scale is the device pixel ratio: output pixels per CSS pixel.
 	Scale float64
@@ -158,14 +159,24 @@ func (o Options) mediaType() string {
 	return o.MediaType
 }
 
-// compose assembles the document crier actually lays out: the caller's HTML,
-// then the extra stylesheets, then the page size.
+// compose assembles the document crier actually lays out: a default page
+// margin, the caller's HTML, the extra stylesheets, then the page size.
 //
-// The page rule goes last on purpose. It is the one declaration crier insists
-// on, and appending it after the document's own styles is what makes
-// --render-width win over an @page rule the template happens to carry.
+// The two halves of the page rule sit on opposite sides of the document, and
+// which side each one lands on is the whole of the policy.
+//
+// The size goes last. It is the one declaration crier insists on, and putting
+// it after the document's own styles is what makes --render-width win over a
+// page rule the template happens to carry.
+//
+// The margin goes first, which makes it a default rather than a decree. A
+// template that says nothing gets an edge-to-edge page, because that is what a
+// social image is. A template that asks for a page margin gets one, and that
+// margin is the only place a page's margin boxes have to draw in: the running
+// header and footer of a paginated document live there.
 func (o Options) compose() string {
 	var b strings.Builder
+	b.WriteString("<style>@page { margin: 0 }</style>\n")
 	b.WriteString(o.HTML)
 	if o.Fonts != nil && o.Fonts.ExtraCSS != "" {
 		b.WriteString("\n<style>")
@@ -181,7 +192,7 @@ func (o Options) compose() string {
 		b.WriteString("</style>")
 	}
 	if o.Width > 0 && o.Height > 0 {
-		fmt.Fprintf(&b, "\n<style>@page { size: %dpx %dpx; margin: 0 }</style>", o.Width, o.Height)
+		fmt.Fprintf(&b, "\n<style>@page { size: %dpx %dpx }</style>", o.Width, o.Height)
 	}
 	return b.String()
 }
