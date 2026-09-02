@@ -1,5 +1,23 @@
 # Changelog
 
+## v1.0.0-rc.13 (2026-09-02)
+
+### Features
+
+- the release pings before it posts ([b0eafa0](https://github.com/yohimik/crier/commit/b0eafa0a28b074c0f0e0c33f71834b838abb37d8)) (by yohimik, Claude Fable 5)
+  A revoked token used to surface as a skipped announcement at the end
+  of a fifteen-minute run. Now a ping job stands after the plan: the
+  previous release's binary asks every announcement platform whether the
+  credentials still work, read-only, nothing posted, and a dead token
+  fails the run in its first minute. A repository without the secrets
+  skips the gate and releases without announcing, as before.
+
+### Authors
+
+- yohimik
+- Claude Fable 5
+
+
 ## v1.0.0-rc.12 (2026-09-02)
 
 ### Features
