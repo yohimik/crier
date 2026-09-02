@@ -225,6 +225,112 @@ func TestMusicWithNoCarrierEnabledWarns(t *testing.T) {
 	}
 }
 
+// anthemMP4 begins like an MP4 and then says something a test can look for.
+// crier reads the first twelve bytes and never decodes the rest, so no ffmpeg
+// is needed to make one.
+const anthemMP4 = "\x00\x00\x00\x20ftypisomCRIER-ANTHEM-BYTES"
+
+// TestLeadVideoOpensTheTelegramAlbum is the clip end to end at the platform
+// that takes the bytes: the album opens with it and the track still follows.
+func TestLeadVideoOpensTheTelegramAlbum(t *testing.T) {
+	f := newFakes(t)
+	dir := newPagedProject(t, strings.Join([]string{
+		"  telegram:",
+		"    enabled: true",
+		"    api-base-url: " + f.URL,
+		"    token: tg-token",
+		"    chat-id: \"@crier\"",
+		"    lead-video: anthem.mp4",
+		"  music-file: jingle.mp3",
+	}, "\n"))
+	writeFile(t, dir, "anthem.mp4", anthemMP4)
+	writeFile(t, dir, "jingle.mp3", jingle)
+
+	res := crier(t, dir, nil, "publish")
+	if res.Code != exitOK {
+		t.Fatalf("code=%d stderr=%s", res.Code, res.Stderr)
+	}
+
+	album, ok := f.find("/sendMediaGroup")
+	if !ok {
+		t.Fatal("no album was sent")
+	}
+	if !strings.Contains(album.Body, `"type":"video"`) {
+		t.Errorf("the album carries no video: %q", album.Body)
+	}
+	// The clip is the first entry: everything before the first photo entry in
+	// the media array belongs to it.
+	video := strings.Index(album.Body, `"type":"video"`)
+	photo := strings.Index(album.Body, `"type":"photo"`)
+	if video < 0 || photo < 0 || video > photo {
+		t.Errorf("the album does not open with the clip: %q", album.Body)
+	}
+	if !strings.Contains(album.Body, "CRIER-ANTHEM-BYTES") {
+		t.Error("the clip's bytes did not go out")
+	}
+	if !strings.Contains(album.Body, `name="lead"`) {
+		t.Errorf("the clip is not attached as a part: %q", album.Body)
+	}
+
+	// The audio is still its own message, after the album.
+	if got := indexOfPath(f, "/sendAudio"); got < 0 || got < indexOfPath(f, "/sendMediaGroup") {
+		t.Errorf("the track must follow the album: %v", pathsOf(f))
+	}
+}
+
+// TestLeadVideoIsRefusedWhereItCannotWork: eight of the ten post pictures or a
+// video and never both, and the error says which and why.
+func TestLeadVideoIsRefusedWhereItCannotWork(t *testing.T) {
+	f := newFakes(t)
+	dir := newProject(t, strings.Join([]string{
+		"  discord:",
+		"    enabled: true",
+		"    webhook-url: " + f.URL + "/discord/webhook",
+		"    lead-video: anthem.mp4",
+	}, "\n"))
+	writeFile(t, dir, "anthem.mp4", anthemMP4)
+
+	res := crier(t, dir, nil, "publish")
+	if res.Code != exitConfig {
+		t.Fatalf("code = %d, want a config error; stderr=%s", res.Code, res.Stderr)
+	}
+	for _, want := range []string{"publish.discord.lead-video", "instagram and telegram"} {
+		if !strings.Contains(res.Stderr, want) {
+			t.Errorf("missing %q in:\n%s", want, res.Stderr)
+		}
+	}
+	if len(f.all()) != 0 {
+		t.Errorf("a refused configuration made %d requests", len(f.all()))
+	}
+}
+
+// TestPingChecksTheLeadVideo: the clip gets its own row, like the track does.
+func TestPingChecksTheLeadVideo(t *testing.T) {
+	f := newFakes(t)
+	dir := newProject(t, strings.Join([]string{
+		"  telegram:",
+		"    enabled: true",
+		"    api-base-url: " + f.URL,
+		"    token: tg-token",
+		"    chat-id: \"@crier\"",
+		"    lead-video: anthem.mp4",
+	}, "\n"))
+	writeFile(t, dir, "anthem.mp4", anthemMP4)
+
+	res := crier(t, dir, nil, "ping")
+	if res.Code != exitOK {
+		t.Fatalf("code=%d stderr=%s stdout=%s", res.Code, res.Stderr, res.Stdout)
+	}
+	for _, want := range []string{"lead-video:telegram", "anthem.mp4", "mp4", "opens the telegram post"} {
+		if !strings.Contains(res.Stdout, want) {
+			t.Errorf("missing %q in:\n%s", want, res.Stdout)
+		}
+	}
+	if _, ok := f.find("/sendMediaGroup"); ok {
+		t.Error("ping posted the album")
+	}
+}
+
 // indexOfPath is where the first request touching a fragment sits in the
 // arrival order, or -1.
 func indexOfPath(f *fakes, fragment string) int {
