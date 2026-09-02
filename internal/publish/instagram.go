@@ -323,6 +323,19 @@ func (i *Instagram) publishContainer(ctx context.Context, id string) (Result, er
 //     container that does not exist published nothing, which is what makes
 //     asking again safe; one that is genuinely gone spends the budget and
 //     surfaces the same error.
+//
+// igTransient reports whether Meta itself marked the error as worth retrying.
+// The flag comes with rate limits (code 4) and the occasional platform
+// hiccup; Meta sets it, crier only reads it, and only ever for read-only
+// calls — a rejected write is somebody else's judgement call.
+func igTransient(err error) bool {
+	var api *httpx.APIError
+	if !errors.As(err, &api) {
+		return false
+	}
+	return bytes.Contains(api.Body, []byte(`"is_transient":true`))
+}
+
 func igMediaNotReady(err error) bool {
 	var api *httpx.APIError
 	if !errors.As(err, &api) {
@@ -378,6 +391,17 @@ func (i *Instagram) await(ctx context.Context, containerID string) error {
 			Query("fields", "status_code,status").
 			Query("access_token", i.cfg.Token)
 		if err := i.client.JSON(ctx, req, &st); err != nil {
+			// A transient Meta refusal of the status read is waited out, not
+			// fatal: the GET creates nothing, so retrying it risks nothing,
+			// and Meta marks the errors it considers worth retrying —
+			// rc.14's "Application request limit reached" carried
+			// is_transient true and killed three posts over a read. The
+			// poll budget still bounds the waiting.
+			if igTransient(err) {
+				i.log.Warn().Str("container", containerID).Err(err).
+					Msg("instagram refused the status read with a transient error; still waiting")
+				return false, nil
+			}
 			return false, err
 		}
 		switch strings.ToUpper(st.StatusCode) {
