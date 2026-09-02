@@ -41,9 +41,16 @@ func newDiscord(cfg *config.Config, d Deps) (Publisher, error) {
 // Name implements Publisher.
 func (d *Discord) Name() string { return "discord" }
 
+// DiscordFileMax is how many files one webhook message carries.
+const DiscordFileMax = 10
+
 // Needs implements Publisher.
 func (d *Discord) Needs() Needs {
-	return Needs{Formats: []config.Format{config.PNG, config.JPEG}, Kinds: imageVideoAndGIF}
+	return Needs{
+		Formats:        []config.Format{config.PNG, config.JPEG},
+		Kinds:          imageVideoAndGIF,
+		MaxAttachments: DiscordFileMax,
+	}
 }
 
 // discordMessage is the JSON half of the multipart request.
@@ -60,22 +67,31 @@ type discordResponse struct {
 
 // Publish posts the artifact to the webhook.
 func (d *Discord) Publish(ctx context.Context, in Input) (Result, error) {
-	if err := checkSize(in.Artifact, DiscordUploadLimit, "discord"); err != nil {
-		return Result{}, err
+	arts := in.Sequence()
+	if len(arts) > DiscordFileMax {
+		return Result{}, fmt.Errorf("a discord message carries %d files and this post has %d",
+			DiscordFileMax, len(arts))
 	}
 	payload, err := json.Marshal(discordMessage{Content: in.Caption, Username: d.cfg.Username})
 	if err != nil {
 		return Result{}, err
 	}
 
+	// files[0], files[1] and so on: the index is the order Discord lays the
+	// attachments out in, which is the page order.
+	parts := []httpx.Part{httpx.Field("payload_json", string(payload))}
+	for n, a := range arts {
+		if err := checkSize(a, DiscordUploadLimit, "discord"); err != nil {
+			return Result{}, err
+		}
+		parts = append(parts, httpx.FilePart(fmt.Sprintf("files[%d]", n), a.Path, a.ContentType))
+	}
+
 	req := httpx.NewRequest(http.MethodPost, d.cfg.WebhookURL).
 		// wait=true makes Discord return the message it created, which is the
 		// only way to report an id.
 		Query("wait", "true").
-		Multipart(
-			httpx.Field("payload_json", string(payload)),
-			httpx.FilePart("files[0]", in.Artifact.Path, in.Artifact.ContentType),
-		)
+		Multipart(parts...)
 
 	var out discordResponse
 	if err := d.client.NoRetry().JSON(ctx, req, &out); err != nil {

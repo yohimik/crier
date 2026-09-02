@@ -10,6 +10,7 @@ import (
 	"github.com/rs/zerolog"
 	"github.com/yohimik/crier/internal/config"
 	"github.com/yohimik/crier/internal/httpx"
+	"github.com/yohimik/crier/internal/render"
 )
 
 // Mastodon posts to one instance.
@@ -41,9 +42,12 @@ func newMastodon(cfg *config.Config, d Deps) (Publisher, error) {
 // Name implements Publisher.
 func (m *Mastodon) Name() string { return "mastodon" }
 
+// MastodonMediaMax is how many attachments one status holds.
+const MastodonMediaMax = 4
+
 // Needs implements Publisher.
 func (m *Mastodon) Needs() Needs {
-	return Needs{Formats: imageFormats, Kinds: imageVideoAndGIF}
+	return Needs{Formats: imageFormats, Kinds: imageVideoAndGIF, MaxAttachments: MastodonMediaMax}
 }
 
 type mastodonAttachment struct {
@@ -59,14 +63,28 @@ type mastodonStatus struct {
 // Publish uploads the media, waits for the instance to finish processing it,
 // and posts a status referring to it.
 func (m *Mastodon) Publish(ctx context.Context, in Input) (Result, error) {
-	id, err := m.upload(ctx, in)
-	if err != nil {
-		return Result{}, err
+	arts := in.Sequence()
+	if len(arts) > MastodonMediaMax {
+		return Result{}, fmt.Errorf("a mastodon status holds %d attachments and this post has %d",
+			MastodonMediaMax, len(arts))
+	}
+	// Uploaded in page order; media_ids is the order the instance shows them
+	// in.
+	ids := make([]string, 0, len(arts))
+	for n, a := range arts {
+		id, err := m.upload(ctx, a, in.Caption)
+		if err != nil {
+			if len(arts) > 1 {
+				return Result{}, fmt.Errorf("attachment %d of %d: %w", n+1, len(arts), err)
+			}
+			return Result{}, err
+		}
+		ids = append(ids, id)
 	}
 
 	body := map[string]any{
 		"status":    in.Caption,
-		"media_ids": []string{id},
+		"media_ids": ids,
 	}
 	if v := strings.TrimSpace(m.cfg.Visibility); v != "" {
 		body["visibility"] = v
@@ -82,7 +100,8 @@ func (m *Mastodon) Publish(ctx context.Context, in Input) (Result, error) {
 	if err := m.client.NoRetry().JSON(ctx, req, &status); err != nil {
 		return Result{}, err
 	}
-	return Result{ID: status.ID, URL: status.URL, Extra: map[string]string{"mediaId": id}}, nil
+	return Result{ID: status.ID, URL: status.URL,
+		Extra: map[string]string{"mediaId": strings.Join(ids, ",")}}, nil
 }
 
 // upload posts the file and returns the attachment id, waiting when the
@@ -90,9 +109,9 @@ func (m *Mastodon) Publish(ctx context.Context, in Input) (Result, error) {
 //
 // A 202 means "accepted, not ready": posting a status that refers to an
 // attachment in that state is rejected, so the wait is not optional.
-func (m *Mastodon) upload(ctx context.Context, in Input) (string, error) {
-	parts := []httpx.Part{httpx.FilePart("file", in.Artifact.Path, in.Artifact.ContentType)}
-	if alt := firstNonEmpty(m.cfg.AltText, in.Caption); alt != "" {
+func (m *Mastodon) upload(ctx context.Context, a render.Artifact, caption string) (string, error) {
+	parts := []httpx.Part{httpx.FilePart("file", a.Path, a.ContentType)}
+	if alt := firstNonEmpty(m.cfg.AltText, caption); alt != "" {
 		parts = append(parts, httpx.Field("description", alt))
 	}
 

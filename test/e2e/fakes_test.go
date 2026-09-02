@@ -136,6 +136,19 @@ func (f *fakes) serve(w http.ResponseWriter, r *http.Request) {
 		})
 
 	// --- telegram -------------------------------------------------------
+	//
+	// sendMediaGroup answers with one message per item, which is the shape
+	// that differs from every other Bot API method.
+	case strings.Contains(path, "/sendMediaGroup"):
+		n := strings.Count(req.Body, `"type":"photo"`)
+		result := make([]map[string]any, 0, n)
+		for i := 0; i < n; i++ {
+			result = append(result, map[string]any{
+				"message_id": 2000 + i,
+				"chat":       map[string]any{"id": 5, "username": "criertest"},
+			})
+		}
+		writeJSON(w, map[string]any{"ok": true, "result": result})
 	case strings.Contains(path, "/sendPhoto"), strings.Contains(path, "/sendVideo"),
 		strings.Contains(path, "/sendAnimation"):
 		writeJSON(w, map[string]any{
@@ -341,4 +354,16 @@ func (f *fakes) platformConfig() string {
     poll-interval: 1ms
     poll-timeout: 200ms
 `, f.URL)
+}
+
+// findAll returns every request whose path contains the fragment, in the order
+// they arrived. It is what an ordering assertion is made of.
+func (f *fakes) findAll(fragment string) []request {
+	var out []request
+	for _, r := range f.all() {
+		if strings.Contains(r.Path, fragment) {
+			out = append(out, r)
+		}
+	}
+	return out
 }

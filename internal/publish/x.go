@@ -6,6 +6,7 @@ import (
 	"net/http"
 	"net/url"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/rs/zerolog"
@@ -16,6 +17,9 @@ import (
 
 // XSegmentSize is the largest APPEND segment the media endpoint accepts.
 const XSegmentSize = 5 << 20
+
+// XMediaMax is how many images one post on x holds.
+const XMediaMax = 4
 
 // XVideoLimit is the largest video X accepts.
 const XVideoLimit = 512 << 20
@@ -52,7 +56,7 @@ func (x *X) Name() string { return "x" }
 
 // Needs implements Publisher.
 func (x *X) Needs() Needs {
-	return Needs{Formats: imageFormats, Kinds: imageVideoAndGIF}
+	return Needs{Formats: imageFormats, Kinds: imageVideoAndGIF, MaxAttachments: XMediaMax}
 }
 
 type xMediaResponse struct {
@@ -80,31 +84,30 @@ type xTweetResponse struct {
 
 // Publish uploads the media and posts a tweet referring to it.
 func (x *X) Publish(ctx context.Context, in Input) (Result, error) {
-	var (
-		mediaID string
-		err     error
-	)
-	switch in.Artifact.Kind {
-	case render.KindVideo:
-		if err := checkSize(in.Artifact, XVideoLimit, "x"); err != nil {
-			return Result{}, err
-		}
-		mediaID, err = x.uploadChunked(ctx, in.Artifact)
-	case render.KindGIF:
-		if err := checkSize(in.Artifact, XGIFLimit, "x"); err != nil {
-			return Result{}, err
-		}
-		mediaID, err = x.uploadChunked(ctx, in.Artifact)
-	default:
-		mediaID, err = x.uploadSimple(ctx, in.Artifact)
+	arts := in.Sequence()
+	if len(arts) > XMediaMax {
+		return Result{}, fmt.Errorf("a post on x holds %d images and this one has %d",
+			XMediaMax, len(arts))
 	}
-	if err != nil {
-		return Result{}, err
+	// The media are uploaded in page order, and media_ids is the order they
+	// are shown in.
+	mediaIDs := make([]string, 0, len(arts))
+	for n, a := range arts {
+		id, err := x.upload(ctx, a)
+		if err != nil {
+			if len(arts) > 1 {
+				return Result{}, fmt.Errorf("image %d of %d: %w", n+1, len(arts), err)
+			}
+			return Result{}, err
+		}
+		if id != "" {
+			mediaIDs = append(mediaIDs, id)
+		}
 	}
 
 	body := map[string]any{"text": in.Caption}
-	if mediaID != "" {
-		body["media"] = map[string]any{"media_ids": []string{mediaID}}
+	if len(mediaIDs) > 0 {
+		body["media"] = map[string]any{"media_ids": mediaIDs}
 	}
 
 	var tweet xTweetResponse
@@ -118,8 +121,27 @@ func (x *X) Publish(ctx context.Context, in Input) (Result, error) {
 	return Result{
 		ID:    tweet.Data.ID,
 		URL:   "https://x.com/i/web/status/" + tweet.Data.ID,
-		Extra: map[string]string{"mediaId": mediaID},
+		Extra: map[string]string{"mediaId": strings.Join(mediaIDs, ",")},
 	}, nil
+}
+
+// upload puts one artifact on x and returns its media id, choosing the simple
+// or the chunked endpoint by what the file is.
+func (x *X) upload(ctx context.Context, a render.Artifact) (string, error) {
+	switch a.Kind {
+	case render.KindVideo:
+		if err := checkSize(a, XVideoLimit, "x"); err != nil {
+			return "", err
+		}
+		return x.uploadChunked(ctx, a)
+	case render.KindGIF:
+		if err := checkSize(a, XGIFLimit, "x"); err != nil {
+			return "", err
+		}
+		return x.uploadChunked(ctx, a)
+	default:
+		return x.uploadSimple(ctx, a)
+	}
 }
 
 // uploadSimple posts an image in one request.

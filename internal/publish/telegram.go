@@ -2,6 +2,7 @@ package publish
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"net/http"
 	"strconv"
@@ -46,9 +47,15 @@ func newTelegram(cfg *config.Config, d Deps) (Publisher, error) {
 // Name implements Publisher.
 func (t *Telegram) Name() string { return "telegram" }
 
+// TelegramGroupMax is how many items one sendMediaGroup call takes.
+//
+// The method also has a minimum of two, which is why a batch of one falls back
+// to sendPhoto rather than sending a group of one.
+const TelegramGroupMax = 10
+
 // Needs implements Publisher.
 func (t *Telegram) Needs() Needs {
-	return Needs{Formats: imageFormats, Kinds: imageVideoAndGIF}
+	return Needs{Formats: imageFormats, Kinds: imageVideoAndGIF, MaxAttachments: TelegramGroupMax}
 }
 
 // telegramResponse is the envelope every Bot API method returns.
@@ -65,7 +72,14 @@ type telegramResponse struct {
 }
 
 // Publish sends the artifact to the chat.
+//
+// Several images go as one album through sendMediaGroup. One goes through
+// sendPhoto: a media group has a minimum of two, so the last batch of an odd
+// page count would be refused as a group of one.
 func (t *Telegram) Publish(ctx context.Context, in Input) (Result, error) {
+	if arts := in.Sequence(); len(arts) > 1 {
+		return t.mediaGroup(ctx, arts, in.Caption)
+	}
 	method, field := "sendPhoto", "photo"
 	limit := int64(TelegramPhotoLimit)
 	switch in.Artifact.Kind {
@@ -110,6 +124,91 @@ func (t *Telegram) Publish(ctx context.Context, in Input) (Result, error) {
 	res := Result{ID: strconv.FormatInt(out.Result.MessageID, 10)}
 	if u := out.Result.Chat.Username; u != "" {
 		res.URL = fmt.Sprintf("https://t.me/%s/%d", strings.TrimPrefix(u, "@"), out.Result.MessageID)
+	}
+	return res, nil
+}
+
+// telegramGroupResponse is what sendMediaGroup answers with: one message per
+// item rather than the single message every other method returns.
+type telegramGroupResponse struct {
+	OK          bool   `json:"ok"`
+	Description string `json:"description"`
+	Result      []struct {
+		MessageID int64 `json:"message_id"`
+		Chat      struct {
+			ID       int64  `json:"id"`
+			Username string `json:"username"`
+		} `json:"chat"`
+	} `json:"result"`
+}
+
+// telegramMedia is one entry of the media array sendMediaGroup takes.
+type telegramMedia struct {
+	Type    string `json:"type"`
+	Media   string `json:"media"`
+	Caption string `json:"caption,omitempty"`
+}
+
+// mediaGroup posts several images as one album.
+//
+// The files ride along as ordinary multipart parts and the media array points
+// at them by name, which is what the attach:// scheme is for. Only the first
+// item carries the caption: Telegram shows an album's caption once, and
+// repeating it on every item shows it on every item.
+func (t *Telegram) mediaGroup(ctx context.Context, arts []render.Artifact, caption string) (Result, error) {
+	if len(arts) > TelegramGroupMax {
+		return Result{}, fmt.Errorf("a telegram media group holds %d items and this post has %d",
+			TelegramGroupMax, len(arts))
+	}
+
+	parts := []httpx.Part{httpx.Field("chat_id", t.cfg.ChatID)}
+	media := make([]telegramMedia, 0, len(arts))
+	for n, a := range arts {
+		if a.Kind != render.KindImage {
+			return Result{}, fmt.Errorf("a telegram media group takes photos; item %d is %s", n+1, a.Kind)
+		}
+		if err := checkSize(a, TelegramPhotoLimit, "telegram"); err != nil {
+			return Result{}, err
+		}
+		name := fmt.Sprintf("photo%d", n)
+		parts = append(parts, httpx.FilePart(name, a.Path, a.ContentType))
+		m := telegramMedia{Type: "photo", Media: "attach://" + name}
+		if n == 0 {
+			m.Caption = caption
+		}
+		media = append(media, m)
+	}
+	encoded, err := json.Marshal(media)
+	if err != nil {
+		return Result{}, fmt.Errorf("describing the media group: %w", err)
+	}
+	parts = append(parts, httpx.Field("media", string(encoded)))
+
+	req := httpx.NewRequest(http.MethodPost, t.cfg.APIBaseURL, "bot"+t.cfg.Token, "sendMediaGroup").
+		Multipart(parts...)
+
+	// As with a single message: a 5xx may mean the album went out and the
+	// answer was lost, and a retry would post it twice.
+	var out telegramGroupResponse
+	if err := t.client.NoRetry().JSON(ctx, req, &out); err != nil {
+		return Result{}, err
+	}
+	if !out.OK {
+		return Result{}, fmt.Errorf("telegram refused the media group: %s", out.Description)
+	}
+	if len(out.Result) == 0 {
+		return Result{}, fmt.Errorf("telegram accepted the media group but named no messages")
+	}
+	t.log.Debug().Int("items", len(arts)).Int("messages", len(out.Result)).
+		Msg("posted a telegram media group")
+
+	first := out.Result[0]
+	res := Result{
+		ID:    strconv.FormatInt(first.MessageID, 10),
+		Extra: map[string]string{"items": strconv.Itoa(len(out.Result))},
+	}
+	if u := first.Chat.Username; u != "" {
+		res.URL = fmt.Sprintf("https://t.me/%s/%d", strings.TrimPrefix(u, "@"), first.MessageID)
 	}
 	return res, nil
 }

@@ -9,6 +9,7 @@ import (
 	"path/filepath"
 	"runtime"
 	"sort"
+	"strconv"
 	"strings"
 	"time"
 
@@ -41,8 +42,18 @@ type Custom struct {
 const (
 	// EnvPlatform is the name the configuration gave this platform.
 	EnvPlatform = "CRIER_PLATFORM"
-	// EnvArtifact is the file to publish.
+	// EnvArtifact is the file to publish. When a post carries several, it is
+	// the first of them.
 	EnvArtifact = "CRIER_ARTIFACT"
+	// EnvArtifacts is every file this post carries, one per line, in page
+	// order. It always holds at least the one CRIER_ARTIFACT names, so a
+	// script can read this alone and never look at the singular form.
+	//
+	// One per line rather than space separated, because a path may contain a
+	// space and a page list must not become a different list on the way in.
+	EnvArtifacts = "CRIER_ARTIFACTS"
+	// EnvArtifactCount is how many files this post carries.
+	EnvArtifactCount = "CRIER_ARTIFACT_COUNT"
 	// EnvArtifactFormat is png, jpeg, or empty for a video.
 	EnvArtifactFormat = "CRIER_ARTIFACT_FORMAT"
 	// EnvArtifactKind is image or video.
@@ -51,12 +62,21 @@ const (
 	EnvArtifactType = "CRIER_ARTIFACT_TYPE"
 	// EnvURL is where the artifact was staged, set only when needs-url is on.
 	EnvURL = "CRIER_URL"
+	// EnvURLs is where each of this post's files was staged, one per line, in
+	// the same order as CRIER_ARTIFACTS. Set only when needs-url is on.
+	EnvURLs = "CRIER_URLS"
 	// EnvCaption is the rendered post text.
 	EnvCaption = "CRIER_CAPTION"
 	// EnvPoster is a still image accompanying a video, when there is one.
 	EnvPoster = "CRIER_POSTER"
 	// EnvOutput is a file the command may append `id=` and `link=` lines to.
 	EnvOutput = "CRIER_OUTPUT"
+	// The paging of a run whose page list was longer than one post. They read
+	// 1 of 1 when nothing paginated, so a script can use them either way.
+	EnvPost  = "CRIER_POST"
+	EnvPosts = "CRIER_POSTS"
+	EnvPage  = "CRIER_PAGE"
+	EnvPages = "CRIER_PAGES"
 	// EnvProjectDir is the directory the configuration file sits in, which is
 	// also the command's working directory.
 	EnvProjectDir = "CRIER_PROJECT_DIR"
@@ -82,7 +102,9 @@ func (c *Custom) Name() string { return c.name }
 
 // Needs implements Publisher, from what the entry declared.
 func (c *Custom) Needs() Needs {
-	n := Needs{URL: c.cfg.NeedsURL}
+	// A custom platform's capacity is whatever its configuration says, because
+	// there is no API here to know better: the command is the platform.
+	n := Needs{URL: c.cfg.NeedsURL, MaxAttachments: c.cfg.Layout.MaxAttachments}
 	switch strings.ToLower(strings.TrimSpace(c.cfg.Format)) {
 	case "jpeg", "jpg":
 		n.Formats = []config.Format{config.JPEG, config.PNG}
@@ -119,20 +141,33 @@ func (c *Custom) Publish(ctx context.Context, in Input) (Result, error) {
 	_ = out.Close()
 	defer func() { _ = os.Remove(outPath) }()
 
+	arts := in.Sequence()
+	paths := make([]string, len(arts))
+	for i, a := range arts {
+		paths[i] = a.Path
+	}
 	env := []string{
 		EnvPlatform + "=" + c.name,
 		EnvArtifact + "=" + in.Artifact.Path,
+		EnvArtifacts + "=" + strings.Join(paths, "\n"),
+		EnvArtifactCount + "=" + strconv.Itoa(len(paths)),
 		EnvProjectDir + "=" + c.dir,
 		EnvArtifactFormat + "=" + string(in.Artifact.Format),
 		EnvArtifactKind + "=" + string(in.Artifact.Kind),
 		EnvArtifactType + "=" + in.Artifact.ContentType,
 		EnvCaption + "=" + in.Caption,
 		EnvOutput + "=" + outPath,
+		EnvPost + "=" + strconv.Itoa(orOne(in.Post)),
+		EnvPosts + "=" + strconv.Itoa(orOne(in.Posts)),
+		EnvPage + "=" + strconv.Itoa(orOne(in.Page)),
+		EnvPages + "=" + strconv.Itoa(orOne(in.Pages)),
 	}
 	// CRIER_URL is set only when the platform asked to be staged, so a script
 	// can tell "no URL was needed" from "staging produced nothing".
 	if c.cfg.NeedsURL {
-		env = append(env, EnvURL+"="+in.URL)
+		env = append(env,
+			EnvURL+"="+in.URL,
+			EnvURLs+"="+strings.Join(in.SequenceURLs(), "\n"))
 	}
 	if in.Poster != nil {
 		env = append(env, EnvPoster+"="+in.Poster.Path)
@@ -312,4 +347,13 @@ func sortedKeys(m map[string]string) []string {
 	}
 	sort.Strings(out)
 	return out
+}
+
+// orOne reads an unset counter as one, so a script sees "1 of 1" rather than
+// "0 of 0" on a run that never paginated.
+func orOne(n int) int {
+	if n < 1 {
+		return 1
+	}
+	return n
 }

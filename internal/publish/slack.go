@@ -52,7 +52,7 @@ func (s *Slack) Name() string { return "slack" }
 // Slack takes the bytes, so it needs no staging, and it renders an animation
 // inline like any other image.
 func (s *Slack) Needs() Needs {
-	return Needs{Formats: imageFormats, Kinds: imageVideoAndGIF}
+	return Needs{Formats: imageFormats, Kinds: imageVideoAndGIF, MaxAttachments: SlackFileMax}
 }
 
 // slackResponse is the envelope every Web API method returns.
@@ -103,43 +103,68 @@ type slackComplete struct {
 	Channels []string `json:"channels"`
 }
 
+// SlackFileMax is how many files one completeUploadExternal call shares.
+//
+// Steps 1 and 2 are per file; step 3 takes the lot, which is what makes
+// several files land as one message rather than as several.
+const SlackFileMax = 10
+
 // Publish runs the three-step external upload.
 func (s *Slack) Publish(ctx context.Context, in Input) (Result, error) {
-	name := filepath.Base(in.Artifact.Path)
-
-	// 1. Ask for somewhere to put the bytes. The length is not advisory:
-	//    Slack sizes the slot from it and refuses a body that disagrees.
-	var slot slackUploadURL
-	req := httpx.NewRequest(http.MethodPost, s.cfg.APIBaseURL, "files.getUploadURLExternal").
-		Bearer(s.cfg.Token).
-		Form(url.Values{
-			"filename": {name},
-			"length":   {strconv.FormatInt(in.Artifact.Size, 10)},
-		})
-	if err := s.client.JSON(ctx, req, &slot); err != nil {
-		return Result{}, err
-	}
-	if !slot.OK {
-		return Result{}, slot.err("asking slack where to upload")
-	}
-	if slot.UploadURL == "" || slot.FileID == "" {
-		return Result{}, fmt.Errorf("slack returned no upload url")
-	}
-	s.log.Debug().Str("file", slot.FileID).Msg("slack handed out an upload url")
-
-	// 2. The bytes, raw, to the URL Slack named. No token: the URL is the
-	//    credential, and sending an Authorization header to it is how a
-	//    request ends up rejected by a host that never wanted one.
-	upload := httpx.NewRequest(http.MethodPost, slot.UploadURL).
-		File("application/octet-stream", in.Artifact.Path)
-	if err := s.client.Discard(ctx, upload); err != nil {
-		return Result{}, fmt.Errorf("uploading the file to slack: %w", err)
+	arts := in.Sequence()
+	if len(arts) > SlackFileMax {
+		return Result{}, fmt.Errorf("a slack message shares %d files and this post has %d",
+			SlackFileMax, len(arts))
 	}
 
-	// 3. Tell Slack what the file is for. This is the step that posts, so it
-	//    is the one that must not be retried: a 5xx from a gateway may still
-	//    have shared the file, and repeating it would share it twice.
-	files, err := json.Marshal([]map[string]string{{"id": slot.FileID, "title": name}})
+	uploaded := make([]map[string]string, 0, len(arts))
+	firstID := ""
+	for n, a := range arts {
+		name := filepath.Base(a.Path)
+
+		// 1. Ask for somewhere to put the bytes. The length is not advisory:
+		//    Slack sizes the slot from it and refuses a body that disagrees.
+		var slot slackUploadURL
+		req := httpx.NewRequest(http.MethodPost, s.cfg.APIBaseURL, "files.getUploadURLExternal").
+			Bearer(s.cfg.Token).
+			Form(url.Values{
+				"filename": {name},
+				"length":   {strconv.FormatInt(a.Size, 10)},
+			})
+		if err := s.client.JSON(ctx, req, &slot); err != nil {
+			return Result{}, err
+		}
+		if !slot.OK {
+			return Result{}, slot.err("asking slack where to upload")
+		}
+		if slot.UploadURL == "" || slot.FileID == "" {
+			return Result{}, fmt.Errorf("slack returned no upload url")
+		}
+		s.log.Debug().Str("file", slot.FileID).Int("of", len(arts)).
+			Msg("slack handed out an upload url")
+
+		// 2. The bytes, raw, to the URL Slack named. No token: the URL is the
+		//    credential, and sending an Authorization header to it is how a
+		//    request ends up rejected by a host that never wanted one.
+		upload := httpx.NewRequest(http.MethodPost, slot.UploadURL).
+			File("application/octet-stream", a.Path)
+		if err := s.client.Discard(ctx, upload); err != nil {
+			if len(arts) > 1 {
+				return Result{}, fmt.Errorf("uploading file %d of %d to slack: %w", n+1, len(arts), err)
+			}
+			return Result{}, fmt.Errorf("uploading the file to slack: %w", err)
+		}
+		if firstID == "" {
+			firstID = slot.FileID
+		}
+		uploaded = append(uploaded, map[string]string{"id": slot.FileID, "title": name})
+	}
+
+	// 3. Tell Slack what the files are for, in page order. This is the step
+	//    that posts, so it is the one that must not be retried: a 5xx from a
+	//    gateway may still have shared them, and repeating it would share them
+	//    twice.
+	files, err := json.Marshal(uploaded)
 	if err != nil {
 		return Result{}, err
 	}
@@ -162,7 +187,7 @@ func (s *Slack) Publish(ctx context.Context, in Input) (Result, error) {
 		return Result{}, done.err("sharing the file")
 	}
 
-	id := slot.FileID
+	id := firstID
 	if len(done.Files) > 0 && done.Files[0].ID != "" {
 		id = done.Files[0].ID
 	}
