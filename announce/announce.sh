@@ -63,7 +63,9 @@ log "announcing v$version with $crier"
 # Written once and reused for both passes, so the story is the same card as the
 # feed post rather than a second render of a moving target.
 data=$(mktemp)
-trap 'rm -f "$data"' EXIT
+frames_dir=""
+cover_data=""
+trap 'rm -rf "$data" "$frames_dir" "$cover_data"' EXIT
 sh "$here/notes.sh" >"$data"
 
 # --- staging ------------------------------------------------------------------
@@ -106,6 +108,56 @@ post() {
 	return 1
 }
 
+# --- the anthem story ---------------------------------------------------------
+#
+# A third pass: the cover page, held for sixteen seconds as a video story with
+# announce/anthem.mp3 as its soundtrack — the one way audio reaches Instagram,
+# which takes no audio file and no track id (see docs/publishing/music.md and
+# announce/anthem.md). The changelog is not in this pass: the image stories
+# carry it, and this one is the fanfare.
+#
+# The cover renders once and is copied into frames, because 384 identical
+# layouts would cost minutes and one copied 384 times costs a second.
+anthem() {
+	command -v ffmpeg >/dev/null 2>&1 || {
+		log "ffmpeg is not installed; skipping the anthem story"
+		return 0
+	}
+	frames_dir=$(mktemp -d)
+	cover_data=$(mktemp)
+	frames=$frames_dir
+	cover=$cover_data
+	DISPAT_BREAKING_CHANGES='' DISPAT_FEATURES='' DISPAT_FIXES='' \
+		sh "$here/notes.sh" >"$cover"
+	if ! "$crier" render --config "$here/crier.yaml" --render-data - \
+		--render-format png --render-output "$frames/cover.png" <"$cover"; then
+		log "the cover did not render; skipping the anthem story"
+		return 1
+	fi
+	i=0
+	while [ "$i" -lt 384 ]; do
+		i=$((i + 1))
+		cp "$frames/cover.png" "$frames/$(printf 'f%03d' "$i").png"
+	done
+	rm -f "$frames/cover.png"
+	log "posting the anthem story"
+	if "$crier" --config "$here/crier.yaml" --render-data - \
+		--render-video-enabled=true \
+		--render-video-fps 24 \
+		--render-video-frames-input "$frames" \
+		--render-video-audio "$here/anthem.mp3" \
+		--publish-instagram-story \
+		--publish-instagram-width 1080 \
+		--publish-instagram-height 1920 \
+		--publish-instagram-fit contain \
+		--publish-instagram-fit-background "#04140c" <"$cover"; then
+		log "posted the anthem story"
+		return 0
+	fi
+	log "the anthem story did not post; see the log above"
+	return 1
+}
+
 failures=0
 post "feed post" || failures=$((failures + 1))
 post "stories" \
@@ -115,8 +167,9 @@ post "stories" \
 	--publish-instagram-fit contain \
 	--publish-instagram-fit-background "#04140c" ||
 	failures=$((failures + 1))
+anthem || failures=$((failures + 1))
 
 if [ "$failures" -gt 0 ]; then
-	log "$failures of 2 passes did not go out; the release itself is unaffected"
+	log "$failures of 3 passes did not go out; the release itself is unaffected"
 fi
 exit 0

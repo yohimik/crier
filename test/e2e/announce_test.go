@@ -389,9 +389,11 @@ func TestAnnouncePostsFeedThenStory(t *testing.T) {
 	// The changelog is longer than the cover page, so the card paginates and
 	// the feed post is a carousel: a child per page, then a parent listing
 	// them. Everything after that is the story pass.
-	var children, parents, stories []url.Values
+	var children, parents, stories, videoStories []url.Values
 	for _, v := range containers {
 		switch {
+		case v.Get("media_type") == "STORIES" && v.Get("video_url") != "":
+			videoStories = append(videoStories, v)
 		case v.Get("media_type") == "STORIES":
 			stories = append(stories, v)
 		case v.Get("media_type") == "CAROUSEL":
@@ -399,7 +401,7 @@ func TestAnnouncePostsFeedThenStory(t *testing.T) {
 		case v.Get("is_carousel_item") == "true":
 			children = append(children, v)
 		default:
-			t.Errorf("a container that is none of the three: %v", v)
+			t.Errorf("a container that is none of the kinds: %v", v)
 		}
 	}
 	if len(children) < 2 {
@@ -411,6 +413,24 @@ func TestAnnouncePostsFeedThenStory(t *testing.T) {
 	if len(stories) != len(children) {
 		t.Errorf("posted %d stories for %d pages; every page should get one",
 			len(stories), len(children))
+	}
+	// The anthem: one video story, after everything else — the cover held for
+	// sixteen seconds with the 1812 finale as its soundtrack. It renders only
+	// where ffmpeg is installed, and the announce script says so and carries
+	// on without it.
+	if _, err := exec.LookPath("ffmpeg"); err == nil {
+		if len(videoStories) != 1 {
+			t.Fatalf("posted %d video stories, want the one anthem", len(videoStories))
+		}
+		last, err := url.ParseQuery(requests[lastContainerIndex(requests)].Body)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if last.Get("video_url") == "" {
+			t.Error("the anthem story is not the last container; the fanfare comes after the news")
+		}
+	} else if len(videoStories) != 0 {
+		t.Fatalf("a video story went out with no ffmpeg to make it")
 	}
 	// The parent lists exactly the children that were created, in order.
 	wantChildren := make([]string, 0, len(children))
@@ -450,11 +470,15 @@ func TestAnnouncePostsFeedThenStory(t *testing.T) {
 			published++
 		}
 	}
-	if want := 1 + len(stories); published != want {
-		t.Errorf("published %d times, want one carousel and %d stories", published, len(stories))
+	if want := 1 + len(stories) + len(videoStories); published != want {
+		t.Errorf("published %d times, want one carousel, %d stories and %d anthem",
+			published, len(stories), len(videoStories))
 	}
 	if !strings.Contains(stderr, "posted the feed post") || !strings.Contains(stderr, "posted the stories") {
 		t.Errorf("both passes should be logged: %s", stderr)
+	}
+	if len(videoStories) == 1 && !strings.Contains(stderr, "posted the anthem story") {
+		t.Errorf("the anthem pass should be logged: %s", stderr)
 	}
 }
 
@@ -649,4 +673,15 @@ func TestSmokeHostileChangelog(t *testing.T) {
 	if strings.Contains(stderr, "pages-max") || strings.Contains(stderr, "will not allocate") {
 		t.Fatalf("the hostile changelog broke the render:\n%s", stderr)
 	}
+}
+
+// lastContainerIndex finds the final container-creation call.
+func lastContainerIndex(requests []recordedCall) int {
+	last := -1
+	for i, r := range requests {
+		if strings.HasSuffix(r.Path, "/media") {
+			last = i
+		}
+	}
+	return last
 }

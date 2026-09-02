@@ -137,6 +137,15 @@ It is a prerelease. Downstream tools treat it as one:
 
 - **`go install …@latest` skips it**. This follows Go's own prerelease rule. Running `go install …@v1.0.0-rc.0` works.
 
+### The anthem
+
+The release posts a third story: the cover page, held for sixteen seconds as a
+video with `announce/anthem.mp3` as its soundtrack. The clip is the 1812
+Overture finale from a public-domain recording; `announce/anthem.md` carries
+the provenance. Video is the one way audio reaches Instagram, which takes no
+audio file and no track id. The pass needs ffmpeg on the runner and skips
+with a log line where there is none.
+
 ## The assets
 
 Six bare, uncompressed binaries:
