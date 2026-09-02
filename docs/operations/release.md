@@ -172,7 +172,13 @@ darwin and windows cannot run in the build at all. Proving those falls to the re
 
 Every release posts a feed card and a story to Instagram. The `crier` tool renders these from the binary that the release just built. It runs in the `announce` stage of `dispat`. This stage only ever warns. The `announce/announce.sh` script exits with 0 for any reason it decides not to post. **A missing secret can never turn a good release red.**
 
-The card is located in [`announce/`](../../announce/). This folder contains a template, a config, and a script. The script turns the release-notes variables into data for the card. There is also a committed [preview](../../announce/preview.png). The card carries the version. It includes the first three entries of each notes section. It adds `+N more` when there are extra entries. It also shows all three install routes pinned to the version.
+The card is located in [`announce/`](../../announce/). This folder contains a template, a config, and a script. The script turns the release-notes variables into data for the card.
+
+The card paginates. Page one is the cover: the version badge and the three install routes, each pinned to the version. The changelog carries on across the pages after it, under a small version badge and a footer that numbers the page. A committed preview shows both: [page one](../../announce/preview-1.png) and [page two](../../announce/preview-2.png).
+
+Each pass turns those pages into what its surface takes. The feed post becomes one carousel. The story pass posts one story per page, in order, each one live before the next is created. Neither is configured. crier works it out from the platform.
+
+A section shows up to twenty entries and says `+N more` past that. The ceiling is there so a release cannot push the render past `render.pages-max`, which refuses it rather than truncating.
 
 ### Secrets
 

@@ -53,18 +53,31 @@
     @bottom-right { content: none }
   }
 
-  html, body { height: 100%; margin: 0 }
-  /* The background is on the page rather than on a box inside it, so it fills
-     the margins too and the running header and footer sit on the card rather
-     than on white paper. */
-  body {
-    font-family: "Space Mono", monospace;
-    color: #6cffa8;
+  /* No height here. A fixed body height clips whatever will not fit instead of
+     flowing it onto the next page, which is the one thing this layout must
+     not do.
+
+     The background sits on the root, which propagates it to the page: the
+     near-black fills every page edge to edge, so the running header and footer
+     in the page margins sit on the card rather than on white paper.
+
+     The scanlines are positioned against the root's own box rather than the
+     page, so they stop at the page margin. That is left as it falls: an inset
+     panel of scanlines with the header and footer outside it reads as a
+     terminal pane on the card, which is the look this card is after anyway.
+     background-attachment: fixed does not move them, so there is nothing to
+     be gained by asking. */
+  html {
     background:
       repeating-linear-gradient(0deg,
         rgba(0,255,140,.05) 0px, rgba(0,255,140,.05) 1px,
         rgba(0,0,0,0) 1px, rgba(0,0,0,0) 4px),
       #04140c;
+  }
+  body {
+    margin: 0;
+    font-family: "Space Mono", monospace;
+    color: #6cffa8;
   }
 
   /* The cover is exactly one page of content: 1080 less the page margins.

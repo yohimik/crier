@@ -4,6 +4,7 @@ package e2e
 
 import (
 	"encoding/json"
+	"fmt"
 	"net/http"
 	"net/http/httptest"
 	"net/url"
@@ -102,28 +103,55 @@ func TestAnnounceNotesBuildsTheCardsData(t *testing.T) {
 		}
 	}
 
-	// All three sections are present, so the card's vertical budget drops
-	// each to two entries: the install block is pinned to the bottom edge,
-	// and three sections of three would spill into it.
+	// The card paginates, so a changelog is no longer cut to fit one thumbnail:
+	// every entry is carried and the pages carry on.
 	features := doc.Sections[1]
-	if len(features.Items) != 2 {
-		t.Errorf("features shows %d items, want two when all three sections are present", len(features.Items))
+	if len(features.Items) != 5 {
+		t.Errorf("features shows %d items, want all five", len(features.Items))
 	}
-	if features.Items[0] != "add streaming" || features.Items[1] != "add retries" {
+	if features.Items[0] != "add streaming" || features.Items[4] != "add tracing" {
 		t.Errorf("features = %v, want them in history order", features.Items)
 	}
-	if features.More != 3 {
-		t.Errorf("more = %d, want the three that did not fit", features.More)
+	if features.More != 0 {
+		t.Errorf("more = %d, want nothing left over", features.More)
 	}
-	// A section that fits entirely says nothing is left.
 	if doc.Sections[2].More != 0 {
 		t.Errorf("fixes.more = %d", doc.Sections[2].More)
 	}
 }
 
-// TestAnnounceNotesKeepsTheFullAllowanceForFewerSections: the budget rule is
-// section-count-aware — with two sections or fewer, three entries each fit
-// above the pinned install block.
+// TestAnnounceNotesStillHasACeiling: pagination removed the reason to cut a
+// changelog to three lines, not the reason to have a ceiling at all. A release
+// past it would push the render past render.pages-max, which refuses it
+// outright rather than truncating.
+func TestAnnounceNotesStillHasACeiling(t *testing.T) {
+	requireSh(t)
+
+	var many []string
+	for i := 1; i <= 25; i++ {
+		many = append(many, fmt.Sprintf("feature %d", i))
+	}
+	out, stderr, code := runScript(t, "notes.sh", []string{
+		"DISPAT_NEW_VERSION=1.2.3",
+		"DISPAT_FEATURES=" + strings.Join(many, "\n"),
+	})
+	if code != 0 {
+		t.Fatalf("code=%d stderr=%s", code, stderr)
+	}
+	var doc notesDoc
+	if err := json.Unmarshal([]byte(out), &doc); err != nil {
+		t.Fatalf("not JSON: %v\n%s", err, out)
+	}
+	if got := len(doc.Sections[0].Items); got != 20 {
+		t.Errorf("shows %d items, want the ceiling of 20", got)
+	}
+	if doc.Sections[0].More != 5 {
+		t.Errorf("more = %d, want the five past the ceiling", doc.Sections[0].More)
+	}
+}
+
+// TestAnnounceNotesKeepsEveryEntry: the entry count no longer depends on how
+// many sections there are, because the card is no longer one page.
 func TestAnnounceNotesKeepsTheFullAllowanceForFewerSections(t *testing.T) {
 	requireSh(t)
 
@@ -142,11 +170,11 @@ func TestAnnounceNotesKeepsTheFullAllowanceForFewerSections(t *testing.T) {
 	if len(doc.Sections) != 2 {
 		t.Fatalf("sections = %+v, want features and fixes", doc.Sections)
 	}
-	if got := len(doc.Sections[0].Items); got != 3 {
-		t.Errorf("features shows %d items, want the full three with only two sections", got)
+	if got := len(doc.Sections[0].Items); got != 4 {
+		t.Errorf("features shows %d items, want all four", got)
 	}
-	if doc.Sections[0].More != 1 {
-		t.Errorf("more = %d, want the one that did not fit", doc.Sections[0].More)
+	if doc.Sections[0].More != 0 {
+		t.Errorf("more = %d, want nothing left over", doc.Sections[0].More)
 	}
 }
 
@@ -292,6 +320,10 @@ func TestAnnounceSkipsWithoutSecrets(t *testing.T) {
 
 // TestAnnouncePostsFeedThenStory is the whole thing end to end: the real
 // scripts, the real binary, the real config, against a fake Graph API.
+//
+// The card paginates, so this is also the proof that the release announces
+// itself as a paged carousel: the feed pass builds children and a parent, and
+// the story pass turns the same pages into a run of stories.
 func TestAnnouncePostsFeedThenStory(t *testing.T) {
 	requireSh(t)
 
@@ -340,32 +372,62 @@ func TestAnnouncePostsFeedThenStory(t *testing.T) {
 		t.Fatalf("code=%d stderr=%s", code, stderr)
 	}
 
-	// Two containers, feed first and story second — the order matters, because
-	// a story that goes out before the post it refers to is a story about
-	// nothing.
-	var containers []recordedCall
+	// The feed pass comes first, because a story about a post that does not
+	// exist yet is a story about nothing.
+	var containers []url.Values
 	for _, r := range requests {
-		if strings.HasSuffix(r.Path, "/media") {
-			containers = append(containers, r)
+		if !strings.HasSuffix(r.Path, "/media") {
+			continue
 		}
-	}
-	if len(containers) != 2 {
-		t.Fatalf("created %d containers, want the feed post and the story", len(containers))
+		v, err := url.ParseQuery(r.Body)
+		if err != nil {
+			t.Fatal(err)
+		}
+		containers = append(containers, v)
 	}
 
-	feed, err := url.ParseQuery(containers[0].Body)
-	if err != nil {
-		t.Fatal(err)
+	// The changelog is longer than the cover page, so the card paginates and
+	// the feed post is a carousel: a child per page, then a parent listing
+	// them. Everything after that is the story pass.
+	var children, parents, stories []url.Values
+	for _, v := range containers {
+		switch {
+		case v.Get("media_type") == "STORIES":
+			stories = append(stories, v)
+		case v.Get("media_type") == "CAROUSEL":
+			parents = append(parents, v)
+		case v.Get("is_carousel_item") == "true":
+			children = append(children, v)
+		default:
+			t.Errorf("a container that is none of the three: %v", v)
+		}
 	}
-	story, err := url.ParseQuery(containers[1].Body)
-	if err != nil {
-		t.Fatal(err)
+	if len(children) < 2 {
+		t.Fatalf("the feed post carried %d carousel children; the card should have paginated", len(children))
 	}
-	if feed.Get("media_type") == "STORIES" {
-		t.Error("the feed post went out as a story")
+	if len(parents) != 1 {
+		t.Fatalf("created %d carousel parents, want one", len(parents))
 	}
-	if story.Get("media_type") != "STORIES" {
-		t.Errorf("the story's media_type = %q", story.Get("media_type"))
+	if len(stories) != len(children) {
+		t.Errorf("posted %d stories for %d pages; every page should get one",
+			len(stories), len(children))
+	}
+	// The parent lists exactly the children that were created, in order.
+	wantChildren := make([]string, 0, len(children))
+	for i := range children {
+		wantChildren = append(wantChildren, "c-"+strconv.Itoa(childIndex(t, requests, i)))
+	}
+	if got := parents[0].Get("children"); got != strings.Join(wantChildren, ",") {
+		t.Errorf("children = %q, want %q", got, strings.Join(wantChildren, ","))
+	}
+
+	feed := parents[0]
+	story := stories[0]
+	// A carousel child carries no caption: Instagram takes it on the parent.
+	for i, c := range children {
+		if c.Get("caption") != "" {
+			t.Errorf("carousel child %d carried a caption", i+1)
+		}
 	}
 
 	// The feed caption carries the version and an install line. The story
@@ -381,23 +443,50 @@ func TestAnnouncePostsFeedThenStory(t *testing.T) {
 		t.Errorf("the story container carried caption %q; the Stories API has none", got)
 	}
 
-	// And both published.
+	// One publish for the carousel, and one per story.
 	published := 0
 	for _, r := range requests {
 		if strings.HasSuffix(r.Path, "/media_publish") {
 			published++
 		}
 	}
-	if published != 2 {
-		t.Errorf("published %d times, want two", published)
+	if want := 1 + len(stories); published != want {
+		t.Errorf("published %d times, want one carousel and %d stories", published, len(stories))
 	}
-	if !strings.Contains(stderr, "posted the feed post") || !strings.Contains(stderr, "posted the story") {
-		t.Errorf("both posts should be logged: %s", stderr)
+	if !strings.Contains(stderr, "posted the feed post") || !strings.Contains(stderr, "posted the stories") {
+		t.Errorf("both passes should be logged: %s", stderr)
 	}
 }
 
+// childIndex is the request number of the i-th carousel child, which is what
+// the fake named its container after.
+func childIndex(t *testing.T, requests []recordedCall, i int) int {
+	t.Helper()
+	seen := 0
+	for n, r := range requests {
+		if !strings.HasSuffix(r.Path, "/media") {
+			continue
+		}
+		v, err := url.ParseQuery(r.Body)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if v.Get("is_carousel_item") != "true" {
+			continue
+		}
+		if seen == i {
+			return n + 1
+		}
+		seen++
+	}
+	t.Fatalf("no carousel child %d", i)
+	return 0
+}
+
 // TestAnnounceRendersBothShapes checks the pictures rather than the calls: the
-// feed post is the square card and the story is it fitted into 1080x1920.
+// feed pages are square cards and the story pages are them fitted into
+// 1080x1920. Every page is checked, not just the first — a carousel whose
+// second image is the wrong shape is a carousel Instagram crops.
 func TestAnnounceRendersBothShapes(t *testing.T) {
 	requireSh(t)
 	dir := t.TempDir()
@@ -430,19 +519,35 @@ func TestAnnounceRendersBothShapes(t *testing.T) {
 			"render",
 			"--config", filepath.Join(root, "announce", "crier.yaml"),
 			"--render-data", "-",
-			"--render-output", out, "--render-format", "png",
+			"--render-output", out, "--render-format", "png", "--json",
 		}, tt.args...)
 		cmd := exec.Command(bin, args...)
 		cmd.Dir = root
 		cmd.Stdin = strings.NewReader(notes)
-		var stderr strings.Builder
+		var stdout, stderr strings.Builder
+		cmd.Stdout = &stdout
 		cmd.Stderr = &stderr
 		if err := cmd.Run(); err != nil {
 			t.Fatalf("%s: %v\n%s", tt.name, err, stderr.String())
 		}
-		cfg, format := decodeImage(t, out)
-		if format != "png" || cfg.Width != tt.w || cfg.Height != tt.h {
-			t.Errorf("%s is %s %dx%d, want %dx%d", tt.name, format, cfg.Width, cfg.Height, tt.w, tt.h)
+		var rep struct {
+			Files []string `json:"files"`
+			Pages int      `json:"pages"`
+		}
+		if err := json.Unmarshal([]byte(stdout.String()), &rep); err != nil {
+			t.Fatalf("%s: %v\n%s", tt.name, err, stdout.String())
+		}
+		// The cover fills a page on its own, so any changelog at all puts the
+		// entries on a second one.
+		if rep.Pages < 2 {
+			t.Errorf("%s laid out into %d pages; the changelog should follow the cover", tt.name, rep.Pages)
+		}
+		for i, f := range rep.Files {
+			cfg, format := decodeImage(t, f)
+			if format != "png" || cfg.Width != tt.w || cfg.Height != tt.h {
+				t.Errorf("%s page %d is %s %dx%d, want %dx%d",
+					tt.name, i+1, format, cfg.Width, cfg.Height, tt.w, tt.h)
+			}
 		}
 	}
 }

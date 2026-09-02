@@ -5,8 +5,13 @@
 # reason not to post is a message and an exit 0, never a failed release. A
 # missing secret must not turn a good release into a red build.
 #
-# Two posts per release from one card: the feed post at 1080x1080, then the
+# Two passes per release from one card: the feed post at 1080x1080, then the
 # story, which is the same render fitted into 1080x1920.
+#
+# The card paginates. A release with a long changelog lays out into several
+# pages, and each pass turns those into what its surface takes: the feed pass
+# posts them as one carousel, the story pass as one story per page in order.
+# Neither is a flag here — crier works it out from the platform.
 #
 # The binary is the one the release just built. That is the point: the bytes
 # being announced are the bytes doing the announcing, so a release that cannot
@@ -83,6 +88,10 @@ export CRIER_STAGE_MODE
 # The feed post is the card as the config draws it. The story is the same card
 # fitted into 1080x1920, which is a set of flags rather than a second config:
 # one file describing one card is easier to keep true than two.
+#
+# Every page goes out either way. A story sequence has no cover-page opt-out:
+# posting page one and dropping the changelog would be announcing a release
+# without saying what is in it.
 post() {
 	what=$1
 	shift
@@ -99,7 +108,7 @@ post() {
 
 failures=0
 post "feed post" || failures=$((failures + 1))
-post "story" \
+post "stories" \
 	--publish-instagram-story \
 	--publish-instagram-width 1080 \
 	--publish-instagram-height 1920 \
@@ -108,6 +117,6 @@ post "story" \
 	failures=$((failures + 1))
 
 if [ "$failures" -gt 0 ]; then
-	log "$failures of 2 posts did not go out; the release itself is unaffected"
+	log "$failures of 2 passes did not go out; the release itself is unaffected"
 fi
 exit 0

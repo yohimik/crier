@@ -24,11 +24,18 @@ render:
   # because a runner has different fonts installed than a laptop.
   hermetic-fonts: true
   base-url: .
+  # The card paginates: page one is the cover, and a long changelog carries on
+  # across the pages after it. Ten is the default and it is stated here because
+  # it is load-bearing for this card — a release past it fails the render
+  # rather than posting a truncated version of itself, and notes.sh's own cap
+  # of twenty entries a section is what keeps a real release well under it.
+  pages-max: 10
 
 publish:
   # Instagram fetches the media from a public URL rather than taking bytes, so
   # a release running on a runner needs a tunnel. announce.sh sets stage.mode
-  # and the tunnel; CRIER_STAGE_* overrides point it somewhere else.
+  # and the tunnel; CRIER_STAGE_* overrides point it somewhere else. Every page
+  # is staged, because Instagram fetches every one of them.
   caption: >-
     THIS IS RENDERED AND POSTED FROM GITHUB ACTIONS (DATA COMING FROM COMMIT MESSAGES) 
     crier v{{ .version }} is out.
@@ -53,6 +60,10 @@ publish:
     api-base-url: https://graph.instagram.com/v25.0
     # No width, height or fit here: the feed post is the card as it was drawn.
     #
+    # No max-attachments either. A feed post takes ten, which is the same as
+    # render.pages-max, so a card that rendered at all is a card that fits in
+    # one carousel.
+    #
     # The story pass adds them —
     #
     #   --publish-instagram-story
@@ -64,3 +75,7 @@ publish:
     # 1080 square to 9:16 would push 44% off each side and take the ends off
     # every line. The background is the card's own, so the letterbox reads as
     # part of the design instead of as bars.
+    #
+    # --publish-instagram-story also drops the carousel: stories have none, so
+    # the pages become one story each, posted in order, each one live before
+    # the next is created.

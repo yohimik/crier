@@ -16,9 +16,15 @@ set -eu
 
 version=${DISPAT_NEW_VERSION:-dev}
 
-# How many entries a section shows before it says how many are left. A release
-# card is read in a thumbnail, so the honest number is small.
-max=${ANNOUNCE_MAX_ITEMS:-3}
+# How many entries a section shows before it says how many are left.
+#
+# The card paginates, so the changelog no longer has to fit in one thumbnail:
+# a long release becomes a carousel and the entries carry on across its pages.
+# This is therefore a ceiling on absurdity rather than a design constraint. A
+# release with sixty entries in one section is a release nobody is going to
+# read to the end of, and it also has to stay under render.pages-max, which
+# refuses the render outright rather than truncating it.
+max=${ANNOUNCE_MAX_ITEMS:-20}
 
 # escape makes one line safe to put inside a JSON string.
 #
@@ -55,19 +61,6 @@ section() {
 	done
 	printf '],"more":%d}' "$more"
 }
-
-# The card pins its install block to the bottom edge, so the changes above
-# share a fixed vertical budget. Three sections at three entries each spill
-# into it; the budget is therefore spent by section count — one or two
-# sections keep the full allowance, all three drop to two entries each, and
-# "+N more" absorbs the rest. ANNOUNCE_MAX_ITEMS still overrides.
-present=0
-for body in "${DISPAT_BREAKING_CHANGES:-}" "${DISPAT_FEATURES:-}" "${DISPAT_FIXES:-}"; do
-	[ -z "$(printf '%s' "$body" | tr -d '[:space:]')" ] || present=$((present + 1))
-done
-if [ -z "${ANNOUNCE_MAX_ITEMS:-}" ] && [ "$present" -ge 3 ]; then
-	max=2
-fi
 
 # The three groups, in the order the changelog and the GitHub release use.
 sections=""
