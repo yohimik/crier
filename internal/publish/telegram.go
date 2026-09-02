@@ -199,8 +199,8 @@ type telegramMedia struct {
 //
 // A lead video is the album's first entry, an InputMediaVideo among the
 // photos. A media group is the one Telegram shape that mixes the two, which is
-// why the clip can open the album here and cannot open anything at eight of
-// the ten platforms.
+// why the clip can open the album here and cannot open anything at nine of
+// the eleven platforms.
 //
 // Only the first item carries the caption. The Bot API has no caption of its
 // own for a group — the caption belongs to an item — and every client shows an

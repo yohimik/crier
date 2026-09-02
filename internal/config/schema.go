@@ -191,9 +191,10 @@ type Publish struct {
 	LinkedIn  LinkedIn
 	Reddit    Reddit
 	Slack     Slack
+	VK        VK
 
 	// Custom are script-backed platforms, keyed by the name the configuration
-	// gave them. They are peers of the nine above: they take part in the
+	// gave them. They are peers of the eleven above: they take part in the
 	// fan-out, in the render variants, in caption templating, in `crier ping`
 	// and in a dry run.
 	//
@@ -369,6 +370,30 @@ type LinkedIn struct {
 	AuthorURN  string
 	Version    string
 	Caption    string
+}
+
+// VK configures the VK (VKontakte) wall publisher.
+//
+// One key carries the whole of where a post lands. OwnerID is the wall: a
+// negative id is a community and a positive one is a person, and the sign is
+// what decides whether the post is signed by the community or by the account
+// the token belongs to. It is also where the group_id the upload calls want
+// comes from, which is why there is no second key for it.
+type VK struct {
+	Layout
+	Music
+	LeadVideo
+
+	Enabled    bool
+	APIBaseURL string
+	Token      string
+	// APIVersion is the `v` parameter every method call carries. VK versions
+	// the whole API rather than the URL, so this is not part of the base URL.
+	APIVersion string
+	// OwnerID is the wall the post lands on: negative for a community,
+	// positive for a user.
+	OwnerID int
+	Caption string
 }
 
 // Reddit configures the Reddit publisher.

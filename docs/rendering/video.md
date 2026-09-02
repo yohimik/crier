@@ -103,6 +103,7 @@ This requires a layout pass per frame. Three seconds at thirty frames a second i
 | [X](../publishing/x.md) | yes | yes | chunked upload with `media_category=tweet_gif`, 15MB cap |
 | [Reddit](../publishing/reddit.md) | yes | yes | the lease flow with `image/gif`, submitted as an image |
 | [Slack](../publishing/slack.md) | yes | yes | a file like any other, played inline |
+| [VK](../publishing/vk.md) | yes | yes | the document methods, because a saved photo would be a still |
 | [Instagram](../publishing/instagram.md) | yes | **no** | none |
 | [Facebook](../publishing/facebook.md) | yes | **no** | none |
 | [TikTok](../publishing/tiktok.md) | yes | **no** | none |

@@ -44,7 +44,7 @@ func Bindings(cfg *Config) map[string]Binding {
 	tun := &srv.Tunnel
 	ig, fb, tt, tg := &p.Instagram, &p.Facebook, &p.TikTok, &p.Telegram
 	x, ma, dc, li, rd := &p.X, &p.Mastodon, &p.Discord, &p.LinkedIn, &p.Reddit
-	sl := &p.Slack
+	sl, vk := &p.Slack, &p.VK
 	vid := &r.Video
 
 	out := map[string]Binding{
@@ -206,6 +206,13 @@ func Bindings(cfg *Config) map[string]Binding {
 		"publish.reddit.caption":       bindString(&rd.Caption),
 		"publish.reddit.poll-interval": bindString(&rd.PollInterval),
 		"publish.reddit.poll-timeout":  bindString(&rd.PollTimeout),
+
+		"publish.vk.enabled":      bindBool(&vk.Enabled),
+		"publish.vk.api-base-url": bindString(&vk.APIBaseURL),
+		"publish.vk.api-version":  bindString(&vk.APIVersion),
+		"publish.vk.token":        bindString(&vk.Token),
+		"publish.vk.owner-id":     bindInt(&vk.OwnerID),
+		"publish.vk.caption":      bindString(&vk.Caption),
 	}
 
 	// The layout keys are generated exactly like their descriptors are, so a
@@ -214,7 +221,7 @@ func Bindings(cfg *Config) map[string]Binding {
 		"instagram": &ig.Layout, "facebook": &fb.Layout, "tiktok": &tt.Layout,
 		"telegram": &tg.Layout, "x": &x.Layout, "mastodon": &ma.Layout,
 		"discord": &dc.Layout, "linkedin": &li.Layout, "reddit": &rd.Layout,
-		"slack": &sl.Layout,
+		"slack": &sl.Layout, "vk": &vk.Layout,
 	} {
 		out["publish."+name+".overlay"] = bindStrings(&l.Overlay)
 		out["publish."+name+".width"] = bindInt(&l.Width)
@@ -225,25 +232,25 @@ func Bindings(cfg *Config) map[string]Binding {
 	}
 
 	// The audio file, the same way. Every platform has the key, including the
-	// seven that cannot use it: the value is refused by Validate with a reason,
+	// eight that cannot use it: the value is refused by Validate with a reason,
 	// rather than by the decoder as a key nobody has heard of.
 	for name, m := range map[string]*Music{
 		"instagram": &ig.Music, "facebook": &fb.Music, "tiktok": &tt.Music,
 		"telegram": &tg.Music, "x": &x.Music, "mastodon": &ma.Music,
 		"discord": &dc.Music, "linkedin": &li.Music, "reddit": &rd.Music,
-		"slack": &sl.Music,
+		"slack": &sl.Music, "vk": &vk.Music,
 	} {
 		out["publish."+name+".music-file"] = bindString(&m.File)
 	}
 
 	// The opening clip, on the same terms as the audio: every platform has the
-	// key, and the eight that cannot post mixed media are answered by Validate
+	// key, and the nine that cannot post mixed media are answered by Validate
 	// with the reason rather than by the decoder with a shrug.
 	for name, v := range map[string]*LeadVideo{
 		"instagram": &ig.LeadVideo, "facebook": &fb.LeadVideo, "tiktok": &tt.LeadVideo,
 		"telegram": &tg.LeadVideo, "x": &x.LeadVideo, "mastodon": &ma.LeadVideo,
 		"discord": &dc.LeadVideo, "linkedin": &li.LeadVideo, "reddit": &rd.LeadVideo,
-		"slack": &sl.LeadVideo,
+		"slack": &sl.LeadVideo, "vk": &vk.LeadVideo,
 	} {
 		out["publish."+name+".lead-video"] = bindString(&v.File)
 	}

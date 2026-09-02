@@ -361,7 +361,7 @@ func validatePublish(p *Publish) []error {
 }
 
 // MusicOf returns a platform's own audio setting, or nil when the name is not
-// one of the ten built-in platforms.
+// one of the eleven built-in platforms.
 //
 // A custom platform has none. Its command decides what it sends, so an audio
 // file crier attached for it would be a file the command never sees.
@@ -387,6 +387,8 @@ func MusicOf(p *Publish, name string) *Music {
 		return &p.Reddit.Music
 	case "slack":
 		return &p.Slack.Music
+	case "vk":
+		return &p.VK.Music
 	default:
 		return nil
 	}
@@ -398,7 +400,7 @@ func MusicOf(p *Publish, name string) *Music {
 //
 // The last clause is what keeps a global setting from being a mistake. Someone
 // naming one file for the whole run means it for the platforms that can take
-// it, not as an instruction the other seven have to refuse.
+// it, not as an instruction the other eight have to refuse.
 func MusicFileFor(p *Publish, name string) string {
 	if !CanCarryMusic(name) {
 		return ""
@@ -410,7 +412,7 @@ func MusicFileFor(p *Publish, name string) string {
 }
 
 // LeadVideoOf returns a platform's opening clip, or nil when the name is not
-// one of the ten built-in platforms.
+// one of the eleven built-in platforms.
 func LeadVideoOf(p *Publish, name string) *LeadVideo {
 	switch name {
 	case "instagram":
@@ -433,6 +435,8 @@ func LeadVideoOf(p *Publish, name string) *LeadVideo {
 		return &p.Reddit.LeadVideo
 	case "slack":
 		return &p.Slack.LeadVideo
+	case "vk":
+		return &p.VK.LeadVideo
 	default:
 		return nil
 	}
@@ -479,6 +483,8 @@ func LayoutOf(p *Publish, name string) *Layout {
 		return &p.Reddit.Layout
 	case "slack":
 		return &p.Slack.Layout
+	case "vk":
+		return &p.VK.Layout
 	default:
 		if c := CustomOf(p, name); c != nil {
 			return &c.Layout

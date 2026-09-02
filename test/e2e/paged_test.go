@@ -8,6 +8,7 @@ import (
 	"net"
 	"net/http"
 	"net/http/httptest"
+	"net/url"
 	"path/filepath"
 	"regexp"
 	"strings"
@@ -479,5 +480,83 @@ func TestSmokeStoriesRecoverFromNotReady(t *testing.T) {
 	}
 	if published != 1 {
 		t.Errorf("the story published %d times after the refusal, want exactly 1", published)
+	}
+}
+
+// TestVKPagesBecomeOneWallPost: a wall post takes ten attachments, so a
+// five-page changelog is one entry on the wall rather than five.
+//
+// The order is the part that would go wrong quietly. The fake numbers each
+// upload and derives the saved id from it, so the attachment list wall.post
+// carries is a readout of the order the pages were actually uploaded in.
+func TestVKPagesBecomeOneWallPost(t *testing.T) {
+	f := newFakes(t)
+	dir := newPagedProject(t, strings.Join([]string{
+		"  vk:",
+		"    enabled: true",
+		"    api-base-url: " + f.URL + "/vk",
+		"    token: vk-token",
+		"    owner-id: -123",
+	}, "\n"))
+
+	if res := crier(t, dir, nil, "publish"); res.Code != exitOK {
+		t.Fatalf("code=%d stderr=%s", res.Code, res.Stderr)
+	}
+
+	uploads := f.findAll("/vk-photo-upload")
+	if len(uploads) != 5 {
+		t.Fatalf("uploaded %d pages, want 5", len(uploads))
+	}
+	if got := joined(pageNumbersFromURLs(uploads)); got != "1,2,3,4,5" {
+		t.Errorf("vk received the pages as %q, want 1,2,3,4,5", got)
+	}
+
+	posts := f.findAll("/vk/method/wall.post")
+	if len(posts) != 1 {
+		t.Fatalf("vk made %d posts, want one", len(posts))
+	}
+	form, err := url.ParseQuery(posts[0].Body)
+	if err != nil {
+		t.Fatal(err)
+	}
+	want := "photo-123_1001,photo-123_1002,photo-123_1003,photo-123_1004,photo-123_1005"
+	if form.Get("attachments") != want {
+		t.Errorf("attachments = %q, want %q", form.Get("attachments"), want)
+	}
+}
+
+// TestVKLoweredCapSplitsTheWall: max-attachments lowers the cap, and a page
+// list longer than it becomes several posts in a row rather than a truncated
+// one.
+func TestVKLoweredCapSplitsTheWall(t *testing.T) {
+	f := newFakes(t)
+	dir := newPagedProject(t, strings.Join([]string{
+		"  vk:",
+		"    enabled: true",
+		"    api-base-url: " + f.URL + "/vk",
+		"    token: vk-token",
+		"    owner-id: -123",
+		"    max-attachments: 3",
+	}, "\n"))
+
+	if res := crier(t, dir, nil, "publish"); res.Code != exitOK {
+		t.Fatalf("code=%d stderr=%s", res.Code, res.Stderr)
+	}
+
+	posts := f.findAll("/vk/method/wall.post")
+	if len(posts) != 2 {
+		t.Fatalf("vk made %d posts, want two", len(posts))
+	}
+	for i, want := range []string{
+		"photo-123_1001,photo-123_1002,photo-123_1003",
+		"photo-123_1004,photo-123_1005",
+	} {
+		form, err := url.ParseQuery(posts[i].Body)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if form.Get("attachments") != want {
+			t.Errorf("post %d attachments = %q, want %q", i+1, form.Get("attachments"), want)
+		}
 	}
 }

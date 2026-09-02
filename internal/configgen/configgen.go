@@ -340,7 +340,7 @@ caption = "{{ .title }}"
 #
 #     export CRIER_PUBLISH_TELEGRAM_TOKEN="123456:ABC-DEF..."
 #
-# See docs/publishing/ for the other eight.
+# See docs/publishing/ for the other ten.
 [publish.telegram]
 enabled = false
 chat-id = "@your_channel"
@@ -366,7 +366,7 @@ publish:
   #
   #     export CRIER_PUBLISH_TELEGRAM_TOKEN="123456:ABC-DEF..."
   #
-  # See docs/publishing/ for the other eight.
+  # See docs/publishing/ for the other ten.
   telegram:
     enabled: false
     chat-id: "@your_channel"

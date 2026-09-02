@@ -663,6 +663,7 @@ func enableOnly(cfg *config.Config, name string) {
 	p.LinkedIn.Enabled = name == "linkedin"
 	p.Reddit.Enabled = name == "reddit"
 	p.Slack.Enabled = name == "slack"
+	p.VK.Enabled = name == "vk"
 }
 
 // --- config ----------------------------------------------------------------

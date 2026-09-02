@@ -51,7 +51,7 @@ It can also be pointed at a binary that already exists. This is how the release 
 CRIER_E2E_BINARY=/path/to/crier go test -tags e2e ./test/e2e -run '^TestSmoke'
 ```
 
-In that mode, nothing is built and no coverage is collected. A released binary is not instrumented. `^TestSmoke` is the subset the release runs: a render, the configuration precedence, the nine-platform fan-out, and the version stamp. See [releasing](./release.md).
+In that mode, nothing is built and no coverage is collected. A released binary is not instrumented. `^TestSmoke` is the subset the release runs: a render, the configuration precedence, the eleven-platform fan-out, and the version stamp. See [releasing](./release.md).
 
 ## Coverage
 

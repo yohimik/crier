@@ -286,6 +286,7 @@ func TestEveryPlatformHasACaptionishKey(t *testing.T) {
 		"discord":   {"caption"},
 		"linkedin":  {"caption"},
 		"reddit":    {"caption", "title"},
+		"vk":        {"caption"},
 	}
 	for _, name := range Platforms {
 		keys, ok := captionish[name]

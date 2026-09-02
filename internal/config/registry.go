@@ -94,6 +94,7 @@ var Platforms = []string{
 	"instagram", "facebook", "tiktok", "telegram", "x",
 	"slack",
 	"mastodon", "discord", "linkedin", "reddit",
+	"vk",
 }
 
 // MusicPlatforms are the platforms whose API can carry an audio file beside
@@ -319,11 +320,20 @@ var registry = []Descriptor{
 	{Key: "publish.slack.caption", Kind: KindString, Usage: "Slack specific caption"},
 
 	{Key: "publish.reddit.poll-timeout", Kind: KindDuration, Default: "30s", Usage: "how long to look for the new post's permalink"},
+
+	{Key: "publish.vk.enabled", Kind: KindBool, Usage: "publish to VK"},
+	{Key: "publish.vk.api-base-url", Kind: KindString, Default: "https://api.vk.com", Usage: "VK API base URL; methods are called under /method/"},
+	{Key: "publish.vk.api-version", Kind: KindString, Default: "5.199", Usage: "value of the mandatory VK API version parameter"},
+	{Key: "publish.vk.token", Kind: KindString, Secret: true, Usage: "VK access token with the wall, photos, video and docs scopes"},
+	{Key: "publish.vk.owner-id", Kind: KindInt,
+		Usage: "wall the post lands on: negative for a community, such as -123456, positive for a user"},
+	{Key: "publish.vk.caption", Kind: KindString, Usage: "VK specific post text"},
 }
 
 // layoutDescriptors are the three keys every platform has for overriding what
-// gets rendered for it. They are generated rather than written out nine times,
-// because a platform silently missing one would be a hole nobody notices.
+// gets rendered for it. They are generated rather than written out eleven
+// times, because a platform silently missing one would be a hole nobody
+// notices.
 func layoutDescriptors(platform string) []Descriptor {
 	return []Descriptor{
 		{

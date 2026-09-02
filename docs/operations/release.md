@@ -165,7 +165,7 @@ Three checks stand between a compile and an upload. They are deliberately differ
 
 1. **Every binary is read back.** `go version -m` has to report the `GOOS` and `GOARCH` the file name claims. A build loop cannot silently produce six copies of one platform and get past this.
 2. **The native one is run.** `crier --version` has to report `linux/<arch>` and the version being released. This checks that the ldflags stamping took.
-3. **The native one is put through the end-to-end smoke subset.** The suite runs against the artefact itself. `CRIER_E2E_BINARY` points at `crier-linux-<arch>` and nothing is rebuilt. This exercises the exact bytes that will be uploaded: a render, the configuration precedence across file, environment and flags, the nine-platform fan-out against fake servers, and the version stamp.
+3. **The native one is put through the end-to-end smoke subset.** The suite runs against the artefact itself. `CRIER_E2E_BINARY` points at `crier-linux-<arch>` and nothing is rebuilt. This exercises the exact bytes that will be uploaded: a render, the configuration precedence across file, environment and flags, the eleven-platform fan-out against fake servers, and the version stamp.
 
 The subset is every test named `TestSmoke...` in `test/e2e`, run as `-run '^TestSmoke'`. It is small on purpose. The full suite already ran in the `test` stage against an instrumented build. This pass exists to catch what only the released artefact can be wrong about. This includes a bad link, a missing embedded asset, or a stamp that did not apply.
 

@@ -579,7 +579,7 @@ func enableAll(f *fakes, extra string) string {
 	return strings.Join(out, "\n") + extra
 }
 
-// TestSmokePublishToEveryPlatform is in the release smoke subset: nine
+// TestSmokePublishToEveryPlatform is in the release smoke subset: eleven
 // publishers fanned out against fakes, which is the one test that touches
 // every platform's request shape.
 func TestSmokePublishToEveryPlatform(t *testing.T) {
@@ -602,8 +602,8 @@ func TestSmokePublishToEveryPlatform(t *testing.T) {
 	if err := json.Unmarshal([]byte(res.Stdout), &rep); err != nil {
 		t.Fatalf("%v\n%s", err, res.Stdout)
 	}
-	if len(rep.Results) != 10 {
-		t.Fatalf("published to %d platforms, want 10: %+v", len(rep.Results), rep.Results)
+	if len(rep.Results) != 11 {
+		t.Fatalf("published to %d platforms, want 11: %+v", len(rep.Results), rep.Results)
 	}
 	for _, r := range rep.Results {
 		if !r.OK {
@@ -618,6 +618,8 @@ func TestSmokePublishToEveryPlatform(t *testing.T) {
 		"/tiktok/v2/post/publish/content/init/", "/linkedin/rest/posts",
 		"/reddit/api/submit",
 		"/slack/files.getUploadURLExternal", "/slack-upload", "/slack/files.completeUploadExternal",
+		"/vk/method/photos.getWallUploadServer", "/vk-photo-upload",
+		"/vk/method/photos.saveWallPhoto", "/vk/method/wall.post",
 	} {
 		if _, ok := f.find(fragment); !ok {
 			t.Errorf("no request reached %s", fragment)
@@ -1396,8 +1398,8 @@ func TestPingChecksEveryEnabledPlatform(t *testing.T) {
 	if err := json.Unmarshal([]byte(res.Stdout), &rep); err != nil {
 		t.Fatalf("%v\n%s", err, res.Stdout)
 	}
-	if len(rep.Results) != 10 {
-		t.Fatalf("checked %d targets, want 10: %+v", len(rep.Results), rep.Results)
+	if len(rep.Results) != 11 {
+		t.Fatalf("checked %d targets, want 11: %+v", len(rep.Results), rep.Results)
 	}
 	for _, r := range rep.Results {
 		if !r.OK {
@@ -1414,6 +1416,7 @@ func TestPingChecksEveryEnabledPlatform(t *testing.T) {
 		"/instagram/ig-user", "/facebook/fb-page",
 		"/tiktok/v2/post/publish/creator_info/query/",
 		"/linkedin/v2/userinfo", "/reddit/api/v1/me", "/slack/auth.test",
+		"/vk/method/groups.getById",
 	} {
 		if _, ok := f.find(fragment); !ok {
 			t.Errorf("ping did not reach %s", fragment)
@@ -1427,6 +1430,7 @@ func TestPingChecksEveryEnabledPlatform(t *testing.T) {
 		"/instagram/ig-user/media_publish", "/facebook/fb-page/photos",
 		"/linkedin/rest/posts", "/reddit/api/submit",
 		"/slack/files.getUploadURLExternal", "/slack/files.completeUploadExternal",
+		"/vk/method/wall.post", "/vk/method/photos.getWallUploadServer",
 	} {
 		if _, ok := f.find(fragment); ok {
 			t.Errorf("ping posted something: %s was called", fragment)
@@ -1450,8 +1454,8 @@ func TestPingWithOneBadTokenIsExitFour(t *testing.T) {
 	if !strings.Contains(res.Stderr, "x") {
 		t.Errorf("the failure should be logged: %s", res.Stderr)
 	}
-	// The other eight still reported.
-	if strings.Count(res.Stdout, "ok") < 8 {
+	// The other ten still reported.
+	if strings.Count(res.Stdout, "ok") < 10 {
 		t.Errorf("the other platforms should still have been checked:\n%s", res.Stdout)
 	}
 }
@@ -1881,6 +1885,260 @@ func TestSlackNotInChannel(t *testing.T) {
 	}
 	if !strings.Contains(res.Stderr, "/invite") {
 		t.Errorf("the error should say how to fix it: %s", res.Stderr)
+	}
+}
+
+// --- vk -----------------------------------------------------------------------
+
+// TestVKWallPostCarriesWhatItUploaded is the flow end to end through the real
+// binary: a slot, the bytes, a save, and one post naming what the save
+// returned. The linkage between them is what would break silently — a post
+// with an attachment nobody uploaded.
+//
+// The base URL comes from the environment here rather than from the file,
+// because that layer is the one an operator actually points at a staging host
+// and the one a typo in the key name would leave silently unused.
+func TestVKWallPostCarriesWhatItUploaded(t *testing.T) {
+	f := newFakes(t)
+	dir := newProject(t, strings.Join([]string{
+		"  caption: \"{{ .title }} {{ .version }} via {{ .Platform }}\"",
+		"  vk:",
+		"    enabled: true",
+		"    token: vk-token",
+		"    owner-id: -123",
+	}, "\n"))
+
+	res := crier(t, dir, []string{"CRIER_PUBLISH_VK_API_BASE_URL=" + f.URL + "/vk"}, "publish", "--json")
+	if res.Code != exitOK {
+		t.Fatalf("code=%d stderr=%s", res.Code, res.Stderr)
+	}
+	var rep struct {
+		Results []struct {
+			Platform string            `json:"platform"`
+			OK       bool              `json:"ok"`
+			ID       string            `json:"id"`
+			URL      string            `json:"url"`
+			Extra    map[string]string `json:"extra"`
+			Error    string            `json:"error"`
+		} `json:"results"`
+	}
+	if err := json.Unmarshal([]byte(res.Stdout), &rep); err != nil {
+		t.Fatalf("%v\n%s", err, res.Stdout)
+	}
+	if len(rep.Results) != 1 || !rep.Results[0].OK {
+		t.Fatalf("results = %+v", rep.Results)
+	}
+	if rep.Results[0].ID != "-123_9001" || rep.Results[0].URL != "https://vk.com/wall-123_9001" {
+		t.Errorf("result = %+v", rep.Results[0])
+	}
+
+	// Step 1: the token and the API version travel in the body, and a
+	// community wall names its group.
+	start, ok := f.find("/vk/method/photos.getWallUploadServer")
+	if !ok {
+		t.Fatal("vk was never asked where to upload")
+	}
+	values, err := url.ParseQuery(start.Body)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if values.Get("access_token") != "vk-token" || values.Get("v") == "" {
+		t.Errorf("step one body = %q", start.Body)
+	}
+	if values.Get("group_id") != "123" {
+		t.Errorf("group_id = %q, want the owner id without its sign", values.Get("group_id"))
+	}
+
+	// Step 2: the bytes, on the upload host, with nothing authenticating them.
+	upload, ok := f.find("/vk-photo-upload")
+	if !ok {
+		t.Fatal("nothing was uploaded")
+	}
+	if upload.Header.Get("Authorization") != "" {
+		t.Error("the upload carried a header vk never asked for")
+	}
+	if got, err := imageInBody(upload.Body); err != nil {
+		t.Errorf("what was uploaded is not an image: %v", err)
+	} else if got.Width != 240 || got.Height != 120 {
+		t.Errorf("uploaded %dx%d", got.Width, got.Height)
+	}
+
+	// Step 3: the save forwards the triple the upload server handed out. The
+	// fake refuses a mismatched one, so reaching this far is most of the
+	// assertion.
+	save, ok := f.find("/vk/method/photos.saveWallPhoto")
+	if !ok {
+		t.Fatal("the photo was never saved")
+	}
+	saved, err := url.ParseQuery(save.Body)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if saved.Get("photo") != "BLOB-1" || saved.Get("hash") != "HASH-1" || saved.Get("server") != "42" {
+		t.Errorf("saveWallPhoto sent %v, want what the upload server returned", saved)
+	}
+
+	// And the post itself: the wall, the signature, the caption, the photo.
+	done, ok := f.find("/vk/method/wall.post")
+	if !ok {
+		t.Fatal("nothing was posted")
+	}
+	post, err := url.ParseQuery(done.Body)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if post.Get("owner_id") != "-123" || post.Get("from_group") != "1" {
+		t.Errorf("wall.post = %v, want a community post signed by the community", post)
+	}
+	if post.Get("message") != "end to end 9.9.9 via vk" {
+		t.Errorf("message = %q, want the caption rendered for vk", post.Get("message"))
+	}
+	if post.Get("attachments") != "photo-123_1001" {
+		t.Errorf("attachments = %q, want the photo the save call returned", post.Get("attachments"))
+	}
+}
+
+// TestVKPostsAnAnimationAsADocument: saveWallPhoto flattens a GIF into a
+// still, so an animation goes up through the document methods instead. Getting
+// this wrong is the failure nobody sees — the post arrives, and it does not
+// move.
+func TestVKPostsAnAnimationAsADocument(t *testing.T) {
+	f := newFakes(t)
+	dir := newProject(t, "")
+	writeFile(t, dir, "crier.yaml", strings.Join([]string{
+		"log:",
+		"  level: debug",
+		"render:",
+		"  template: template.html",
+		"  width: 80",
+		"  height: 40",
+		"  hermetic-fonts: true",
+		"  video:",
+		"    enabled: true",
+		"    format: gif",
+		"    frames: 3",
+		"    fps: 10",
+		"    ffmpeg-bin: " + selfPath(t),
+		"publish:",
+		"  vk:",
+		"    enabled: true",
+		"    api-base-url: " + f.URL + "/vk",
+		"    token: vk-token",
+		"    owner-id: -123",
+	}, "\n"))
+	writeFile(t, dir, "template.html",
+		`<html><body style="margin:0;background:#fff">`+
+			`<div style="width:80px;height:40px;background:#00{{ printf "%02x" .Video.Frame }}00"></div>`+
+			`</body></html>`)
+
+	res := crier(t, dir, []string{helperEnv + "=ffmpeg"}, "publish", "--json")
+	if res.Code != exitOK {
+		t.Fatalf("code=%d stderr=%s", res.Code, res.Stderr)
+	}
+
+	upload, ok := f.find("/vk-doc-upload")
+	if !ok {
+		t.Fatalf("the animation did not go up as a document; vk got %d requests", len(f.all()))
+	}
+	if !strings.Contains(upload.Body, "GIF89a") {
+		t.Errorf("what reached vk is not a GIF: %.80q", upload.Body)
+	}
+	if !strings.Contains(upload.Body, `name="file"`) {
+		t.Errorf("the part is not a document: %.200q", upload.Body)
+	}
+	if _, ok := f.find("/vk-photo-upload"); ok {
+		t.Error("an animation went through the photo methods and would arrive as a still")
+	}
+
+	done, _ := f.find("/vk/method/wall.post")
+	post, err := url.ParseQuery(done.Body)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if post.Get("attachments") != "doc-123_55" {
+		t.Errorf("attachments = %q, want the saved document", post.Get("attachments"))
+	}
+}
+
+// TestVKBadTokenIsReported: VK answers 200 with an error object, so a run that
+// only read the status code would call a refused token a success.
+func TestVKBadTokenIsReported(t *testing.T) {
+	f := newFakes(t)
+	dir := newProject(t, strings.Join([]string{
+		"  vk:",
+		"    enabled: true",
+		"    api-base-url: " + f.URL + "/vk",
+		"    token: bad-token",
+		"    owner-id: -123",
+	}, "\n"))
+
+	// ping says so without posting.
+	res := crier(t, dir, nil, "ping")
+	if res.Code != exitPublish {
+		t.Fatalf("ping: code=%d stdout=%s stderr=%s", res.Code, res.Stdout, res.Stderr)
+	}
+	if !strings.Contains(res.Stdout, "vk") || !strings.Contains(res.Stdout, "failed") {
+		t.Errorf("the table should name the platform:\n%s", res.Stdout)
+	}
+	if !strings.Contains(res.Stderr, "error 5") {
+		t.Errorf("the reason should reach the log with vk's own code: %s", res.Stderr)
+	}
+	if _, ok := f.find("/vk/method/wall.post"); ok {
+		t.Error("ping posted something")
+	}
+
+	// And publishing fails rather than reporting a post nobody made.
+	res = crier(t, dir, nil, "publish")
+	if res.Code != exitPublish {
+		t.Fatalf("publish: code=%d stderr=%s", res.Code, res.Stderr)
+	}
+}
+
+// TestVKWithOneBadTokenIsExitFour is the partial case: the other platforms
+// still get the post, and the report says which one did not.
+func TestVKWithOneBadTokenIsExitFour(t *testing.T) {
+	f := newFakes(t)
+	dir := newProject(t, strings.Join([]string{
+		"  telegram:",
+		"    enabled: true",
+		"    api-base-url: " + f.URL,
+		"    token: tg-token",
+		"    chat-id: \"@crier\"",
+		"  vk:",
+		"    enabled: true",
+		"    api-base-url: " + f.URL + "/vk",
+		"    token: bad-token",
+		"    owner-id: -123",
+	}, "\n"))
+
+	res := crier(t, dir, nil, "publish")
+	if res.Code != exitPartial {
+		t.Fatalf("code=%d stdout=%s stderr=%s", res.Code, res.Stdout, res.Stderr)
+	}
+	if !strings.Contains(res.Stdout, "vk") || !strings.Contains(res.Stdout, "failed") {
+		t.Errorf("the failing platform should be named:\n%s", res.Stdout)
+	}
+	if _, ok := f.find("/sendPhoto"); !ok {
+		t.Error("telegram should still have got the post")
+	}
+}
+
+// TestVKOwnerIDIsRequired: zero is not a wall, and defaulting it to the token's
+// own account would put a community post on somebody's personal page.
+func TestVKOwnerIDIsRequired(t *testing.T) {
+	dir := newProject(t, strings.Join([]string{
+		"  vk:",
+		"    enabled: true",
+		"    api-base-url: https://vk.example",
+		"    token: vk-token",
+	}, "\n"))
+
+	res := crier(t, dir, nil, "publish")
+	if res.Code != exitConfig {
+		t.Fatalf("code=%d stderr=%s", res.Code, res.Stderr)
+	}
+	if !strings.Contains(res.Stderr, "publish.vk.owner-id") {
+		t.Errorf("the error should name the key to fix: %s", res.Stderr)
 	}
 }
 

@@ -282,7 +282,7 @@ func TestPingAllReportsEveryPlatformInOrder(t *testing.T) {
 }
 
 // TestPingAllSurvivesAPanic mirrors the publish fan-out: one broken platform
-// must not take the check for the other eight down with it.
+// must not take the check for the other ten down with it.
 func TestPingAllSurvivesAPanic(t *testing.T) {
 	ps := []Publisher{
 		stubPublisher{name: "boom", ping: func(context.Context) (Identity, error) {

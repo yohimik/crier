@@ -321,7 +321,7 @@ func TestSlackNeedsAndConstructor(t *testing.T) {
 	}
 }
 
-// TestSlackIsAPeer: it takes part in the fan-out like the other nine.
+// TestSlackIsAPeer: it takes part in the fan-out like the other ten.
 func TestSlackIsAPeer(t *testing.T) {
 	cfg := slackConfig("https://slack.example")
 	cfg.Publish.Telegram.Enabled = true
@@ -345,7 +345,7 @@ func TestSlackIsAPeer(t *testing.T) {
 	if !found {
 		t.Errorf("built = %v, want slack among them", built)
 	}
-	if len(Names()) != 10 {
-		t.Errorf("crier knows %d platforms, want ten", len(Names()))
+	if len(Names()) != 11 {
+		t.Errorf("crier knows %d platforms, want eleven", len(Names()))
 	}
 }

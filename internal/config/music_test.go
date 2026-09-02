@@ -92,7 +92,7 @@ func TestMusicFileIsAnchoredToTheConfigFile(t *testing.T) {
 }
 
 // TestLeadVideoIsRefusedWhereItCannotWork: a post is pictures or a video on
-// eight of the ten, and the key says so where somebody would look for it.
+// nine of the eleven, and the key says so where somebody would look for it.
 func TestLeadVideoIsRefusedWhereItCannotWork(t *testing.T) {
 	for _, name := range Platforms {
 		t.Run(name, func(t *testing.T) {

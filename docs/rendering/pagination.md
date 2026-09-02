@@ -116,6 +116,7 @@ One run produces one ordered page list. Every platform receives it whole, in tha
 | LinkedIn | 20 | a multi-image post takes two to twenty |
 | Reddit | 1 | see below |
 | Slack | 10 | crier's ceiling; Slack documents no limit |
+| VK | 10 | `wall.post` takes ten media objects |
 | Custom | `max-attachments` | the command is the platform |
 
 A list longer than the cap becomes several posts in a row rather than a truncated one. Twelve pages at Telegram are a group of ten and a group of two, in that order.

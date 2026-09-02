@@ -30,6 +30,7 @@ func TestEveryPlatformDeclaresItsCapacity(t *testing.T) {
 	p.Reddit.Username, p.Reddit.Password = "u", "pw"
 	p.Reddit.Subreddit, p.Reddit.Title = "r", "t"
 	p.Slack.Token, p.Slack.Channel = "xoxb-t", "C1"
+	p.VK.Token, p.VK.OwnerID = "t", -1
 
 	want := map[string]int{
 		// Documented by the platform.
@@ -43,7 +44,8 @@ func TestEveryPlatformDeclaresItsCapacity(t *testing.T) {
 		"facebook": 10,
 		"discord":  10,
 		"slack":    10,
-		"mastodon": 4, // the instance's max_media_attachments; 4 is the default
+		"vk":       10, // wall.post, "no more than 10 media objects"
+		"mastodon": 4,  // the instance's max_media_attachments; 4 is the default
 		// One at a time, on purpose.
 		"reddit": 1, // galleries need an endpoint reddit does not document
 	}
@@ -59,6 +61,7 @@ func TestEveryPlatformDeclaresItsCapacity(t *testing.T) {
 		p.LinkedIn.Enabled = name == "linkedin"
 		p.Reddit.Enabled = name == "reddit"
 		p.Slack.Enabled = name == "slack"
+		p.VK.Enabled = name == "vk"
 
 		pubs, err := Build(&cfg, testDeps(t))
 		if err != nil {

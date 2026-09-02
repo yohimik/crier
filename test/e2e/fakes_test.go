@@ -8,6 +8,8 @@ import (
 	"io"
 	"net/http"
 	"net/http/httptest"
+	"net/url"
+	"strconv"
 	"strings"
 	"sync"
 	"testing"
@@ -15,7 +17,7 @@ import (
 
 // fakes is one server standing in for every platform crier can post to.
 //
-// One server rather than nine because every base URL is configurable: the
+// One server rather than eleven because every base URL is configurable: the
 // contract each platform's fake enforces is the point, not the host it lives
 // on.
 type fakes struct {
@@ -25,6 +27,9 @@ type fakes struct {
 	requests []request
 	// s3 is where Reddit's media lease points.
 	uploadHost string
+	// vkPhotos numbers VK's photo uploads, so the blob a save call forwards
+	// can be traced back to the upload that produced it.
+	vkPhotos int
 }
 
 type request struct {
@@ -85,7 +90,7 @@ func (f *fakes) count(fragment string) int {
 }
 
 // serve routes by path prefix. Every platform gets a namespace of its own so
-// the config can point nine base URLs at one server.
+// the config can point eleven base URLs at one server.
 func (f *fakes) serve(w http.ResponseWriter, r *http.Request) {
 	req := f.record(r)
 	path := req.Path
@@ -308,8 +313,118 @@ func (f *fakes) serve(w http.ResponseWriter, r *http.Request) {
 			}},
 		}}})
 
+	// --- vk ---------------------------------------------------------------
+	//
+	// Every method is a POST form under /method/, and every one answers 200
+	// whether it worked or not: a failure is an "error" object in the body.
+	// The upload servers are separate paths because VK's are a separate host,
+	// and they carry no token.
+	case strings.HasPrefix(path, "/vk/method/"):
+		f.serveVK(w, req)
+	case strings.HasPrefix(path, "/vk-photo-upload"):
+		n := f.nextVKPhoto()
+		writeJSON(w, map[string]any{
+			"server": 42,
+			"photo":  fmt.Sprintf("BLOB-%d", n),
+			"hash":   fmt.Sprintf("HASH-%d", n),
+		})
+	case strings.HasPrefix(path, "/vk-doc-upload"):
+		writeJSON(w, map[string]any{"file": "DOCFILE-1"})
+	case strings.HasPrefix(path, "/vk-video-upload"):
+		writeJSON(w, map[string]any{"size": 1024, "video_id": 77})
+
 	default:
 		http.Error(w, "no fake for "+path, http.StatusNotFound)
+	}
+}
+
+// vkOwner is the community wall the fake posts on. Negative, because that is
+// what makes it a community.
+const vkOwner = -123
+
+// nextVKPhoto numbers one photo upload.
+func (f *fakes) nextVKPhoto() int {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	f.vkPhotos++
+	return f.vkPhotos
+}
+
+// serveVK is the method dispatch, and the binding contract for the publisher.
+//
+// The linkage is the part worth enforcing rather than merely answering:
+// saveWallPhoto only produces an id when the server, photo and hash it was
+// given belong to the same upload, and the id it produces is derived from the
+// blob — so a post whose attachments do not match its uploads shows up as a
+// wrong attachment string rather than as a passing test.
+func (f *fakes) serveVK(w http.ResponseWriter, req request) {
+	method := strings.TrimPrefix(req.Path, "/vk/method/")
+	form, _ := url.ParseQuery(req.Body)
+
+	// The token travels in the body here, not in a header, so the shared
+	// bad-token rule at the top of serve cannot see it.
+	if form.Get("access_token") == "bad-token" {
+		writeJSON(w, map[string]any{"error": map[string]any{
+			"error_code": 5, "error_msg": "User authorization failed: invalid access_token.",
+		}})
+		return
+	}
+
+	switch method {
+	case "photos.getWallUploadServer":
+		writeJSON(w, map[string]any{"response": map[string]any{
+			"upload_url": f.uploadHost + "/vk-photo-upload",
+		}})
+	case "photos.saveWallPhoto":
+		n := strings.TrimPrefix(form.Get("photo"), "BLOB-")
+		if n == form.Get("photo") || form.Get("hash") != "HASH-"+n || form.Get("server") != "42" {
+			writeJSON(w, map[string]any{"error": map[string]any{
+				"error_code": 100,
+				"error_msg": fmt.Sprintf("the save call carried server=%q photo=%q hash=%q, "+
+					"which did not come from one upload",
+					form.Get("server"), form.Get("photo"), form.Get("hash")),
+			}})
+			return
+		}
+		id, _ := strconv.Atoi(n)
+		writeJSON(w, map[string]any{"response": []map[string]any{
+			{"id": 1000 + id, "owner_id": vkOwner},
+		}})
+	case "video.save":
+		writeJSON(w, map[string]any{"response": map[string]any{
+			"upload_url": f.uploadHost + "/vk-video-upload",
+			"owner_id":   vkOwner,
+			"video_id":   77,
+		}})
+	case "docs.getWallUploadServer":
+		writeJSON(w, map[string]any{"response": map[string]any{
+			"upload_url": f.uploadHost + "/vk-doc-upload",
+		}})
+	case "docs.save":
+		if form.Get("file") != "DOCFILE-1" {
+			writeJSON(w, map[string]any{"error": map[string]any{
+				"error_code": 100, "error_msg": "docs.save did not carry what the upload server returned",
+			}})
+			return
+		}
+		writeJSON(w, map[string]any{"response": map[string]any{
+			"type": "doc",
+			"doc":  map[string]any{"id": 55, "owner_id": vkOwner},
+		}})
+	case "wall.post":
+		writeJSON(w, map[string]any{"response": map[string]any{"post_id": 9001}})
+	case "groups.getById":
+		writeJSON(w, map[string]any{"response": []map[string]any{
+			{"id": -vkOwner, "name": "Crier Community", "screen_name": "crierhq"},
+		}})
+	case "users.get":
+		writeJSON(w, map[string]any{"response": []map[string]any{
+			{"id": 777, "first_name": "Crier", "last_name": "Bot"},
+		}})
+	default:
+		writeJSON(w, map[string]any{"error": map[string]any{
+			"error_code": 3, "error_msg": "Unknown method passed: " + method,
+		}})
 	}
 }
 
@@ -357,6 +472,10 @@ func (f *fakes) platformConfig() string {
     api-base-url: %[1]s/slack
     token: xoxb-e2e
     channel: C-E2E
+  vk:
+    api-base-url: %[1]s/vk
+    token: vk-token
+    owner-id: -123
   reddit:
     api-base-url: %[1]s/reddit
     auth-base-url: %[1]s/reddit-auth

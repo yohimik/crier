@@ -52,7 +52,7 @@ publish:
     music-file: long-version.mp3  # telegram gets this instead
 ```
 
-Setting `music-file` on any of the other seven platforms is a configuration error. The message names the platform and says why. Nothing is refused for the shared `publish.music-file` key: it means the file for the platforms that can take it, and stays quiet about the rest.
+Setting `music-file` on any of the other eight platforms is a configuration error. The message names the platform and says why. Nothing is refused for the shared `publish.music-file` key: it means the file for the platforms that can take it, and stays quiet about the rest.
 
 If no enabled platform can carry the file, crier warns. The run still goes ahead.
 
@@ -120,9 +120,9 @@ Two platforms take a post of mixed media:
 | --- | --- | --- |
 | [Instagram](./instagram.md) | the carousel's first child is the clip | a `video_url` child container, then the images |
 | [Telegram](./telegram.md) | the album's first item is the clip | an `InputMediaVideo` at the head of the media group |
-| the other eight | nothing | a post there is pictures or a video, never both |
+| the other nine | nothing | a post there is pictures or a video, never both |
 
-Setting `lead-video` on any of the other eight is a configuration error. The message names the platform and says why.
+Setting `lead-video` on any of the other nine is a configuration error. The message names the platform and says why.
 
 The clip has to be an MP4. crier reads the first bytes and refuses anything else, for the same reason it does with audio.
 
