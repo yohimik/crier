@@ -1013,3 +1013,105 @@ func TestSmokeHostileChangelog(t *testing.T) {
 		t.Fatalf("the hostile changelog broke the render:\n%s", stderr)
 	}
 }
+
+// TestAnnounceLinkedInFallsBackToAnAlbum is rc.11's lesson: LinkedIn's video
+// API is a partner product most tokens do not carry, and when it refused the
+// clip with 403 ACCESS_DENIED the changelog album chained behind it never ran,
+// so the release did not reach LinkedIn at all. The clip being refused must
+// cost the clip, not the platform: the whole card goes out as one album,
+// cover first, under the same commentary.
+func TestAnnounceLinkedInFallsBackToAnAlbum(t *testing.T) {
+	requireSh(t)
+
+	var albums []string
+	liImages := 0
+	mux := http.NewServeMux()
+	srv := httptest.NewServer(mux)
+	t.Cleanup(srv.Close)
+	mux.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
+		body := readBody(r)
+		switch {
+		// The refusal as LinkedIn spelled it in rc.11's release log.
+		case strings.HasPrefix(r.URL.Path, "/li/rest/videos"):
+			w.WriteHeader(http.StatusForbidden)
+			_, _ = w.Write([]byte(`{"status":403,"serviceErrorCode":100,"code":"ACCESS_DENIED",` +
+				`"message":"Not enough permissions to access: partnerApiVideosExternal"}`))
+		case strings.HasPrefix(r.URL.Path, "/li/rest/images/"):
+			_, _ = w.Write([]byte(`{"status":"AVAILABLE"}`))
+		case strings.HasPrefix(r.URL.Path, "/li/rest/images"):
+			liImages++
+			_, _ = w.Write([]byte(`{"value":{"uploadUrl":"` + srv.URL +
+				`/li-upload/` + strconv.Itoa(liImages) +
+				`","image":"urn:li:image:` + strconv.Itoa(liImages) + `"}}`))
+		case strings.HasPrefix(r.URL.Path, "/li-upload/"):
+			w.WriteHeader(http.StatusCreated)
+		case strings.HasPrefix(r.URL.Path, "/li/rest/posts"):
+			albums = append(albums, body)
+			w.Header().Set("x-restli-id", "urn:li:share:1")
+			w.WriteHeader(http.StatusCreated)
+		// The Instagram passes still run; this test only steers LinkedIn.
+		case strings.HasSuffix(r.URL.Path, "/media"):
+			_, _ = w.Write([]byte(`{"id":"c-1"}`))
+		case strings.HasSuffix(r.URL.Path, "/media_publish"):
+			_, _ = w.Write([]byte(`{"id":"p-1"}`))
+		case strings.HasPrefix(r.URL.Path, "/c-"):
+			_, _ = w.Write([]byte(`{"status_code":"FINISHED"}`))
+		case strings.HasPrefix(r.URL.Path, "/p-"):
+			_, _ = w.Write([]byte(`{"permalink":"https://www.instagram.com/p/Cx/"}`))
+		default:
+			w.WriteHeader(http.StatusNotFound)
+		}
+	})
+
+	dir := t.TempDir()
+	_, stderr, code := runScript(t, "announce.sh", []string{
+		"DISPAT_NEW_VERSION=9.9.9",
+		"DISPAT_FEATURES=one small feature",
+		"CRIER_PUBLISH_INSTAGRAM_TOKEN=ig-token",
+		"CRIER_PUBLISH_INSTAGRAM_USER_ID=ig-user",
+		"CRIER_PUBLISH_INSTAGRAM_API_BASE_URL=" + srv.URL,
+		"CRIER_PUBLISH_INSTAGRAM_POLL_INTERVAL=1ms",
+		"CRIER_PUBLISH_INSTAGRAM_POLL_TIMEOUT=5s",
+		"CRIER_PUBLISH_LINKEDIN_TOKEN=li-token",
+		"CRIER_PUBLISH_LINKEDIN_AUTHOR_URN=urn:li:person:e2e",
+		"CRIER_PUBLISH_LINKEDIN_API_BASE_URL=" + srv.URL + "/li",
+		"CRIER_STAGE_MODE=url",
+		"CRIER_STAGE_URL=" + srv.URL + "/staged/card.jpg",
+		"ANNOUNCE_CRIER_BIN=" + buildAnnounceBinary(t, dir),
+	})
+	if code != 0 {
+		t.Fatalf("code=%d stderr=%s", code, stderr)
+	}
+
+	if len(albums) != 1 {
+		t.Fatalf("made %d linkedin posts, want the one album", len(albums))
+	}
+	var album struct {
+		Commentary string `json:"commentary"`
+		Content    struct {
+			MultiImage struct {
+				Images []struct {
+					ID string `json:"id"`
+				} `json:"images"`
+			} `json:"multiImage"`
+		} `json:"content"`
+	}
+	if err := json.Unmarshal([]byte(albums[0]), &album); err != nil {
+		t.Fatalf("the album is not JSON: %v", err)
+	}
+	// The full card: the cover and the one changelog page, in order.
+	if len(album.Content.MultiImage.Images) != 2 {
+		t.Errorf("the album carries %d images, want the cover and one page", len(album.Content.MultiImage.Images))
+	}
+	for _, want := range []string{"wrote itself", "9.9.9"} {
+		if !strings.Contains(album.Commentary, want) {
+			t.Errorf("the album commentary does not carry %q: %q", want, album.Commentary)
+		}
+	}
+	// The fallback announces itself only where there was a clip to refuse.
+	if _, err := exec.LookPath("ffmpeg"); err == nil {
+		if !strings.Contains(stderr, "the linkedin clip was refused") {
+			t.Errorf("the fallback should be logged: %s", stderr)
+		}
+	}
+}

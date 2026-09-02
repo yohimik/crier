@@ -277,7 +277,18 @@ linkedin_post() {
 		post "linkedin post" "$data" "$@"
 		return $?
 	fi
-	post "linkedin post" "$data" "$@" --publish-input "$anthem_mp4" || return 1
+	if ! post "linkedin post" "$data" "$@" --publish-input "$anthem_mp4"; then
+		# A member token posts text and images, but the video API is a
+		# partner product (LinkedIn's Community Management API) that most
+		# tokens do not carry: rc.11's clip was refused with 403
+		# ACCESS_DENIED partnerApiVideosExternal, and the album chained
+		# behind it never ran, so nothing landed at all. The release still
+		# reaches LinkedIn without that product: the whole card as one
+		# album, cover first, under the same commentary.
+		log "the linkedin clip was refused; posting the card as an album instead"
+		post "linkedin album" "$data" "$@"
+		return $?
+	fi
 	[ "$has_changelog" = 1 ] || return 0
 	post "linkedin changelog" "$updates" "$@" \
 		--publish-linkedin-caption 'The whole changelog for crier v{{ .version }}, page by page, rendered and posted by the release itself. github.com/yohimik/crier #changelog #golang #buildinpublic #releasenotes'
