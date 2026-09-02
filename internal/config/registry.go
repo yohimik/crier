@@ -96,6 +96,26 @@ var Platforms = []string{
 	"mastodon", "discord", "linkedin", "reddit",
 }
 
+// MusicPlatforms are the platforms whose API can carry an audio file beside
+// the pictures, in the order they are documented.
+//
+// The list is short because the APIs are. Discord and Slack take several files
+// in one message, so the audio is one of them. Telegram takes an adjacent
+// message, which its clients render as a player under the album. Nothing else
+// offers a way in: the licensed-music pickers Instagram, Facebook and TikTok
+// show inside their apps have no public endpoint at all.
+var MusicPlatforms = []string{"discord", "slack", "telegram"}
+
+// CanCarryMusic reports whether a platform accepts an audio file.
+func CanCarryMusic(platform string) bool {
+	for _, name := range MusicPlatforms {
+		if name == platform {
+			return true
+		}
+	}
+	return false
+}
+
 // Aliases are extra, shorter flag names for keys people type often. They are
 // documented alongside their key and resolve to exactly the same value.
 var Aliases = map[string]string{
@@ -188,6 +208,9 @@ var registry = []Descriptor{
 	{Key: "publish.caption", Kind: KindString, Usage: "caption used by every platform that has no caption of its own"},
 	{Key: "publish.concurrency", Kind: KindInt, Default: "4", Usage: "how many platforms are published to at the same time"},
 	{Key: "publish.dry-run", Kind: KindBool, Usage: "render and validate only; make no network calls"},
+	{Key: "publish.music-file", Kind: KindString, Path: true,
+		Usage: "audio file attached to the post on the platforms whose API can carry one " +
+			"(discord, slack, telegram); empty attaches none"},
 
 	{Key: "publish.instagram.enabled", Kind: KindBool, Usage: "publish to Instagram"},
 	{Key: "publish.instagram.api-base-url", Kind: KindString, Default: "https://graph.facebook.com/v25.0", Usage: "Instagram Graph API base URL"},
@@ -214,6 +237,9 @@ var registry = []Descriptor{
 	{Key: "publish.tiktok.caption", Kind: KindString, Usage: "TikTok post description"},
 	{Key: "publish.tiktok.poll-interval", Kind: KindDuration, Default: "2s", Usage: "how often the publish status is polled"},
 	{Key: "publish.tiktok.poll-timeout", Kind: KindDuration, Default: "2m", Usage: "how long to wait for TikTok to finish the upload"},
+	{Key: "publish.tiktok.auto-add-music", Kind: KindBool,
+		Usage: "let TikTok put a recommended track under a photo post; " +
+			"no API anywhere names a specific licensed track"},
 
 	{Key: "publish.telegram.enabled", Kind: KindBool, Usage: "publish to Telegram"},
 	{Key: "publish.telegram.api-base-url", Kind: KindString, Default: "https://api.telegram.org", Usage: "Telegram Bot API base URL"},
@@ -309,9 +335,30 @@ func layoutDescriptors(platform string) []Descriptor {
 	}
 }
 
+// musicDescriptor is a platform's own audio file, declared for every platform
+// rather than only for the three that can carry one.
+//
+// A key that simply did not exist for Instagram would answer the question
+// "can I attach a track here" with an unknown-key error, which reads like a
+// typo. The key exists everywhere, its description says where it works, and
+// setting it on a platform that cannot carry audio is a validation error that
+// says why. That way the answer is in the platform's own reference page.
+func musicDescriptor(platform string) Descriptor {
+	d := Descriptor{Key: "publish." + platform + ".music-file", Kind: KindString, Path: true}
+	if CanCarryMusic(platform) {
+		d.Usage = "audio file attached to the " + platform + " post, " +
+			"overriding publish.music-file for this platform alone"
+		return d
+	}
+	d.Usage = "not available: " + platform + " has no API for attaching an audio file, " +
+		"so a value here is refused rather than ignored"
+	return d
+}
+
 func init() {
 	for _, p := range Platforms {
 		registry = append(registry, layoutDescriptors(p)...)
+		registry = append(registry, musicDescriptor(p))
 	}
 }
 

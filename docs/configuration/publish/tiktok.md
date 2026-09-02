@@ -7,12 +7,14 @@ See [the TikTok guide](../../publishing/tiktok.md) for how to get these values.
 | Key | Type | Default | Description |
 | --- | ---- | ------- | ----------- |
 | `publish.tiktok.api-base-url`<br>`CRIER_PUBLISH_TIKTOK_API_BASE_URL`<br>`--publish-tiktok-api-base-url` | string | `https://open.tiktokapis.com` | TikTok Content Posting API base URL |
+| `publish.tiktok.auto-add-music`<br>`CRIER_PUBLISH_TIKTOK_AUTO_ADD_MUSIC`<br>`--publish-tiktok-auto-add-music` | bool | — | let TikTok put a recommended track under a photo post; no API anywhere names a specific licensed track |
 | `publish.tiktok.caption`<br>`CRIER_PUBLISH_TIKTOK_CAPTION`<br>`--publish-tiktok-caption` | string | — | TikTok post description |
 | `publish.tiktok.enabled`<br>`CRIER_PUBLISH_TIKTOK_ENABLED`<br>`--publish-tiktok-enabled` | bool | — | publish to TikTok |
 | `publish.tiktok.fit`<br>`CRIER_PUBLISH_TIKTOK_FIT`<br>`--publish-tiktok-fit` | string | `none` | how the render is made to match tiktok's frame: none, cover, contain or stretch; anything but none needs width and height |
 | `publish.tiktok.fit-background`<br>`CRIER_PUBLISH_TIKTOK_FIT_BACKGROUND`<br>`--publish-tiktok-fit-background` | string | `#ffffff` | hex colour behind a contain letterbox for tiktok, and what transparency is flattened onto |
 | `publish.tiktok.height`<br>`CRIER_PUBLISH_TIKTOK_HEIGHT`<br>`--publish-tiktok-height` | int | — | render height for tiktok; 0 inherits render.height |
 | `publish.tiktok.max-attachments`<br>`CRIER_PUBLISH_TIKTOK_MAX_ATTACHMENTS`<br>`--publish-tiktok-max-attachments` | int | — | post at most this many pages to tiktok at once; 0 uses the platform's own limit, which is also the ceiling |
+| `publish.tiktok.music-file`<br>`CRIER_PUBLISH_TIKTOK_MUSIC_FILE`<br>`--publish-tiktok-music-file` | string, path | — | not available: tiktok has no API for attaching an audio file, so a value here is refused rather than ignored |
 | `publish.tiktok.overlay`<br>`CRIER_PUBLISH_TIKTOK_OVERLAY`<br>`--publish-tiktok-overlay` | list, path | — | template overlays applied for tiktok only, after the global ones |
 | `publish.tiktok.poll-interval`<br>`CRIER_PUBLISH_TIKTOK_POLL_INTERVAL`<br>`--publish-tiktok-poll-interval` | duration | `2s` | how often the publish status is polled |
 | `publish.tiktok.poll-timeout`<br>`CRIER_PUBLISH_TIKTOK_POLL_TIMEOUT`<br>`--publish-tiktok-poll-timeout` | duration | `2m` | how long to wait for TikTok to finish the upload |

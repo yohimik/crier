@@ -10,6 +10,7 @@ The fan-out itself: which platforms, how many at a time, and the shared caption.
 | `publish.concurrency`<br>`CRIER_PUBLISH_CONCURRENCY`<br>`--publish-concurrency` | int | `4` | how many platforms are published to at the same time |
 | `publish.dry-run`<br>`CRIER_PUBLISH_DRY_RUN`<br>`--publish-dry-run` | bool | — | render and validate only; make no network calls |
 | `publish.input`<br>`CRIER_PUBLISH_INPUT`<br>`--publish-input` | string, path | — | publish this existing file instead of rendering one |
+| `publish.music-file`<br>`CRIER_PUBLISH_MUSIC_FILE`<br>`--publish-music-file` | string, path | — | audio file attached to the post on the platforms whose API can carry one (discord, slack, telegram); empty attaches none |
 
 A sample carrying every key with its default is at
 [`crier.example.yaml`](../../../crier.example.yaml).

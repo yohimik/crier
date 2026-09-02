@@ -335,6 +335,7 @@ func validatePublish(p *Publish) []error {
 		errs = append(errs, invalid("publish.reddit.kind", p.Reddit.Kind, "want auto, image, video or link"))
 	}
 
+	errs = append(errs, validateMusic(p)...)
 	errs = append(errs, validateCustom(p)...)
 
 	for _, name := range append(append([]string(nil), Platforms...), CustomNames(p)...) {
@@ -356,6 +357,55 @@ func validatePublish(p *Publish) []error {
 		// ignored the way it would be at the top level.
 	}
 	return errs
+}
+
+// MusicOf returns a platform's own audio setting, or nil when the name is not
+// one of the ten built-in platforms.
+//
+// A custom platform has none. Its command decides what it sends, so an audio
+// file crier attached for it would be a file the command never sees.
+func MusicOf(p *Publish, name string) *Music {
+	switch name {
+	case "instagram":
+		return &p.Instagram.Music
+	case "facebook":
+		return &p.Facebook.Music
+	case "tiktok":
+		return &p.TikTok.Music
+	case "telegram":
+		return &p.Telegram.Music
+	case "x":
+		return &p.X.Music
+	case "mastodon":
+		return &p.Mastodon.Music
+	case "discord":
+		return &p.Discord.Music
+	case "linkedin":
+		return &p.LinkedIn.Music
+	case "reddit":
+		return &p.Reddit.Music
+	case "slack":
+		return &p.Slack.Music
+	default:
+		return nil
+	}
+}
+
+// MusicFileFor is the audio file one platform will attach: its own when it
+// names one, the shared publish.music-file otherwise, and empty when the
+// platform cannot carry audio at all.
+//
+// The last clause is what keeps a global setting from being a mistake. Someone
+// naming one file for the whole run means it for the platforms that can take
+// it, not as an instruction the other seven have to refuse.
+func MusicFileFor(p *Publish, name string) string {
+	if !CanCarryMusic(name) {
+		return ""
+	}
+	if m := MusicOf(p, name); m != nil && strings.TrimSpace(m.File) != "" {
+		return m.File
+	}
+	return strings.TrimSpace(p.MusicFile)
 }
 
 // LayoutOf returns a platform's render overrides, or nil when the name is not
@@ -503,6 +553,26 @@ func Float(s string, def float64) float64 {
 		return def
 	}
 	return f
+}
+
+// validateMusic refuses an audio file on a platform that cannot post one.
+//
+// Ignoring it would be worse than refusing it. The operator has attached a
+// track, the post goes out silent, and nothing anywhere says why — so the
+// error names the platform and the reason, which is that the API has no way in
+// rather than that crier has not got round to it.
+func validateMusic(p *Publish) []error {
+	var errs []error
+	for _, name := range Platforms {
+		m := MusicOf(p, name)
+		if m == nil || strings.TrimSpace(m.File) == "" || CanCarryMusic(name) {
+			continue
+		}
+		errs = append(errs, invalid("publish."+name+".music-file", m.File,
+			name+" has no API for attaching an audio file; only "+
+				strings.Join(MusicPlatforms, ", ")+" can carry one"))
+	}
+	return errs
 }
 
 // validateCustom checks the script-backed platforms.

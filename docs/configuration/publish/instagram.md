@@ -13,6 +13,7 @@ See [the Instagram guide](../../publishing/instagram.md) for how to get these va
 | `publish.instagram.fit-background`<br>`CRIER_PUBLISH_INSTAGRAM_FIT_BACKGROUND`<br>`--publish-instagram-fit-background` | string | `#ffffff` | hex colour behind a contain letterbox for instagram, and what transparency is flattened onto |
 | `publish.instagram.height`<br>`CRIER_PUBLISH_INSTAGRAM_HEIGHT`<br>`--publish-instagram-height` | int | — | render height for instagram; 0 inherits render.height |
 | `publish.instagram.max-attachments`<br>`CRIER_PUBLISH_INSTAGRAM_MAX_ATTACHMENTS`<br>`--publish-instagram-max-attachments` | int | — | post at most this many pages to instagram at once; 0 uses the platform's own limit, which is also the ceiling |
+| `publish.instagram.music-file`<br>`CRIER_PUBLISH_INSTAGRAM_MUSIC_FILE`<br>`--publish-instagram-music-file` | string, path | — | not available: instagram has no API for attaching an audio file, so a value here is refused rather than ignored |
 | `publish.instagram.overlay`<br>`CRIER_PUBLISH_INSTAGRAM_OVERLAY`<br>`--publish-instagram-overlay` | list, path | — | template overlays applied for instagram only, after the global ones |
 | `publish.instagram.poll-interval`<br>`CRIER_PUBLISH_INSTAGRAM_POLL_INTERVAL`<br>`--publish-instagram-poll-interval` | duration | `2s` | how often the media container status is polled |
 | `publish.instagram.poll-timeout`<br>`CRIER_PUBLISH_INSTAGRAM_POLL_TIMEOUT`<br>`--publish-instagram-poll-timeout` | duration | `2m` | how long to wait for the media container to be ready |

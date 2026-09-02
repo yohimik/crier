@@ -12,6 +12,7 @@ See [the Discord guide](../../publishing/discord.md) for how to get these values
 | `publish.discord.fit-background`<br>`CRIER_PUBLISH_DISCORD_FIT_BACKGROUND`<br>`--publish-discord-fit-background` | string | `#ffffff` | hex colour behind a contain letterbox for discord, and what transparency is flattened onto |
 | `publish.discord.height`<br>`CRIER_PUBLISH_DISCORD_HEIGHT`<br>`--publish-discord-height` | int | — | render height for discord; 0 inherits render.height |
 | `publish.discord.max-attachments`<br>`CRIER_PUBLISH_DISCORD_MAX_ATTACHMENTS`<br>`--publish-discord-max-attachments` | int | — | post at most this many pages to discord at once; 0 uses the platform's own limit, which is also the ceiling |
+| `publish.discord.music-file`<br>`CRIER_PUBLISH_DISCORD_MUSIC_FILE`<br>`--publish-discord-music-file` | string, path | — | audio file attached to the discord post, overriding publish.music-file for this platform alone |
 | `publish.discord.overlay`<br>`CRIER_PUBLISH_DISCORD_OVERLAY`<br>`--publish-discord-overlay` | list, path | — | template overlays applied for discord only, after the global ones |
 | `publish.discord.username`<br>`CRIER_PUBLISH_DISCORD_USERNAME`<br>`--publish-discord-username` | string | — | override the webhook's display name |
 | `publish.discord.webhook-url`<br>`CRIER_PUBLISH_DISCORD_WEBHOOK_URL`<br>`--publish-discord-webhook-url` | string | — | full Discord webhook URL (it is the credential) **Secret**: redacted by `crier config`. |

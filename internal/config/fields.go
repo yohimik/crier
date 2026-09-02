@@ -119,6 +119,7 @@ func Bindings(cfg *Config) map[string]Binding {
 		"publish.caption":     bindString(&p.Caption),
 		"publish.concurrency": bindInt(&p.Concurrency),
 		"publish.dry-run":     bindBool(&p.DryRun),
+		"publish.music-file":  bindString(&p.MusicFile),
 
 		"publish.instagram.enabled":       bindBool(&ig.Enabled),
 		"publish.instagram.api-base-url":  bindString(&ig.APIBaseURL),
@@ -137,14 +138,15 @@ func Bindings(cfg *Config) map[string]Binding {
 		"publish.facebook.use-url":      bindBool(&fb.UseURL),
 		"publish.facebook.caption":      bindString(&fb.Caption),
 
-		"publish.tiktok.enabled":       bindBool(&tt.Enabled),
-		"publish.tiktok.api-base-url":  bindString(&tt.APIBaseURL),
-		"publish.tiktok.token":         bindString(&tt.Token),
-		"publish.tiktok.title":         bindString(&tt.Title),
-		"publish.tiktok.privacy-level": bindString(&tt.PrivacyLevel),
-		"publish.tiktok.caption":       bindString(&tt.Caption),
-		"publish.tiktok.poll-interval": bindString(&tt.PollInterval),
-		"publish.tiktok.poll-timeout":  bindString(&tt.PollTimeout),
+		"publish.tiktok.enabled":        bindBool(&tt.Enabled),
+		"publish.tiktok.api-base-url":   bindString(&tt.APIBaseURL),
+		"publish.tiktok.token":          bindString(&tt.Token),
+		"publish.tiktok.title":          bindString(&tt.Title),
+		"publish.tiktok.privacy-level":  bindString(&tt.PrivacyLevel),
+		"publish.tiktok.caption":        bindString(&tt.Caption),
+		"publish.tiktok.poll-interval":  bindString(&tt.PollInterval),
+		"publish.tiktok.poll-timeout":   bindString(&tt.PollTimeout),
+		"publish.tiktok.auto-add-music": bindBool(&tt.AutoAddMusic),
 
 		"publish.telegram.enabled":      bindBool(&tg.Enabled),
 		"publish.telegram.api-base-url": bindString(&tg.APIBaseURL),
@@ -220,6 +222,18 @@ func Bindings(cfg *Config) map[string]Binding {
 		out["publish."+name+".fit"] = bindString(&l.Fit)
 		out["publish."+name+".fit-background"] = bindString(&l.FitBackground)
 		out["publish."+name+".max-attachments"] = bindInt(&l.MaxAttachments)
+	}
+
+	// The audio file, the same way. Every platform has the key, including the
+	// seven that cannot use it: the value is refused by Validate with a reason,
+	// rather than by the decoder as a key nobody has heard of.
+	for name, m := range map[string]*Music{
+		"instagram": &ig.Music, "facebook": &fb.Music, "tiktok": &tt.Music,
+		"telegram": &tg.Music, "x": &x.Music, "mastodon": &ma.Music,
+		"discord": &dc.Music, "linkedin": &li.Music, "reddit": &rd.Music,
+		"slack": &sl.Music,
+	} {
+		out["publish."+name+".music-file"] = bindString(&m.File)
 	}
 
 	// The custom platforms a configuration happens to declare. There are none

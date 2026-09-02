@@ -14,6 +14,7 @@ See [the LinkedIn guide](../../publishing/linkedin.md) for how to get these valu
 | `publish.linkedin.fit-background`<br>`CRIER_PUBLISH_LINKEDIN_FIT_BACKGROUND`<br>`--publish-linkedin-fit-background` | string | `#ffffff` | hex colour behind a contain letterbox for linkedin, and what transparency is flattened onto |
 | `publish.linkedin.height`<br>`CRIER_PUBLISH_LINKEDIN_HEIGHT`<br>`--publish-linkedin-height` | int | — | render height for linkedin; 0 inherits render.height |
 | `publish.linkedin.max-attachments`<br>`CRIER_PUBLISH_LINKEDIN_MAX_ATTACHMENTS`<br>`--publish-linkedin-max-attachments` | int | — | post at most this many pages to linkedin at once; 0 uses the platform's own limit, which is also the ceiling |
+| `publish.linkedin.music-file`<br>`CRIER_PUBLISH_LINKEDIN_MUSIC_FILE`<br>`--publish-linkedin-music-file` | string, path | — | not available: linkedin has no API for attaching an audio file, so a value here is refused rather than ignored |
 | `publish.linkedin.overlay`<br>`CRIER_PUBLISH_LINKEDIN_OVERLAY`<br>`--publish-linkedin-overlay` | list, path | — | template overlays applied for linkedin only, after the global ones |
 | `publish.linkedin.token`<br>`CRIER_PUBLISH_LINKEDIN_TOKEN`<br>`--publish-linkedin-token` | string | — | LinkedIn OAuth 2.0 access token **Secret**: redacted by `crier config`. |
 | `publish.linkedin.version`<br>`CRIER_PUBLISH_LINKEDIN_VERSION`<br>`--publish-linkedin-version` | string | `202606` | value of the mandatory LinkedIn-Version header |

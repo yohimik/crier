@@ -96,6 +96,16 @@ type Layout struct {
 	MaxAttachments int
 }
 
+// Music is the audio a platform posts beside the pictures.
+//
+// It is a struct rather than a bare string so it sits beside Layout in every
+// platform, generated the same way and read back the same way. A platform that
+// cannot carry audio still has the field, and Validate refuses a value in it.
+type Music struct {
+	// File is an audio file on this machine. Empty attaches none.
+	File string
+}
+
 // HTTP configures the shared HTTP client used by every publisher and stager.
 type HTTP struct {
 	Timeout        string
@@ -155,6 +165,9 @@ type Publish struct {
 	Caption     string
 	Concurrency int
 	DryRun      bool
+	// MusicFile is the audio file every platform that can carry one attaches,
+	// unless it names one of its own. Empty attaches none.
+	MusicFile string
 
 	Instagram Instagram
 	Facebook  Facebook
@@ -215,6 +228,7 @@ type Custom struct {
 // configuration can check for you.
 type Slack struct {
 	Layout
+	Music
 
 	Enabled    bool
 	APIBaseURL string
@@ -227,6 +241,7 @@ type Slack struct {
 // Instagram configures the Instagram Graph API publisher.
 type Instagram struct {
 	Layout
+	Music
 
 	Enabled      bool
 	APIBaseURL   string
@@ -241,6 +256,7 @@ type Instagram struct {
 // Facebook configures the Facebook Page publisher.
 type Facebook struct {
 	Layout
+	Music
 
 	Enabled    bool
 	APIBaseURL string
@@ -254,6 +270,7 @@ type Facebook struct {
 // TikTok configures the TikTok Content Posting API publisher.
 type TikTok struct {
 	Layout
+	Music
 
 	Enabled      bool
 	APIBaseURL   string
@@ -263,11 +280,16 @@ type TikTok struct {
 	Caption      string
 	PollInterval string
 	PollTimeout  string
+	// AutoAddMusic asks TikTok to put a recommended track under a photo post.
+	// It is the only music setting any of these APIs offers, and it names no
+	// track: TikTok picks one.
+	AutoAddMusic bool
 }
 
 // Telegram configures the Telegram Bot API publisher.
 type Telegram struct {
 	Layout
+	Music
 
 	Enabled    bool
 	APIBaseURL string
@@ -279,6 +301,7 @@ type Telegram struct {
 // X configures the X (Twitter) v2 publisher.
 type X struct {
 	Layout
+	Music
 
 	Enabled      bool
 	APIBaseURL   string
@@ -291,6 +314,7 @@ type X struct {
 // Mastodon configures the Mastodon publisher.
 type Mastodon struct {
 	Layout
+	Music
 
 	Enabled      bool
 	APIBaseURL   string
@@ -305,6 +329,7 @@ type Mastodon struct {
 // Discord configures the Discord webhook publisher.
 type Discord struct {
 	Layout
+	Music
 
 	Enabled    bool
 	WebhookURL string
@@ -315,6 +340,7 @@ type Discord struct {
 // LinkedIn configures the LinkedIn REST publisher.
 type LinkedIn struct {
 	Layout
+	Music
 
 	Enabled    bool
 	APIBaseURL string
@@ -331,6 +357,7 @@ type LinkedIn struct {
 // end-to-end tests can point them at a fake.
 type Reddit struct {
 	Layout
+	Music
 
 	Enabled      bool
 	APIBaseURL   string

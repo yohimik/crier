@@ -14,6 +14,7 @@ See [the Mastodon guide](../../publishing/mastodon.md) for how to get these valu
 | `publish.mastodon.fit-background`<br>`CRIER_PUBLISH_MASTODON_FIT_BACKGROUND`<br>`--publish-mastodon-fit-background` | string | `#ffffff` | hex colour behind a contain letterbox for mastodon, and what transparency is flattened onto |
 | `publish.mastodon.height`<br>`CRIER_PUBLISH_MASTODON_HEIGHT`<br>`--publish-mastodon-height` | int | — | render height for mastodon; 0 inherits render.height |
 | `publish.mastodon.max-attachments`<br>`CRIER_PUBLISH_MASTODON_MAX_ATTACHMENTS`<br>`--publish-mastodon-max-attachments` | int | — | post at most this many pages to mastodon at once; 0 uses the platform's own limit, which is also the ceiling |
+| `publish.mastodon.music-file`<br>`CRIER_PUBLISH_MASTODON_MUSIC_FILE`<br>`--publish-mastodon-music-file` | string, path | — | not available: mastodon has no API for attaching an audio file, so a value here is refused rather than ignored |
 | `publish.mastodon.overlay`<br>`CRIER_PUBLISH_MASTODON_OVERLAY`<br>`--publish-mastodon-overlay` | list, path | — | template overlays applied for mastodon only, after the global ones |
 | `publish.mastodon.poll-interval`<br>`CRIER_PUBLISH_MASTODON_POLL_INTERVAL`<br>`--publish-mastodon-poll-interval` | duration | `2s` | how often a still-processing attachment is polled |
 | `publish.mastodon.poll-timeout`<br>`CRIER_PUBLISH_MASTODON_POLL_TIMEOUT`<br>`--publish-mastodon-poll-timeout` | duration | `2m` | how long to wait for the attachment to finish processing |
