@@ -661,7 +661,7 @@ func TestAnnouncePostsFeedThenStory(t *testing.T) {
 		}
 		// The commentary is LinkedIn's own — the automation story and the
 		// hashtags — not the shared Instagram caption.
-		for _, want := range []string{"wrote itself", "9.9.9", "#githubactions", "install.sh"} {
+		for _, want := range []string{"part of the release", "9.9.9", "close a leak", "#githubactions", "install.sh", "https://github.com/yohimik/crier"} {
 			if !strings.Contains(liPosts[0].Commentary, want) {
 				t.Errorf("the linkedin commentary does not carry %q: %q", want, liPosts[0].Commentary)
 			}
@@ -676,7 +676,7 @@ func TestAnnouncePostsFeedThenStory(t *testing.T) {
 			t.Fatalf("made %d linkedin posts, want one album", len(liPosts))
 		}
 		checkImages(liPosts[0].Content.MultiImage.Images, len(pageChildren)+1)
-		for _, want := range []string{"wrote itself", "9.9.9", "#githubactions", "install.sh"} {
+		for _, want := range []string{"part of the release", "9.9.9", "close a leak", "#githubactions", "install.sh", "https://github.com/yohimik/crier"} {
 			if !strings.Contains(liPosts[0].Commentary, want) {
 				t.Errorf("the linkedin commentary does not carry %q: %q", want, liPosts[0].Commentary)
 			}
@@ -1233,7 +1233,7 @@ func TestAnnounceLinkedInFallsBackToAnAlbum(t *testing.T) {
 	if len(album.Content.MultiImage.Images) != 2 {
 		t.Errorf("the album carries %d images, want the cover and one page", len(album.Content.MultiImage.Images))
 	}
-	for _, want := range []string{"wrote itself", "9.9.9"} {
+	for _, want := range []string{"part of the release", "9.9.9", "one small feature"} {
 		if !strings.Contains(album.Commentary, want) {
 			t.Errorf("the album commentary does not carry %q: %q", want, album.Commentary)
 		}

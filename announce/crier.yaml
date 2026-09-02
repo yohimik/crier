@@ -125,26 +125,25 @@ publish:
     enabled: false
     # A commentary of its own rather than the shared caption: the Instagram
     # caption is written for a feed of pictures, and this one is written for
-    # the people who would actually run the thing. It leads with the part
-    # worth stopping for: nobody wrote this post.
-    caption: >-
-      This post wrote itself. 🤖
+    # the people who would actually run the thing. The changelog rides along
+    # as text after the opening, because a reader deciding whether to update
+    # should not have to pause a video to find out what changed.
+    #
+    # A literal block rather than a folded one: the changelog list needs its
+    # line breaks kept exactly as written.
+    caption: |-
+      crier v{{ .version }} is out. This post is part of the release: a GitHub Actions job read the changelog from the commit history, rendered the card with crier's own Go HTML engine, cut the clip, and published it here before the workflow finished. Nobody wrote or scheduled it by hand.
+      {{ if .sections }}
+      What changed:{{ range .sections }}
+      {{ .label }}:{{ range .items }}
+      - {{ . }}{{ end }}{{ if gt .more 0 }}
+      - and {{ .more }} more{{ end }}{{ end }}
+      {{ end }}
+      crier is one binary that renders an HTML template into images or video and posts them to fourteen social networks. The clip above came out of the same run, soundtrack included.
 
-      crier v{{ .version }} shipped a few minutes ago, and everything you see
-      here was made by the release run itself: GitHub Actions read the
-      changelog out of the conventional commits, rendered these cards from an
-      HTML template with crier's own pure-Go engine (no browser anywhere in
-      the pipeline), and published them before the run finished.
+      Code and docs: https://github.com/yohimik/crier
 
-      No screenshots. No design tool. No human in the loop. The binary being
-      announced is the binary doing the announcing.
-
-      If your release notes deserve better than a wall of text, one command
-      renders an HTML template into images or video and posts it across your
-      social platforms: github.com/yohimik/crier
-
+      Install:
       {{ range .install }}{{ if eq .label "curl" }}{{ .command }}{{ end }}{{ end }}
 
-      #buildinpublic #golang #opensource #devtools #automation #githubactions
-      #cicd #devops #releasenotes #continuousdelivery #developertools
-      #changelog #opensourcesoftware #shipit
+      #golang #opensource #devtools #automation #githubactions #cicd #releasenotes #buildinpublic

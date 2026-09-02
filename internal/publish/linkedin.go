@@ -68,6 +68,25 @@ func (l *LinkedIn) Needs() Needs {
 }
 
 // rest starts a request with the headers LinkedIn insists on.
+// escapeLittleText escapes the characters LinkedIn's "little text format"
+// treats as markup. Commentary is parsed, not displayed: an unescaped
+// parenthesis or pipe is a syntax token, and rc.15's post showed only the
+// text before its first one, swallowing the link, the install command and
+// every hashtag behind it. The hash stays bare on purpose, because escaping
+// it turns hashtags into plain text.
+func escapeLittleText(s string) string {
+	var b strings.Builder
+	b.Grow(len(s) + 16)
+	for _, r := range s {
+		switch r {
+		case '\\', '|', '{', '}', '@', '[', ']', '(', ')', '<', '>', '*', '_', '~':
+			b.WriteByte('\\')
+		}
+		b.WriteRune(r)
+	}
+	return b.String()
+}
+
 // encodeURN percent-encodes a URN for a path segment. Rest.li answers a raw
 // colon in the path with 400 "Syntax exception in path variables" — rc.13's
 // clip and album both died on exactly that, after every upload had already
@@ -155,7 +174,7 @@ func (l *LinkedIn) Publish(ctx context.Context, in Input) (Result, error) {
 
 	body := map[string]any{
 		"author":                    l.cfg.AuthorURN,
-		"commentary":                in.Caption,
+		"commentary":                escapeLittleText(in.Caption),
 		"visibility":                "PUBLIC",
 		"distribution":              map[string]any{"feedDistribution": "MAIN_FEED"},
 		"content":                   content,

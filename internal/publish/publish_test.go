@@ -1659,3 +1659,16 @@ func TestReadChunk(t *testing.T) {
 		t.Error("expected a read error")
 	}
 }
+
+// TestLinkedInEscapesTheCommentary: LinkedIn parses commentary as its
+// "little text format", where a parenthesis or a pipe is markup. rc.15's
+// post displayed only the text before its first unescaped one — the link,
+// the install command and the hashtags were swallowed. Reserved characters
+// go out escaped; the hash stays bare so hashtags stay hashtags.
+func TestLinkedInEscapesTheCommentary(t *testing.T) {
+	got := escapeLittleText(`plain (parens) {braces} [brackets] a|b under_score *star* ~tilde~ <angle> @at \slash #tag`)
+	want := `plain \(parens\) \{braces\} \[brackets\] a\|b under\_score \*star\* \~tilde\~ \<angle\> \@at \\slash #tag`
+	if got != want {
+		t.Errorf("escaped = %q, want %q", got, want)
+	}
+}
