@@ -57,19 +57,28 @@ fi
 seed=$(printf '%s' "$version" | cksum | cut -d' ' -f1)
 log "seed for v$version is $seed"
 
+# ANNOUNCE_ONLY=linkedin replays the linkedin pass alone: no Instagram
+# secrets wanted, no tunnel, no feed or stories. It exists because a platform
+# can refuse a post for reasons of its own — v1.0.0's graduation reel met a
+# LinkedIn 500 twice — and re-running a whole release to say one thing again
+# is not an option once the tag exists.
+only=${ANNOUNCE_ONLY:-}
+
 # --- what has to be there -----------------------------------------------------
 #
 # Collected rather than checked one at a time, so somebody setting this up is
 # told everything that is missing at once instead of one secret per release.
 missing=""
-[ -n "${CRIER_PUBLISH_INSTAGRAM_TOKEN:-}" ] || missing="$missing CRIER_PUBLISH_INSTAGRAM_TOKEN"
-[ -n "${CRIER_PUBLISH_INSTAGRAM_USER_ID:-}" ] || missing="$missing CRIER_PUBLISH_INSTAGRAM_USER_ID"
+if [ "$only" != "linkedin" ]; then
+	[ -n "${CRIER_PUBLISH_INSTAGRAM_TOKEN:-}" ] || missing="$missing CRIER_PUBLISH_INSTAGRAM_TOKEN"
+	[ -n "${CRIER_PUBLISH_INSTAGRAM_USER_ID:-}" ] || missing="$missing CRIER_PUBLISH_INSTAGRAM_USER_ID"
+fi
 
 # The tunnel is only needed when crier is staging the file itself. Pointing
 # CRIER_STAGE_MODE at s3 or at a URL somebody else publishes skips it, which is
 # the escape hatch for anyone who would rather not run a tunnel in CI.
 stage_mode=${CRIER_STAGE_MODE:-server}
-if [ "$stage_mode" = "server" ] && [ -z "${NGROK_AUTHTOKEN:-}" ]; then
+if [ "$only" != "linkedin" ] && [ "$stage_mode" = "server" ] && [ -z "${NGROK_AUTHTOKEN:-}" ]; then
 	missing="$missing NGROK_AUTHTOKEN"
 fi
 
@@ -109,7 +118,7 @@ sh "$here/notes.sh" >"$data"
 #
 # Instagram fetches the media from a public URL of its own accord, and a runner
 # has none. ngrok gives the stage server one for the length of the run.
-if [ "$stage_mode" = "server" ]; then
+if [ "$only" != "linkedin" ] && [ "$stage_mode" = "server" ]; then
 	# Idempotent: writing the same token again is not an error, and the agent
 	# reads its config file rather than the environment.
 	if ! ngrok config add-authtoken "$NGROK_AUTHTOKEN" >/dev/null 2>&1; then
@@ -307,7 +316,9 @@ if [ "$has_changelog" = 1 ]; then
 	ANNOUNCE_NO_COVER=1 sh "$here/notes.sh" >"$updates"
 fi
 
-if [ -n "$anthem_mp4" ] && [ "$has_changelog" = 1 ]; then
+if [ "$only" = "linkedin" ]; then
+	log "ANNOUNCE_ONLY=linkedin: the instagram passes stay quiet"
+elif [ -n "$anthem_mp4" ] && [ "$has_changelog" = 1 ]; then
 	post "feed post" "$updates" --publish-instagram-lead-video "$anthem_mp4" || failures=$((failures + 1))
 elif [ -n "$anthem_mp4" ]; then
 	# Nothing to page: the video is the whole carousel, and the image cover
@@ -316,8 +327,10 @@ elif [ -n "$anthem_mp4" ]; then
 else
 	post "feed post" "$data" || failures=$((failures + 1))
 fi
-anthem_story || failures=$((failures + 1))
-if [ "$has_changelog" = 0 ]; then
+[ "$only" = "linkedin" ] || anthem_story || failures=$((failures + 1))
+if [ "$only" = "linkedin" ]; then
+	: # the stories are instagram's
+elif [ "$has_changelog" = 0 ]; then
 	log "no changelog pages; the cover video is the whole story"
 else
 	post_updates() {

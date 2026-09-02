@@ -1301,3 +1301,92 @@ func TestAnnounceLinkedInFallsBackToAnAlbum(t *testing.T) {
 		}
 	}
 }
+
+// TestAnnounceOnlyLinkedInLeavesInstagramAlone: the replay mode exists for
+// the day a platform refuses a post for reasons of its own — v1.0.0's
+// graduation reel met a LinkedIn 500 twice — and re-running a whole release
+// is not an option once the tag exists. Only the linkedin pass runs: no
+// Instagram secrets wanted, no tunnel, not one Graph API call.
+func TestAnnounceOnlyLinkedInLeavesInstagramAlone(t *testing.T) {
+	requireSh(t)
+
+	graphCalls := 0
+	var posts int
+	liImages := 0
+	mux := http.NewServeMux()
+	srv := httptest.NewServer(mux)
+	t.Cleanup(srv.Close)
+	mux.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
+		switch {
+		case strings.HasPrefix(r.URL.Path, "/li/rest/videos/"):
+			_, _ = w.Write([]byte(`{"status":"AVAILABLE"}`))
+		case strings.HasPrefix(r.URL.Path, "/li/rest/videos"):
+			if r.URL.Query().Get("action") != "initializeUpload" {
+				w.WriteHeader(http.StatusOK)
+				return
+			}
+			var init struct {
+				Req struct {
+					Size int64 `json:"fileSizeBytes"`
+				} `json:"initializeUploadRequest"`
+			}
+			_ = json.NewDecoder(r.Body).Decode(&init)
+			_, _ = w.Write([]byte(fmt.Sprintf(`{"value":{"video":"urn:li:video:1",`+
+				`"uploadToken":"tk","uploadInstructions":[{"uploadUrl":"%s/li-upload-v",`+
+				`"firstByte":0,"lastByte":%d}]}}`, srv.URL, init.Req.Size-1)))
+		case strings.HasPrefix(r.URL.Path, "/li-upload"):
+			w.Header().Set("ETag", `"etag-0"`)
+			w.WriteHeader(http.StatusCreated)
+		case strings.HasPrefix(r.URL.Path, "/li/rest/images/"):
+			_, _ = w.Write([]byte(`{"status":"AVAILABLE"}`))
+		case strings.HasPrefix(r.URL.Path, "/li/rest/images"):
+			liImages++
+			_, _ = w.Write([]byte(`{"value":{"uploadUrl":"` + srv.URL +
+				`/li-upload/` + strconv.Itoa(liImages) +
+				`","image":"urn:li:image:` + strconv.Itoa(liImages) + `"}}`))
+		case strings.HasPrefix(r.URL.Path, "/li/rest/posts"):
+			posts++
+			w.Header().Set("x-restli-id", "urn:li:share:1")
+			w.WriteHeader(http.StatusCreated)
+		case strings.HasPrefix(r.URL.Path, "/li/"):
+			w.WriteHeader(http.StatusOK)
+		default:
+			// Anything outside /li/ would be a Graph API call this mode
+			// promised not to make.
+			graphCalls++
+			w.WriteHeader(http.StatusNotFound)
+		}
+	})
+
+	dir := t.TempDir()
+	_, stderr, code := runScript(t, "announce.sh", []string{
+		"ANNOUNCE_ONLY=linkedin",
+		"DISPAT_NEW_VERSION=9.9.9",
+		"DISPAT_OLD_VERSION=9.9.9-rc.17",
+		"DISPAT_OLD_CHANNEL=rc",
+		"DISPAT_CHANNEL=stable",
+		"DISPAT_FEATURES=one small feature",
+		"CRIER_PUBLISH_LINKEDIN_TOKEN=li-token",
+		"CRIER_PUBLISH_LINKEDIN_AUTHOR_URN=urn:li:person:e2e",
+		"CRIER_PUBLISH_LINKEDIN_API_BASE_URL=" + srv.URL + "/li",
+		// No Instagram secrets and no tunnel: the mode's whole point.
+		"CRIER_PUBLISH_INSTAGRAM_TOKEN=",
+		"CRIER_PUBLISH_INSTAGRAM_USER_ID=",
+		"NGROK_AUTHTOKEN=",
+		"CRIER_STAGE_MODE=url",
+		"CRIER_STAGE_URL=" + srv.URL + "/staged/card.jpg",
+		"ANNOUNCE_CRIER_BIN=" + buildAnnounceBinary(t, dir),
+	})
+	if code != 0 {
+		t.Fatalf("code=%d stderr=%s", code, stderr)
+	}
+	if posts == 0 {
+		t.Fatal("the linkedin pass never posted")
+	}
+	if graphCalls != 0 {
+		t.Errorf("made %d calls outside /li/; the instagram passes should stay quiet", graphCalls)
+	}
+	if !strings.Contains(stderr, "the instagram passes stay quiet") {
+		t.Errorf("the mode should say what it is skipping: %s", stderr)
+	}
+}

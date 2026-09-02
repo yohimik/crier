@@ -287,6 +287,8 @@ NGROK_AUTHTOKEN=… \
   sh announce/announce.sh
 ```
 
+`ANNOUNCE_ONLY=linkedin` replays the LinkedIn pass alone: no Instagram secrets wanted, no tunnel, not one Graph API call. It exists because a platform can refuse a post for reasons of its own — the v1.0.0 graduation reel met a LinkedIn 500 twice — and re-running a whole release is not an option once the tag exists. Check the profile for a half-created post first: a 500 does not promise nothing was made.
+
 To see the card without posting anything, run this:
 
 ```sh
