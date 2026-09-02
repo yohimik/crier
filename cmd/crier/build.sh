@@ -26,6 +26,7 @@ docker buildx build \
 	--file "$ROOT/Dockerfile" \
 	--target export \
 	--build-arg DISPAT_VERSION="${DISPAT_NEW_VERSION:-dev}" \
+	--build-arg DISPAT_COMMIT="$(git rev-parse --short=12 HEAD)" \
 	--build-arg DISPAT_EXPORT_BASE="$PWD/dist" \
 	--output "type=local,dest=$PWD/dist" \
 	"$ROOT"

@@ -118,13 +118,32 @@ FROM source AS build
 # The version the ldflags bake in. `dev` is what an un-stamped build reports,
 # so it is the honest default for a build run outside a release.
 ARG DISPAT_VERSION=dev
+
+# The commit the ldflags bake in. build.sh passes it, because build.sh runs
+# where git does. Left empty, the resolution below reads it out of .git, which
+# is why .dockerignore keeps that directory.
+ARG DISPAT_COMMIT=
 ARG TARGETARCH
 
 RUN --mount=type=cache,target=/root/.cache/go-build \
     --mount=type=cache,target=/go/pkg/mod \
     set -eu; \
     mkdir -p /out; \
-    commit="$(cat .git/HEAD 2>/dev/null || echo unknown)"; \
+    commit="${DISPAT_COMMIT}"; \
+    if [ -z "$commit" ] && [ -f .git/HEAD ]; then \
+      head="$(cat .git/HEAD)"; \
+      case "$head" in \
+        "ref: "*) \
+          ref="${head#ref: }"; \
+          if [ -f ".git/$ref" ]; then \
+            commit="$(cat ".git/$ref")"; \
+          else \
+            commit="$(grep -F " $ref" .git/packed-refs 2>/dev/null | cut -d' ' -f1 || true)"; \
+          fi ;; \
+        *) commit="$head" ;; \
+      esac; \
+    fi; \
+    commit="$(printf '%s' "${commit:-none}" | cut -c1-12)"; \
     date="$(date -u +%Y-%m-%dT%H:%M:%SZ)"; \
     assets=""; \
     for target in linux/amd64 linux/arm64 darwin/amd64 darwin/arm64 windows/amd64 windows/arm64; do \
@@ -135,12 +154,14 @@ RUN --mount=type=cache,target=/root/.cache/go-build \
       GOOS="$GOOS" GOARCH="$GOARCH" CGO_ENABLED=0 go build -trimpath \
         -ldflags "-s -w \
           -X github.com/yohimik/crier/internal/version.Version=${DISPAT_VERSION} \
+          -X github.com/yohimik/crier/internal/version.Commit=${commit} \
           -X github.com/yohimik/crier/internal/version.Date=${date}" \
         -o "/out/$name" ./cmd/crier; \
-      echo "built $name (version ${DISPAT_VERSION})"; \
+      echo "built $name (version ${DISPAT_VERSION}, commit ${commit})"; \
       assets="${assets}${assets:+ }$name"; \
     done; \
-    echo "DISPAT_EXPORT_GITHUB=$assets" > /out/dispat-output
+    echo "DISPAT_EXPORT_GITHUB=$assets" > /out/dispat-output; \
+    printf '%s' "$commit" > /commit
 
 # Every binary is read back to prove it is a Go executable for the platform its
 # name claims, and the linux ones are run: a binary that merely compiled is not
@@ -163,6 +184,11 @@ RUN set -eu; \
     if [ "${DISPAT_VERSION}" != "dev" ]; then \
       echo "$out" | grep -q "${DISPAT_VERSION}" || \
         { echo "the native binary reports the wrong version: $out" >&2; exit 1; }; \
+    fi; \
+    commit="$(cat /commit)"; \
+    if [ "$commit" != "none" ]; then \
+      echo "$out" | grep -q "$commit" || \
+        { echo "the native binary reports the wrong commit: $out (built $commit)" >&2; exit 1; }; \
     fi; \
     echo "executed crier-linux-${TARGETARCH}: $out"
 
