@@ -17,4 +17,7 @@ See [the Slack guide](../../publishing/slack.md) for how to get these values.
 | `publish.slack.token`<br>`CRIER_PUBLISH_SLACK_TOKEN`<br>`--publish-slack-token` | string | — | Slack bot token (xoxb-…) with files:write and chat:write **Secret**: redacted by `crier config`. |
 | `publish.slack.width`<br>`CRIER_PUBLISH_SLACK_WIDTH`<br>`--publish-slack-width` | int | — | render width for slack; 0 inherits render.width |
 
-[All groups](./README.md)
+A sample carrying every key with its default is at
+[`crier.example.yaml`](../../../crier.example.yaml).
+
+[All configuration](../README.md)

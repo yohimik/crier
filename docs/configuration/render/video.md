@@ -17,4 +17,7 @@ Rendering an animated template into an MP4. ffmpeg does the encoding and is a pr
 | `render.video.frames`<br>`CRIER_RENDER_VIDEO_FRAMES`<br>`--render-video-frames` | int | — | exact number of frames to render; 0 derives it from the duration and the frame rate |
 | `render.video.frames-input`<br>`CRIER_RENDER_VIDEO_FRAMES_INPUT`<br>`--render-video-frames-input` | string, path | — | directory or glob of existing frames to encode, instead of rendering them |
 
-[All groups](./README.md)
+A sample carrying every key with its default is at
+[`crier.example.yaml`](../../../crier.example.yaml).
+
+[All configuration](../README.md)

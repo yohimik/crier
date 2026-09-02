@@ -53,4 +53,4 @@ crier --dry-run
 
 This command prints the resolved caption for each platform. It makes no network calls.
 
-For configuration keys, check [`publish.caption`](../configuration/reference/publish.md) and each platform's own page.
+For configuration keys, check [`publish.caption`](../configuration/publish/README.md) and each platform's own page.

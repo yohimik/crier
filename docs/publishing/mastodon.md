@@ -47,4 +47,4 @@ A GIF uses the same v2 media endpoint as a video. This includes the 202-and-poll
 
 Set `render.video.format: gif`. See [video](../rendering/video.md).
 
-Configuration keys: [`publish.mastodon.*`](../configuration/reference/publish-mastodon.md).
+Configuration keys: [`publish.mastodon.*`](../configuration/publish/mastodon.md).

@@ -49,4 +49,4 @@ It posts nothing. The ping command reads the Page with `GET /{page-id}?fields=id
 
 **Not supported.** Facebook only supports MP4 files for animations. Setting `render.video.format: gif` with this platform enabled causes a configuration error before anything is rendered. Use `render.video.format: mp4`. See [video](../rendering/video.md).
 
-Configuration keys: [`publish.facebook.*`](../configuration/reference/publish-facebook.md).
+Configuration keys: [`publish.facebook.*`](../configuration/publish/facebook.md).

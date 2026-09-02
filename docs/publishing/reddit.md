@@ -81,4 +81,4 @@ A GIF is leased with mime type `image/gif`. Submit it as `kind=image` to keep it
 
 Set `render.video.format: gif`. See [video](../rendering/video.md).
 
-Configuration keys: [`publish.reddit.*`](../configuration/reference/publish-reddit.md).
+Configuration keys: [`publish.reddit.*`](../configuration/publish/reddit.md).

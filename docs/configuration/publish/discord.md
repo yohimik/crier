@@ -16,4 +16,7 @@ See [the Discord guide](../../publishing/discord.md) for how to get these values
 | `publish.discord.webhook-url`<br>`CRIER_PUBLISH_DISCORD_WEBHOOK_URL`<br>`--publish-discord-webhook-url` | string | — | full Discord webhook URL (it is the credential) **Secret**: redacted by `crier config`. |
 | `publish.discord.width`<br>`CRIER_PUBLISH_DISCORD_WIDTH`<br>`--publish-discord-width` | int | — | render width for discord; 0 inherits render.width |
 
-[All groups](./README.md)
+A sample carrying every key with its default is at
+[`crier.example.yaml`](../../../crier.example.yaml).
+
+[All configuration](../README.md)

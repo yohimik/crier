@@ -64,7 +64,7 @@ go tool cover -html=coverage/profile.txt
 
 ## The generated files
 
-The files `docs/configuration/reference/` and `crier.example.yaml` come from the configuration registry:
+The reference pages under `docs/configuration/` and the file `crier.example.yaml` come from the configuration registry:
 
 ```sh
 go run ./tools/gendocs

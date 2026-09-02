@@ -84,19 +84,21 @@ RUN apk add --no-cache shellcheck >/dev/null && \
 
 # --- documentation ------------------------------------------------------------
 #
-# docs/configuration/reference/ and crier.example.yaml are generated from the
-# configuration registry. A key added without documentation should fail here
-# rather than surprise somebody later, so both are regenerated and compared.
+# The reference pages under docs/configuration/ and crier.example.yaml are
+# generated from the configuration registry. A key added without documentation
+# should fail here rather than surprise somebody later, so both are regenerated
+# and compared. The whole directory is compared rather than the generated pages
+# alone, which also catches a page left behind by a group that was renamed.
 FROM source AS docs
 RUN --mount=type=cache,target=/root/.cache/go-build \
     --mount=type=cache,target=/go/pkg/mod \
     set -eu; \
     mkdir -p /before; \
-    cp -r docs/configuration/reference /before/reference; \
+    cp -r docs/configuration /before/configuration; \
     cp crier.example.yaml /before/crier.example.yaml; \
     go run ./tools/gendocs; \
-    diff -ru /before/reference docs/configuration/reference || { \
-      echo "docs/configuration/reference/ is stale; run: go run ./tools/gendocs" >&2; \
+    diff -ru /before/configuration docs/configuration || { \
+      echo "docs/configuration/ is stale; run: go run ./tools/gendocs" >&2; \
       exit 1; \
     }; \
     diff -u /before/crier.example.yaml crier.example.yaml || { \

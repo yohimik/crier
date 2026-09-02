@@ -30,4 +30,7 @@ See [the Reddit guide](../../publishing/reddit.md) for how to get these values.
 | `publish.reddit.username`<br>`CRIER_PUBLISH_REDDIT_USERNAME`<br>`--publish-reddit-username` | string | — | Reddit account name, also used in the mandatory User-Agent |
 | `publish.reddit.width`<br>`CRIER_PUBLISH_REDDIT_WIDTH`<br>`--publish-reddit-width` | int | — | render width for reddit; 0 inherits render.width |
 
-[All groups](./README.md)
+A sample carrying every key with its default is at
+[`crier.example.yaml`](../../../crier.example.yaml).
+
+[All configuration](../README.md)

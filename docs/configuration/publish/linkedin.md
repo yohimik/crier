@@ -18,4 +18,7 @@ See [the LinkedIn guide](../../publishing/linkedin.md) for how to get these valu
 | `publish.linkedin.version`<br>`CRIER_PUBLISH_LINKEDIN_VERSION`<br>`--publish-linkedin-version` | string | `202606` | value of the mandatory LinkedIn-Version header |
 | `publish.linkedin.width`<br>`CRIER_PUBLISH_LINKEDIN_WIDTH`<br>`--publish-linkedin-width` | int | — | render width for linkedin; 0 inherits render.width |
 
-[All groups](./README.md)
+A sample carrying every key with its default is at
+[`crier.example.yaml`](../../../crier.example.yaml).
+
+[All configuration](../README.md)

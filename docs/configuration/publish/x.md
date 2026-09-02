@@ -16,4 +16,7 @@ See [the X guide](../../publishing/x.md) for how to get these values.
 | `publish.x.token`<br>`CRIER_PUBLISH_X_TOKEN`<br>`--publish-x-token` | string | — | X OAuth 2.0 user access token **Secret**: redacted by `crier config`. |
 | `publish.x.width`<br>`CRIER_PUBLISH_X_WIDTH`<br>`--publish-x-width` | int | — | render width for x; 0 inherits render.width |
 
-[All groups](./README.md)
+A sample carrying every key with its default is at
+[`crier.example.yaml`](../../../crier.example.yaml).
+
+[All configuration](../README.md)

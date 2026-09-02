@@ -68,4 +68,4 @@ One seed covers the pool pick, every random function, every platform variant and
 
 Take a look at [`examples/social-quote`](../../examples/social-quote/). It has a pool of two layouts and a random accent. The seed is pinned in [`crier.yaml`](../../examples/social-quote/crier.yaml). This makes its committed preview reproducible.
 
-Configuration keys: [`render.pool` and `render.seed`](../configuration/reference/render.md).
+Configuration keys: [`render.pool` and `render.seed`](../configuration/render/README.md).

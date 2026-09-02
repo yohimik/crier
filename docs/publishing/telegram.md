@@ -50,4 +50,4 @@ Send a GIF using `sendAnimation` instead of `sendVideo`. The `sendVideo` method 
 
 Set `render.video.format: gif`. See [video](../rendering/video.md).
 
-Configuration keys: [`publish.telegram.*`](../configuration/reference/publish-telegram.md).
+Configuration keys: [`publish.telegram.*`](../configuration/publish/telegram.md).

@@ -125,4 +125,4 @@ Reddit requires a poster image with a video. crier renders frame 0 as a JPEG and
 
 If a platform cannot take video, it is a configuration error. crier finds this error before rendering anything.
 
-Configuration keys: [`render.video.*`](../configuration/reference/render-video.md).
+Configuration keys: [`render.video.*`](../configuration/render/video.md).

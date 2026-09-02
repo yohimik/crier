@@ -58,4 +58,4 @@ Nothing is posted: ping calls `GET /v2/userinfo`. See [the caveat](../operations
 
 **Not supported.** LinkedIn requires an MP4 upload for animations. Setting `render.video.format: gif` with this platform enabled is a configuration error. This error is caught before anything is rendered. Use `render.video.format: mp4` instead. See [video](../rendering/video.md).
 
-Configuration keys: [`publish.linkedin.*`](../configuration/reference/publish-linkedin.md).
+Configuration keys: [`publish.linkedin.*`](../configuration/publish/linkedin.md).

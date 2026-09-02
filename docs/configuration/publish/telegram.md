@@ -17,4 +17,7 @@ See [the Telegram guide](../../publishing/telegram.md) for how to get these valu
 | `publish.telegram.token`<br>`CRIER_PUBLISH_TELEGRAM_TOKEN`<br>`--publish-telegram-token` | string | — | Telegram bot token **Secret**: redacted by `crier config`. |
 | `publish.telegram.width`<br>`CRIER_PUBLISH_TELEGRAM_WIDTH`<br>`--publish-telegram-width` | int | — | render width for telegram; 0 inherits render.width |
 
-[All groups](./README.md)
+A sample carrying every key with its default is at
+[`crier.example.yaml`](../../../crier.example.yaml).
+
+[All configuration](../README.md)

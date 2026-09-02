@@ -20,4 +20,7 @@ See [the Mastodon guide](../../publishing/mastodon.md) for how to get these valu
 | `publish.mastodon.visibility`<br>`CRIER_PUBLISH_MASTODON_VISIBILITY`<br>`--publish-mastodon-visibility` | string | `public` | status visibility: public, unlisted, private or direct |
 | `publish.mastodon.width`<br>`CRIER_PUBLISH_MASTODON_WIDTH`<br>`--publish-mastodon-width` | int | — | render width for mastodon; 0 inherits render.width |
 
-[All groups](./README.md)
+A sample carrying every key with its default is at
+[`crier.example.yaml`](../../../crier.example.yaml).
+
+[All configuration](../README.md)

@@ -49,4 +49,4 @@ Upload a GIF through the chunked upload with `media_category=tweet_gif`. If you 
 
 Set `render.video.format: gif`. See [video](../rendering/video.md).
 
-Configuration keys: [`publish.x.*`](../configuration/reference/publish-x.md).
+Configuration keys: [`publish.x.*`](../configuration/publish/x.md).

@@ -6,8 +6,7 @@ crier renders an HTML template to an image or a video. It publishes this to ten 
 
 | Page | What it covers |
 | ---- | -------------- |
-| [Configuration](./configuration/README.md) | How the file, environment and flags compose, and how the file is found |
-| [Reference](./configuration/reference/README.md) | Every key, generated from the code |
+| [Configuration](./configuration/README.md) | How the file, environment and flags compose, how the file is found, and every key |
 | [`crier.example.yaml`](../crier.example.yaml) | Every option with its default, in one file |
 
 ## Templates

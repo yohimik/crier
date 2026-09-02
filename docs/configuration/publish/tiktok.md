@@ -20,4 +20,7 @@ See [the TikTok guide](../../publishing/tiktok.md) for how to get these values.
 | `publish.tiktok.token`<br>`CRIER_PUBLISH_TIKTOK_TOKEN`<br>`--publish-tiktok-token` | string | — | TikTok access token **Secret**: redacted by `crier config`. |
 | `publish.tiktok.width`<br>`CRIER_PUBLISH_TIKTOK_WIDTH`<br>`--publish-tiktok-width` | int | — | render width for tiktok; 0 inherits render.width |
 
-[All groups](./README.md)
+A sample carrying every key with its default is at
+[`crier.example.yaml`](../../../crier.example.yaml).
+
+[All configuration](../README.md)

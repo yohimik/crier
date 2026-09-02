@@ -64,4 +64,4 @@ Both methods work in hermetic mode. An unreadable directory causes an error. The
 Bundled fonts are files in your repository. Their licences travel with them. The examples use OFL faces. They keep each family's `OFL.txt` beside it.
 
 Configuration keys:
-[`render.hermetic-fonts`, `render.fonts-dir`, `render.base-url`](../configuration/reference/render.md).
+[`render.hermetic-fonts`, `render.fonts-dir`, `render.base-url`](../configuration/render/README.md).

@@ -148,4 +148,4 @@ The `crier --json` command reports the variants it rendered. It also shows which
 
 The [`examples/video-game-release`](../../examples/video-game-release/) project ships a 1920×1080 announcement and a 1080×1920 Instagram story. Both use one [`template.html`](../../examples/video-game-release/template.html). The story also includes [`story-overlay.html`](../../examples/video-game-release/story-overlay.html).
 
-This setup uses specific configuration keys. You will need [`render.overlays`](../configuration/reference/render.md). You also need `publish.<platform>.{overlay,width,height,fit,fit-background}`. You can find details for these on each platform's reference page.
+This setup uses specific configuration keys. You will need [`render.overlays`](../configuration/render/README.md). You also need `publish.<platform>.{overlay,width,height,fit,fit-background}`. You can find details for these on each platform's reference page.

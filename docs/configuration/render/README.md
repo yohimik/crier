@@ -25,4 +25,7 @@ What is drawn, how large, in which format, and with which fonts.
 | `render.template`<br>`CRIER_RENDER_TEMPLATE`<br>`--render-template` | string, path | — | path to the Go html/template file to render |
 | `render.width`<br>`CRIER_RENDER_WIDTH`<br>`--render-width` | int | `1080` | output width in CSS pixels (0 lets the document's @page rule decide) |
 
-[All groups](./README.md)
+A sample carrying every key with its default is at
+[`crier.example.yaml`](../../../crier.example.yaml).
+
+[All configuration](../README.md)

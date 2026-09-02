@@ -3,7 +3,7 @@
 # Publishing: custom platforms
 
 Any shell command can be a platform. The name is yours to choose, so these keys
-are written with `<name>` standing in for it — see
+are written with `<name>` standing in for it. See
 [the custom platform guide](../../publishing/custom.md).
 
 | Key | Type | Default | Description |
@@ -24,7 +24,7 @@ are written with `<name>` standing in for it — see
 | `publish.custom.<name>.env.<VAR>` | string | — | extra environment variables for the command |
 
 A name is lower-case letters, digits and dashes, and may not be one of the
-ten built-in platforms: it has to survive the round trip through an
+ten built-in platforms. It has to survive the round trip through an
 environment variable.
 
-[All groups](./README.md)
+[All configuration](../README.md)

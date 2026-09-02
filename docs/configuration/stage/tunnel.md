@@ -13,4 +13,7 @@ Used when `stage.mode` is `server` and the listener has to be reachable from the
 | `stage.server.tunnel.startup-timeout`<br>`CRIER_STAGE_SERVER_TUNNEL_STARTUP_TIMEOUT`<br>`--stage-server-tunnel-startup-timeout` | duration | `30s` | how long to wait for the tunnel to report a public URL |
 | `stage.server.tunnel.url-pattern`<br>`CRIER_STAGE_SERVER_TUNNEL_URL_PATTERN`<br>`--stage-server-tunnel-url-pattern` | string | — | regexp with one capture group finding the public URL in the tunnel output (custom mode) |
 
-[All groups](./README.md)
+A sample carrying every key with its default is at
+[`crier.example.yaml`](../../../crier.example.yaml).
+
+[All configuration](../README.md)

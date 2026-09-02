@@ -122,4 +122,4 @@ Prefer block layout with explicit padding over flexbox. See [CSS support](../ren
 - [Text overflow](./text-overflow.md): keeping a long value inside its box
 - [Fonts](./fonts.md): bundling your own, and reproducible output
 
-Configuration keys: [`render.*`](../configuration/reference/render.md).
+Configuration keys: [`render.*`](../configuration/render/README.md).

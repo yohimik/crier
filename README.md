@@ -211,12 +211,11 @@ Results go to standard output. Logs go to standard error. The [exit code](./docs
 
 [The index](./docs/README.md) links everything. These are the pages people reach for first:
 
-- [Configuration](./docs/configuration/README.md): how the three layers compose, and how the file is found.
+- [Configuration](./docs/configuration/README.md): how the three layers compose, how the file is found, and every key.
 - [Writing templates](./docs/templates/README.md), [overlays](./docs/templates/overlays.md), [captions](./docs/templates/captions.md), [text overflow](./docs/templates/text-overflow.md), and [fonts](./docs/templates/fonts.md).
 - [CSS support](./docs/rendering/css-support.md): what the engine implements.
 - [Publishing](./docs/publishing/README.md): includes a page per platform.
 - [Staging](./docs/staging/README.md): the public URL Instagram insists on.
-- [Configuration reference](./docs/configuration/reference/README.md): every key.
 
 ## Requirements
 

@@ -137,4 +137,4 @@ The command runs under `sh` on every platform. This means one configuration work
 
 [`examples/custom-platform/`](../../examples/custom-platform/) is a working project. It includes a template, a config, and a script. The script posts to a webhook with `curl`.
 
-You can find the configuration keys at [`publish.custom.*`](../configuration/reference/publish-custom.md).
+You can find the configuration keys at [`publish.custom.*`](../configuration/publish/custom.md).

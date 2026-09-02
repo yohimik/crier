@@ -20,4 +20,7 @@ streaming it, gets the upload timeout.
 | `http.timeout`<br>`CRIER_HTTP_TIMEOUT`<br>`--http-timeout` | duration | `60s` | per-request HTTP timeout for calls that carry no media |
 | `http.upload-timeout`<br>`CRIER_HTTP_UPLOAD_TIMEOUT`<br>`--http-upload-timeout` | duration | `10m` | per-request HTTP timeout for a request carrying media; covers the whole upload |
 
-[All groups](./README.md)
+A sample carrying every key with its default is at
+[`crier.example.yaml`](../../crier.example.yaml).
+
+[All configuration](./README.md)

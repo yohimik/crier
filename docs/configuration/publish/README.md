@@ -11,4 +11,7 @@ The fan-out itself: which platforms, how many at a time, and the shared caption.
 | `publish.dry-run`<br>`CRIER_PUBLISH_DRY_RUN`<br>`--publish-dry-run` | bool | — | render and validate only; make no network calls |
 | `publish.input`<br>`CRIER_PUBLISH_INPUT`<br>`--publish-input` | string, path | — | publish this existing file instead of rendering one |
 
-[All groups](./README.md)
+A sample carrying every key with its default is at
+[`crier.example.yaml`](../../../crier.example.yaml).
+
+[All configuration](../README.md)

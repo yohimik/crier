@@ -43,4 +43,4 @@ The `console` format is human-readable. It is coloured when your terminal suppor
 
 By default, the layout engine logs to standard output. This is also where crier sends its results. crier redirects this output. Progress becomes `trace`. Warnings become `warn`. Both get the `from=webrender` tag. Nothing it prints can corrupt a report.
 
-Configuration keys: [`log.*`](../configuration/reference/log.md).
+Configuration keys: [`log.*`](../configuration/log.md).

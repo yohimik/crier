@@ -78,4 +78,4 @@ This is an escape hatch for setups crier knows nothing about: a CDN, a static si
 
 This stages nothing. It works for platforms that accept bytes. Using it with platforms that do not accept bytes is a configuration error.
 
-Configuration keys: [`stage.*`](../configuration/reference/stage.md), [`stage.s3.*`](../configuration/reference/stage-s3.md), and [`stage.server.*`](../configuration/reference/stage-server.md).
+Configuration keys: [`stage.*`](../configuration/stage/README.md), [`stage.s3.*`](../configuration/stage/s3.md), and [`stage.server.*`](../configuration/stage/server.md).

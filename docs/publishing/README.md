@@ -111,4 +111,4 @@ crier ping
 
 It asks every enabled platform who its credentials belong to. It uses a read-only endpoint, so nothing is posted. This is how you find out a token is wrong without making a real post on a real feed. See [the command line](../operations/cli.md#crier-ping).
 
-Configuration keys: [`publish.*`](../configuration/reference/publish.md).
+Configuration keys: [`publish.*`](../configuration/publish/README.md).

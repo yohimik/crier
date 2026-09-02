@@ -9,4 +9,7 @@ Where the logs go, and how loud. Logs always go to standard error, so standard o
 | `log.format`<br>`CRIER_LOG_FORMAT`<br>`--log-format` | string | `console` | log format: console or json |
 | `log.level`<br>`CRIER_LOG_LEVEL`<br>`--log-level` | string | `info` | log level: trace, debug, info, warn, error |
 
-[All groups](./README.md)
+A sample carrying every key with its default is at
+[`crier.example.yaml`](../../crier.example.yaml).
+
+[All configuration](./README.md)

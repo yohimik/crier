@@ -10,4 +10,7 @@ Used when `stage.mode` is `server`.
 | `stage.server.public-url`<br>`CRIER_STAGE_SERVER_PUBLIC_URL`<br>`--stage-server-public-url` | string | — | base URL the stage server is reachable at from the internet |
 | `stage.server.shutdown-timeout`<br>`CRIER_STAGE_SERVER_SHUTDOWN_TIMEOUT`<br>`--stage-server-shutdown-timeout` | duration | `10s` | how long to wait for the stage server to shut down |
 
-[All groups](./README.md)
+A sample carrying every key with its default is at
+[`crier.example.yaml`](../../../crier.example.yaml).
+
+[All configuration](../README.md)

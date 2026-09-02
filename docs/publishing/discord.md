@@ -50,4 +50,4 @@ The GIF is attached exactly as it is. Discord animates it inline.
 
 Set `render.video.format: gif`. See [video](../rendering/video.md).
 
-Configuration keys: [`publish.discord.*`](../configuration/reference/publish-discord.md).
+Configuration keys: [`publish.discord.*`](../configuration/publish/discord.md).

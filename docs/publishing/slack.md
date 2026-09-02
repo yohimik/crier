@@ -78,4 +78,4 @@ Nothing is posted. Ping calls `auth.test`, which needs no scope at all. That is 
 
 `auth.test` says nothing about channel membership. This is the other half of a working setup. As a result, the row's note says which channel was configured. It also admits this could not be confirmed.
 
-Configuration keys: [`publish.slack.*`](../configuration/reference/publish-slack.md).
+Configuration keys: [`publish.slack.*`](../configuration/publish/slack.md).

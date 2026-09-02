@@ -59,4 +59,4 @@ The tool substitutes `{port}` and `{addr}` into the arguments. The `url-pattern`
 
 Setting `stage.server.public-url` **and** a tunnel mode is a configuration error. A tunnel discovers the URL itself. If you provide it twice, one of the two answers is wrong. This means crier cannot tell which one to use.
 
-Configuration keys: [`stage.server.tunnel.*`](../configuration/reference/stage-server-tunnel.md).
+Configuration keys: [`stage.server.tunnel.*`](../configuration/stage/tunnel.md).

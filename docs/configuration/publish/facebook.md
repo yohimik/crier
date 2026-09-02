@@ -19,4 +19,7 @@ See [the Facebook guide](../../publishing/facebook.md) for how to get these valu
 | `publish.facebook.use-url`<br>`CRIER_PUBLISH_FACEBOOK_USE_URL`<br>`--publish-facebook-use-url` | bool | — | send the staged URL instead of uploading the bytes |
 | `publish.facebook.width`<br>`CRIER_PUBLISH_FACEBOOK_WIDTH`<br>`--publish-facebook-width` | int | — | render width for facebook; 0 inherits render.width |
 
-[All groups](./README.md)
+A sample carrying every key with its default is at
+[`crier.example.yaml`](../../../crier.example.yaml).
+
+[All configuration](../README.md)

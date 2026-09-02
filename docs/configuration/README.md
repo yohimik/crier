@@ -29,7 +29,20 @@ $ crier config --set render.widht=900
 crier: --set: unknown key "render.widht"; did you mean render.width?
 ```
 
-Every key is in the [reference](./reference/README.md). Every key with its default is in [`crier.example.yaml`](../../crier.example.yaml).
+Every key with its default is in [`crier.example.yaml`](../../crier.example.yaml).
+
+## The reference
+
+These pages are generated from the code, so they cannot fall behind the keys crier reads.
+
+| Page | What it covers |
+| ---- | -------------- |
+| [Rendering](./render/README.md) | What is drawn, how large, in which format, with which fonts |
+| [Video rendering](./render/video.md) | The MP4 and GIF encode |
+| [Publishing](./publish/README.md) | The fan-out, and a page per platform |
+| [Staging](./stage/README.md) | Giving a rendered file a public URL |
+| [HTTP](./http.md) | Timeouts and retries for every request crier makes |
+| [Logging](./log.md) | Where the logs go, and how loud |
 
 ## Getting a file to start from
 

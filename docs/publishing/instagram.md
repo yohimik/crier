@@ -101,4 +101,4 @@ publish:
 
 The card is drawn at `render.width` × `render.height`. It is then resampled into the story frame. This means the approved design is exactly what goes out. The middle is kept and the edges are lost. This is done visibly and on purpose. See [fitting the platform](../templates/overlays.md#fitting-the-platform).
 
-Configuration keys: [`publish.instagram.*`](../configuration/reference/publish-instagram.md).
+Configuration keys: [`publish.instagram.*`](../configuration/publish/instagram.md).

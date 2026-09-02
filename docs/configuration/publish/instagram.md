@@ -20,4 +20,7 @@ See [the Instagram guide](../../publishing/instagram.md) for how to get these va
 | `publish.instagram.user-id`<br>`CRIER_PUBLISH_INSTAGRAM_USER_ID`<br>`--publish-instagram-user-id` | string | — | Instagram professional account user id |
 | `publish.instagram.width`<br>`CRIER_PUBLISH_INSTAGRAM_WIDTH`<br>`--publish-instagram-width` | int | — | render width for instagram; 0 inherits render.width |
 
-[All groups](./README.md)
+A sample carrying every key with its default is at
+[`crier.example.yaml`](../../../crier.example.yaml).
+
+[All configuration](../README.md)

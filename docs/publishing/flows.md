@@ -103,4 +103,4 @@ Frames are decoded one at a time rather than all at once. Holding ninety 1080-sq
 
 The first frame doubles as the poster image for [the platforms that need one](../rendering/video.md#publishing-a-video).
 
-Configuration keys: [`publish.input`](../configuration/reference/publish.md) and [`render.video.frames-input`](../configuration/reference/render-video.md).
+Configuration keys: [`publish.input`](../configuration/publish/README.md) and [`render.video.frames-input`](../configuration/render/video.md).

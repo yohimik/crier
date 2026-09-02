@@ -9,4 +9,7 @@ How a rendered file is given a public URL, for the platforms that fetch rather t
 | `stage.mode`<br>`CRIER_STAGE_MODE`<br>`--stage-mode` | string | `none` | how to publish a public image URL: none, s3, server or url |
 | `stage.url`<br>`CRIER_STAGE_URL`<br>`--stage-url` | string | — | pre-hosted image URL used when stage.mode is url |
 
-[All groups](./README.md)
+A sample carrying every key with its default is at
+[`crier.example.yaml`](../../../crier.example.yaml).
+
+[All configuration](../README.md)
