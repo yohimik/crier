@@ -389,7 +389,7 @@ func TestAnnouncePostsFeedThenStory(t *testing.T) {
 	// The changelog is longer than the cover page, so the card paginates and
 	// the feed post is a carousel: a child per page, then a parent listing
 	// them. Everything after that is the story pass.
-	var children, parents, stories, videoStories []url.Values
+	var children, pageChildren, leadChildren, parents, stories, videoStories []url.Values
 	for _, v := range containers {
 		switch {
 		case v.Get("media_type") == "STORIES" && v.Get("video_url") != "":
@@ -398,36 +398,72 @@ func TestAnnouncePostsFeedThenStory(t *testing.T) {
 			stories = append(stories, v)
 		case v.Get("media_type") == "CAROUSEL":
 			parents = append(parents, v)
+		case v.Get("is_carousel_item") == "true" && v.Get("video_url") != "":
+			// A video carousel child: video_url and is_carousel_item, and no
+			// media_type at all, which is what Meta documents.
+			children = append(children, v)
+			leadChildren = append(leadChildren, v)
 		case v.Get("is_carousel_item") == "true":
 			children = append(children, v)
+			pageChildren = append(pageChildren, v)
 		default:
 			t.Errorf("a container that is none of the kinds: %v", v)
 		}
 	}
-	if len(children) < 2 {
-		t.Fatalf("the feed post carried %d carousel children; the card should have paginated", len(children))
+	if len(pageChildren) < 2 {
+		t.Fatalf("the feed post carried %d page children; the card should have paginated", len(pageChildren))
 	}
 	if len(parents) != 1 {
 		t.Fatalf("created %d carousel parents, want one", len(parents))
 	}
-	if len(stories) != len(children) {
-		t.Errorf("posted %d stories for %d pages; every page should get one",
-			len(stories), len(children))
+	// The reel is the anthem video plus the changelog pages: the picture
+	// cover would only repeat what the video shows, so the story pass strips
+	// it and posts one picture story per changelog page.
+	if len(stories) != len(pageChildren)-1 {
+		t.Errorf("posted %d picture stories for %d changelog pages; the cover is the video's",
+			len(stories), len(pageChildren)-1)
 	}
-	// The anthem: one video story, after everything else — the cover held for
-	// sixteen seconds with the 1812 finale as its soundtrack. It renders only
-	// where ffmpeg is installed, and the announce script says so and carries
-	// on without it.
+
+	// The carousel opens with the anthem, where there was an ffmpeg to make
+	// one: every post row leads with the video that carries the music.
+	if _, err := exec.LookPath("ffmpeg"); err == nil {
+		if len(leadChildren) != 1 {
+			t.Fatalf("the feed carousel carried %d video children, want the one anthem", len(leadChildren))
+		}
+		if children[0].Get("video_url") == "" {
+			t.Error("the carousel's first child is not the anthem; the post opens with the fanfare")
+		}
+		if children[0].Has("media_type") {
+			t.Errorf("a video carousel child must carry no media_type, got %q",
+				children[0].Get("media_type"))
+		}
+	} else if len(leadChildren) != 0 {
+		t.Fatalf("a lead video went out with no ffmpeg to make it")
+	}
+	// The anthem: one video story, posted before the picture stories — the
+	// reel opens with the fanfare. It renders only where ffmpeg is installed,
+	// and the announce script says so and carries on without it.
 	if _, err := exec.LookPath("ffmpeg"); err == nil {
 		if len(videoStories) != 1 {
 			t.Fatalf("posted %d video stories, want the one anthem", len(videoStories))
 		}
-		last, err := url.ParseQuery(requests[lastContainerIndex(requests)].Body)
-		if err != nil {
-			t.Fatal(err)
-		}
-		if last.Get("video_url") == "" {
-			t.Error("the anthem story is not the last container; the fanfare comes after the news")
+		sawVideo := false
+		for _, r := range requests {
+			if !strings.HasSuffix(r.Path, "/media") {
+				continue
+			}
+			v, err := url.ParseQuery(r.Body)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if v.Get("media_type") != "STORIES" {
+				continue
+			}
+			if v.Get("video_url") != "" {
+				sawVideo = true
+			} else if !sawVideo {
+				t.Fatal("a picture story was created before the anthem; the reel opens with the fanfare")
+			}
 		}
 	} else if len(videoStories) != 0 {
 		t.Fatalf("a video story went out with no ffmpeg to make it")
@@ -479,6 +515,14 @@ func TestAnnouncePostsFeedThenStory(t *testing.T) {
 	}
 	if len(videoStories) == 1 && !strings.Contains(stderr, "posted the anthem story") {
 		t.Errorf("the anthem pass should be logged: %s", stderr)
+	}
+	// The clip is rendered once and posted twice: it opens the carousel and it
+	// opens the reel. A second encode would spend a minute of a release making
+	// a file crier already has.
+	if len(videoStories) == 1 {
+		if n := strings.Count(stderr, "rendering the anthem"); n != 1 {
+			t.Errorf("the anthem was rendered %d times, want once: %s", n, stderr)
+		}
 	}
 }
 
@@ -673,15 +717,4 @@ func TestSmokeHostileChangelog(t *testing.T) {
 	if strings.Contains(stderr, "pages-max") || strings.Contains(stderr, "will not allocate") {
 		t.Fatalf("the hostile changelog broke the render:\n%s", stderr)
 	}
-}
-
-// lastContainerIndex finds the final container-creation call.
-func lastContainerIndex(requests []recordedCall) int {
-	last := -1
-	for i, r := range requests {
-		if strings.HasSuffix(r.Path, "/media") {
-			last = i
-		}
-	}
-	return last
 }

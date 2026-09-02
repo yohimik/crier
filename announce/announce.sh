@@ -5,8 +5,14 @@
 # reason not to post is a message and an exit 0, never a failed release. A
 # missing secret must not turn a good release into a red build.
 #
-# Two passes per release from one card: the feed post at 1080x1080, then the
-# story, which is the same render fitted into 1080x1920.
+# One card and one clip per release, posted three ways: the feed carousel at
+# 1080x1080, the anthem as a story, then the changelog pages as stories fitted
+# into 1080x1920.
+#
+# The clip is rendered first, once, and used twice. It opens the feed carousel
+# as its lead video and it opens the story reel as the first story. Both
+# surfaces want the same sixteen seconds, and encoding them separately would
+# spend a minute of a release producing a file crier already has.
 #
 # The card paginates. A release with a long changelog lays out into several
 # pages, and each pass turns those into what its surface takes: the feed pass
@@ -65,7 +71,12 @@ log "announcing v$version with $crier"
 data=$(mktemp)
 frames_dir=""
 cover_data=""
-trap 'rm -rf "$data" "$frames_dir" "$cover_data"' EXIT
+updates_data=""
+anthem_dir=""
+# anthem_mp4 is the rendered clip, once it exists. Empty means there is none,
+# which is what every pass checks rather than assuming a file is there.
+anthem_mp4=""
+trap 'rm -rf "$data" "$frames_dir" "$cover_data" "$updates_data" "$anthem_dir"' EXIT
 sh "$here/notes.sh" >"$data"
 
 # --- staging ------------------------------------------------------------------
@@ -108,30 +119,37 @@ post() {
 	return 1
 }
 
-# --- the anthem story ---------------------------------------------------------
+# --- the anthem ---------------------------------------------------------------
 #
-# A third pass: the cover page, held for sixteen seconds as a video story with
-# announce/anthem.mp3 as its soundtrack — the one way audio reaches Instagram,
-# which takes no audio file and no track id (see docs/publishing/music.md and
-# announce/anthem.md). The changelog is not in this pass: the image stories
-# carry it, and this one is the fanfare.
+# The cover page, held for sixteen seconds with announce/anthem.mp3 as its
+# soundtrack — the one way audio reaches Instagram, which takes no audio file
+# and no track id (see docs/publishing/music.md and announce/anthem.md). The
+# changelog is not in this clip: the image stories carry it, and this is the
+# fanfare.
+#
+# It renders once and is posted twice, because both surfaces want the same
+# sixteen seconds: the feed carousel opens with it, and the story reel opens
+# with it. Encoding it a second time would burn a minute of a release to
+# produce a file crier already has.
 #
 # The cover renders once and is copied into frames, because 384 identical
 # layouts would cost minutes and one copied 384 times costs a second.
-anthem() {
+render_anthem() {
 	command -v ffmpeg >/dev/null 2>&1 || {
-		log "ffmpeg is not installed; skipping the anthem story"
+		log "ffmpeg is not installed; the release goes out without the anthem"
 		return 0
 	}
 	frames_dir=$(mktemp -d)
 	cover_data=$(mktemp)
+	anthem_dir=$(mktemp -d)
 	frames=$frames_dir
 	cover=$cover_data
 	DISPAT_BREAKING_CHANGES='' DISPAT_FEATURES='' DISPAT_FIXES='' \
 		sh "$here/notes.sh" >"$cover"
 	if ! "$crier" render --config "$here/crier.yaml" --render-data - \
-		--render-format png --render-output "$frames/cover.png" <"$cover"; then
-		log "the cover did not render; skipping the anthem story"
+		--render-format png --render-background '#ffffff' \
+		--render-output "$frames/cover.png" <"$cover"; then
+		log "the cover did not render; the release goes out without the anthem"
 		return 1
 	fi
 	i=0
@@ -140,17 +158,40 @@ anthem() {
 		cp "$frames/cover.png" "$frames/$(printf 'f%03d' "$i").png"
 	done
 	rm -f "$frames/cover.png"
-	log "posting the anthem story"
-	if "$crier" --config "$here/crier.yaml" --render-data - \
+
+	log "rendering the anthem"
+	if ! "$crier" render --config "$here/crier.yaml" --render-data - \
 		--render-video-enabled=true \
 		--render-video-fps 24 \
 		--render-video-frames-input "$frames" \
 		--render-video-audio "$here/anthem.mp3" \
+		--render-background '#ffffff' \
+		--render-output "$anthem_dir/anthem.mp4" <"$cover"; then
+		log "the anthem did not render; the release goes out without it"
+		return 1
+	fi
+	anthem_mp4=$anthem_dir/anthem.mp4
+	log "rendered the anthem to $anthem_mp4"
+	return 0
+}
+
+# --- the anthem story ---------------------------------------------------------
+#
+# The clip render_anthem already made, published as a story. No second render:
+# publish.input takes the file as it stands.
+anthem_story() {
+	[ -n "$anthem_mp4" ] || return 0
+	log "posting the anthem story"
+	# The cover's data still goes in on standard input. The card is not
+	# rendered in this mode, but the caption template is still resolved, and
+	# the config points render.data at stdin.
+	if "$crier" --config "$here/crier.yaml" --render-data - \
+		--publish-input "$anthem_mp4" \
 		--publish-instagram-story \
 		--publish-instagram-width 1080 \
 		--publish-instagram-height 1920 \
 		--publish-instagram-fit contain \
-		--publish-instagram-fit-background "#04140c" <"$cover"; then
+		--publish-instagram-fit-background "#04140c" <"$cover_data"; then
 		log "posted the anthem story"
 		return 0
 	fi
@@ -158,18 +199,46 @@ anthem() {
 	return 1
 }
 
+# The clip is made before anything is posted, because the feed post opens with
+# it: every post row leads with the video that carries the music.
+#
+# The reel reads in posting order: the anthem video is the cover story, the
+# changelog pages follow it as pictures. The picture cover would only repeat
+# what the video already shows, so the story pass strips it.
 failures=0
-post "feed post" || failures=$((failures + 1))
-post "stories" \
-	--publish-instagram-story \
-	--publish-instagram-width 1080 \
-	--publish-instagram-height 1920 \
-	--publish-instagram-fit contain \
-	--publish-instagram-fit-background "#04140c" ||
-	failures=$((failures + 1))
-anthem || failures=$((failures + 1))
+render_anthem || failures=$((failures + 1))
+if [ -n "$anthem_mp4" ]; then
+	post "feed post" --publish-instagram-lead-video "$anthem_mp4" || failures=$((failures + 1))
+else
+	post "feed post" || failures=$((failures + 1))
+fi
+anthem_story || failures=$((failures + 1))
+if [ -z "$(printf '%s' "${DISPAT_BREAKING_CHANGES:-}${DISPAT_FEATURES:-}${DISPAT_FIXES:-}" | tr -d '[:space:]')" ]; then
+	log "no changelog pages; the cover video is the whole story"
+else
+	updates=$(mktemp)
+	updates_data=$updates
+	ANNOUNCE_NO_COVER=1 sh "$here/notes.sh" >"$updates"
+	post_updates() {
+		log "posting the stories"
+		if "$crier" --config "$here/crier.yaml" --render-data - \
+			--publish-instagram-story \
+			--publish-instagram-width 1080 \
+			--publish-instagram-height 1920 \
+			--publish-instagram-fit contain \
+			--publish-instagram-fit-background "#04140c" <"$updates"; then
+			log "posted the stories"
+			return 0
+		fi
+		log "the stories did not post; see the log above"
+		return 1
+	}
+	post_updates || failures=$((failures + 1))
+fi
 
 if [ "$failures" -gt 0 ]; then
-	log "$failures of 3 passes did not go out; the release itself is unaffected"
+	# Four things can go wrong now rather than three: the anthem is rendered
+	# once and then posted twice, so its render is a step of its own.
+	log "$failures of the announcement's steps did not go out; the release itself is unaffected"
 fi
 exit 0

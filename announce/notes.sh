@@ -81,6 +81,9 @@ esc_version=$(printf '%s' "$version" | escape)
 # template stays a layout and the commands stay testable. All three routes the
 # README documents, each pinned to the version being announced.
 printf '{'
+# ANNOUNCE_NO_COVER strips the cover from the render: the story pass posts
+# the changelog pages alone, because the cover story is the anthem video.
+[ -z "${ANNOUNCE_NO_COVER:-}" ] || printf '"nocover":true,'
 printf '"version":"%s",' "$esc_version"
 printf '"sections":[%s],' "$sections"
 printf '"install":['

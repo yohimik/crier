@@ -164,7 +164,7 @@
 </style>
 </head>
 <body>
-  <div class="cover">
+  {{ if not .nocover }}<div class="cover">
     <div class="prompt">$ dispat release</div>
     <div class="badge">v{{ .version }}</div>
 
@@ -177,7 +177,7 @@
       <h2>INSTALL</h2>
       {{ range .install }}<div class="cmd"><span>$</span> {{ .command }}</div>{{ end }}
     </div>
-  </div>
+  </div>{{ end }}
 
   {{ range .sections }}
   <div class="section{{ if eq .label "BREAKING" }} breaking{{ end }}">
