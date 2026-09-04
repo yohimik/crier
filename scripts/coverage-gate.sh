@@ -13,6 +13,9 @@ PROFILE="${1:-coverage/profile.txt}"
 # reaches, so an ordinary change does not fail the gate and a package losing
 # its tests does.
 #
+# internal/template/exec is held lower because a third of it is type switches
+# over slice and map types a data document rarely produces, each a line that
+# exists so a value of that type is handled rather than refused.
 # internal/raster is held lower on purpose: it is a drawing backend whose
 # correctness is shown by the golden images rather than by exercising every
 # branch of every blend mode. internal/selfupdate is held lower because half
@@ -29,6 +32,7 @@ internal/publish	93
 internal/selfupdate	82
 internal/stage	91
 internal/template	96
+internal/template/exec	70
 internal/render	90
 internal/raster	83
 "
@@ -37,8 +41,11 @@ fail=0
 printf '%-24s %8s %8s\n' PACKAGE COVERAGE FLOOR >&2
 echo "$FLOORS" | while IFS='	' read -r pkg floor; do
 	[ -n "$pkg" ] || continue
+	# The package's own files only: a package's floor must not be blended
+	# with a subpackage's, which the exec package under internal/template
+	# would otherwise be.
 	pct=$(go tool cover -func="$PROFILE" |
-		grep "github.com/yohimik/crier/$pkg/" |
+		grep "github.com/yohimik/crier/$pkg/[^/]*\.go:" |
 		awk '{ gsub(/%/, "", $NF); total += $NF; n++ } END { if (n) printf "%.1f", total / n; else print "0" }')
 	printf '%-24s %7s%% %7s%%\n' "$pkg" "$pct" "$floor" >&2
 	awk -v got="$pct" -v want="$floor" 'BEGIN { exit (got + 0 >= want + 0) ? 0 : 1 }' || {

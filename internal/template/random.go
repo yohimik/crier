@@ -7,6 +7,8 @@ import (
 	"math"
 	"math/rand/v2"
 	"sync"
+
+	"github.com/yohimik/crier/internal/template/exec"
 )
 
 // goldenGamma is the second PCG stream selector. It only has to be an odd
@@ -104,16 +106,27 @@ func (s *Rand) Choose(n int) (int, bool) {
 //
 // They are in both the layout templates and the caption templates, because a
 // post that varies its picture and not its words is only half varied.
-func randomFuncs(s *Rand) map[string]any {
-	return map[string]any{
-		"randChoice": func(items ...any) (any, error) {
+func randomFuncs(s *Rand) exec.FuncMap {
+	return exec.FuncMap{
+		"randChoice": func(items []any) (any, error) {
 			flat := flatten(items)
 			if len(flat) == 0 {
 				return nil, fmt.Errorf("randChoice needs at least one item")
 			}
 			return flat[s.IntN(len(flat))], nil
 		},
-		"randInt": func(minimum, maximum int) (int, error) {
+		"randInt": func(args []any) (any, error) {
+			if err := exec.Arity("randInt", args, 2); err != nil {
+				return nil, err
+			}
+			minimum, err := exec.IntArg(args, 0)
+			if err != nil {
+				return nil, err
+			}
+			maximum, err := exec.IntArg(args, 1)
+			if err != nil {
+				return nil, err
+			}
 			if maximum < minimum {
 				return 0, fmt.Errorf("randInt: %d is below the minimum %d", maximum, minimum)
 			}
@@ -122,22 +135,38 @@ func randomFuncs(s *Rand) map[string]any {
 			}
 			return minimum + s.IntN(maximum-minimum+1), nil
 		},
-		"randFloat": func(minimum, maximum float64) (float64, error) {
+		"randFloat": func(args []any) (any, error) {
+			if err := exec.Arity("randFloat", args, 2); err != nil {
+				return nil, err
+			}
+			minimum, err := exec.FloatArg(args, 0)
+			if err != nil {
+				return nil, err
+			}
+			maximum, err := exec.FloatArg(args, 1)
+			if err != nil {
+				return nil, err
+			}
 			if maximum < minimum {
 				return 0, fmt.Errorf("randFloat: %v is below the minimum %v", maximum, minimum)
 			}
 			return minimum + s.Float64()*(maximum-minimum), nil
 		},
-		"randShuffle": func(items ...any) []any {
+		"randShuffle": func(items []any) (any, error) {
 			flat := flatten(items)
 			out := append([]any(nil), flat...)
 			for i := len(out) - 1; i > 0; i-- {
 				j := s.IntN(i + 1)
 				out[i], out[j] = out[j], out[i]
 			}
-			return out
+			return out, nil
 		},
-		"randSeed": func() int64 { return s.Seed() },
+		"randSeed": func(args []any) (any, error) {
+			if err := exec.Arity("randSeed", args, 0); err != nil {
+				return nil, err
+			}
+			return s.Seed(), nil
+		},
 	}
 }
 

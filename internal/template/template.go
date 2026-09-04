@@ -1,16 +1,22 @@
-// Package template turns a Go html/template file plus a data document into
-// the HTML the renderer lays out.
+// Package template turns a Go template file plus a data document into the
+// HTML the renderer lays out.
 //
 // The data may come from a JSON or YAML file, or from stdin, which is what
 // makes crier scriptable: a program that produces the numbers pipes them
 // straight into the template that draws them.
+//
+// The templates are Go's — the grammar of text/template and html/template,
+// parsed by the standard parser — executed by the exec package beside this
+// one, which walks the parse tree over plain values without reflection. See
+// that package for what it keeps of html/template (every value HTML-escaped
+// as text content) and what it leaves out (the URL, CSS and script contexts a
+// browser would need; crier's renderer is not one).
 package template
 
 import (
 	"bytes"
 	"encoding/json"
 	"fmt"
-	"html/template"
 	"io"
 	"os"
 	"path/filepath"
@@ -18,6 +24,8 @@ import (
 	"time"
 
 	"gopkg.in/yaml.v3"
+
+	"github.com/yohimik/crier/internal/template/exec"
 )
 
 // StdinName is the data path that means "read the document from stdin".
@@ -65,7 +73,7 @@ type Options struct {
 // layout, the captions and every frame of a video all draw from one seeded
 // stream and vary together rather than independently.
 type Engine struct {
-	funcs template.FuncMap
+	funcs exec.FuncMap
 	rnd   *Rand
 }
 
@@ -88,8 +96,8 @@ func NewWithRand(r *Rand) *Engine {
 // execution continues where the first left off — which makes a video strobe,
 // because each frame is another execution, and makes a platform variant differ
 // from the base card it is supposed to be a variant of.
-func (e *Engine) execFuncs() template.FuncMap {
-	out := make(template.FuncMap, len(e.funcs)+6)
+func (e *Engine) execFuncs() exec.FuncMap {
+	out := make(exec.FuncMap, len(e.funcs)+6)
 	for name, fn := range e.funcs {
 		out[name] = fn
 	}
@@ -104,30 +112,83 @@ func (e *Engine) Rand() *Rand { return e.rnd }
 
 // Funcs is the function set every crier template can use, apart from the
 // random helpers, which need a source and are added by NewWithRand.
-func Funcs() template.FuncMap {
-	return template.FuncMap{
-		"upper": strings.ToUpper,
-		"lower": strings.ToLower,
-		"title": func(s string) string {
+//
+// Each entry reads its arguments through the exec package's helpers, which
+// check the count and the types the way text/template's reflection did and
+// fail with the same words; the one deliberate widening is join, which takes
+// the list a data document decodes to as well as a []string.
+func Funcs() exec.FuncMap {
+	return exec.FuncMap{
+		"upper": stringFunc("upper", strings.ToUpper),
+		"lower": stringFunc("lower", strings.ToLower),
+		"title": stringFunc("title", func(s string) string {
 			if s == "" {
 				return s
 			}
 			return strings.ToUpper(s[:1]) + s[1:]
-		},
-		"trim":   strings.TrimSpace,
-		"join":   func(sep string, items []string) string { return strings.Join(items, sep) },
-		"repeat": strings.Repeat,
-		"now":    func() time.Time { return time.Now() },
-		"date": func(layout string, t time.Time) string {
-			return t.Format(layout)
-		},
-		"default": func(fallback, value any) any {
-			if isEmpty(value) {
-				return fallback
+		}),
+		"trim": stringFunc("trim", strings.TrimSpace),
+		"join": func(args []any) (any, error) {
+			if err := exec.Arity("join", args, 2); err != nil {
+				return nil, err
 			}
-			return value
+			sep, err := exec.StringArg(args, 0)
+			if err != nil {
+				return nil, err
+			}
+			items, err := exec.StringsArg(args, 1)
+			if err != nil {
+				return nil, err
+			}
+			return strings.Join(items, sep), nil
 		},
-		"dict": func(pairs ...any) (map[string]any, error) {
+		"repeat": func(args []any) (any, error) {
+			if err := exec.Arity("repeat", args, 2); err != nil {
+				return nil, err
+			}
+			s, err := exec.StringArg(args, 0)
+			if err != nil {
+				return nil, err
+			}
+			n, err := exec.IntArg(args, 1)
+			if err != nil {
+				return nil, err
+			}
+			if n < 0 {
+				return nil, fmt.Errorf("repeat: negative count %d", n)
+			}
+			return strings.Repeat(s, n), nil
+		},
+		"now": func(args []any) (any, error) {
+			if err := exec.Arity("now", args, 0); err != nil {
+				return nil, err
+			}
+			return time.Now(), nil
+		},
+		"date": func(args []any) (any, error) {
+			if err := exec.Arity("date", args, 2); err != nil {
+				return nil, err
+			}
+			layout, err := exec.StringArg(args, 0)
+			if err != nil {
+				return nil, err
+			}
+			t, err := exec.TimeArg(args, 1)
+			if err != nil {
+				return nil, err
+			}
+			return t.Format(layout), nil
+		},
+		"default": func(args []any) (any, error) {
+			if err := exec.Arity("default", args, 2); err != nil {
+				return nil, err
+			}
+			if isEmpty(args[1]) {
+				return args[0], nil
+			}
+			return args[1], nil
+		},
+		"dict": func(pairs []any) (any, error) {
 			if len(pairs)%2 != 0 {
 				return nil, fmt.Errorf("dict wants an even number of arguments, got %d", len(pairs))
 			}
@@ -141,6 +202,21 @@ func Funcs() template.FuncMap {
 			}
 			return out, nil
 		},
+	}
+}
+
+// stringFunc wraps a string-to-string function as a template function of one
+// string argument.
+func stringFunc(name string, fn func(string) string) exec.Func {
+	return func(args []any) (any, error) {
+		if err := exec.Arity(name, args, 1); err != nil {
+			return nil, err
+		}
+		s, err := exec.StringArg(args, 0)
+		if err != nil {
+			return nil, err
+		}
+		return fn(s), nil
 	}
 }
 
@@ -190,8 +266,8 @@ func (e *Engine) RenderWith(o Options, data any) (string, error) {
 	}
 	data = merge(data, o.Extra)
 
-	tpl, err := template.New(filepath.Base(o.Path)).Funcs(e.execFuncs()).Parse(string(body))
-	if err != nil {
+	tpl := exec.New(filepath.Base(o.Path)).HTML().Funcs(e.execFuncs())
+	if _, err := tpl.Parse(string(body)); err != nil {
 		return "", fmt.Errorf("parsing template %s: %w", o.Path, err)
 	}
 	// Later definitions win, so the overlays are parsed in the order the caller
@@ -339,8 +415,8 @@ func readLimited(path string) ([]byte, error) {
 	return raw, nil
 }
 
-// normalise turns the map[any]any a YAML mapping can decode into something
-// html/template can index by name.
+// normalise turns the map[any]any a YAML mapping can decode into something a
+// template can index by name.
 func normalise(v any) any {
 	switch t := v.(type) {
 	case map[any]any:

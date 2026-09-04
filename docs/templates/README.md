@@ -1,6 +1,6 @@
 # Writing templates
 
-A crier template is a Go [`html/template`](https://pkg.go.dev/html/template) file. It produces an HTML document. Then, crier lays out that document and paints it into an image.
+A crier template is a Go template file, in the syntax of [`html/template`](https://pkg.go.dev/html/template): actions in `{{ }}`, `if`, `range`, `with`, `define`, `block` and `template`, variables, pipelines and functions. It produces an HTML document. Then, crier lays out that document and paints it into an image. crier executes the template with an engine of its own rather than the standard library's, so it can be built by toolchains without reflection; the [differences](#how-values-are-escaped) are few and listed below.
 
 ```sh
 crier render --render-template card.html --render-data card.yaml --render-output card.png
@@ -96,6 +96,17 @@ The captions see the same document as the layout. One source covers the whole ru
 | `now`, `date` | `{{ date "2 January 2006" now }}` |
 
 The random helpers are in [pools and randomisation](./pools.md). These are `randChoice`, `randInt`, `randFloat`, and `randShuffle`.
+
+`join` takes a list from the data document as it is. A YAML or JSON list arrives as a list of values, and `join ", " .tags` joins it when every item is a string.
+
+## How values are escaped
+
+Every value an action prints is HTML-escaped the way `html/template` escapes text: `<`, `>`, `&`, `'`, `"` and `+` become entities, so a title that contains `<b>` is drawn as those four characters rather than read as a tag. This is the one escaping rule. `html/template` also knows the context an action sits in and escapes differently inside a `href`, a `<style>` block or a `<script>`; crier's engine does not, because the HTML it produces is read by crier's own renderer and never by a browser, and a renderer needs entities to be entities and nothing more. A colour in `style="color: {{ .accent }}"` comes out as the colour you gave. Two consequences:
+
+- The `html` function may end a pipeline (`{{ .x | html }}`) and nothing else, as in `html/template`. Its output is not escaped a second time.
+- Comments stay. `html/template` removed HTML comments and CSS comments from the template's own text; crier leaves them where you wrote them, and the renderer skips them.
+
+A value that is not there prints as nothing in a layout and as `<no value>` in a [caption](./captions.md), where a missing key is an error before it is posted. Method calls are supported on times only: `{{ now.Year }}`, `{{ (now).Format "2006" }}`, `{{ .when.IsZero }}` and the rest of `time.Time`'s value methods. A field on a number or a string is an error, as it always was.
 
 ## Layout that works
 

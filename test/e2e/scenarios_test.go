@@ -3609,10 +3609,15 @@ func TestSmokeVersionFlag(t *testing.T) {
 	if res.Code != exitOK || !strings.Contains(res.Stdout, "crier") {
 		t.Fatalf("code=%d stdout=%q", res.Code, res.Stdout)
 	}
-	for _, want := range []string{"commit ", "built ", "go1."} {
+	for _, want := range []string{"commit ", "built "} {
 		if !strings.Contains(res.Stdout, want) {
 			t.Errorf("the version line has no %q: %q", want, res.Stdout)
 		}
+	}
+	// The toolchain's version: go1.x from gc, and TinyGo's own, labelled,
+	// from a TinyGo build.
+	if !strings.Contains(res.Stdout, "go1.") && !strings.Contains(res.Stdout, "tinygo ") {
+		t.Errorf("the version line names no toolchain: %q", res.Stdout)
 	}
 
 	res = crier(t, t.TempDir(), nil, "--version", "--json")

@@ -4,7 +4,8 @@ import (
 	"bytes"
 	"fmt"
 	"strings"
-	texttemplate "text/template"
+
+	"github.com/yohimik/crier/internal/template/exec"
 )
 
 // PlatformKey is the name the platform is bound to inside a caption template.
@@ -65,8 +66,8 @@ func (e *Engine) RenderCaptionAt(tmpl string, data any, platform string, at Pagi
 	if !strings.Contains(tmpl, "{{") {
 		return tmpl, nil
 	}
-	t, err := texttemplate.New("caption").
-		Funcs(texttemplate.FuncMap(e.execFuncs())).
+	t, err := exec.New("caption").
+		Funcs(e.execFuncs()).
 		Option("missingkey=error").
 		Parse(tmpl)
 	if err != nil {

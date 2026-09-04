@@ -37,7 +37,7 @@ func Get() Info {
 		Version:   Version,
 		Commit:    Commit,
 		Date:      Date,
-		GoVersion: runtime.Version(),
+		GoVersion: toolchain + runtime.Version(),
 		Platform:  runtime.GOOS + "/" + runtime.GOARCH,
 	}
 	bi, ok := debug.ReadBuildInfo()

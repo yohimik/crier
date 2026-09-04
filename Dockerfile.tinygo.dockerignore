@@ -16,3 +16,6 @@
 
 # The export folder of a release build: output rather than source.
 cmd/crier/dist
+
+# The announcement, whose scripts and fonts the black-box suite drives.
+!announce
