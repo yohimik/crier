@@ -16,6 +16,11 @@
 # dispat and no Go toolchain of its own. Cross-compilation is Go's own from one
 # native builder — no --platform fan-out and no emulation, which is why six
 # targets cost roughly what one does.
+#
+# Every binary is gc's. Whether a TinyGo fork could build smaller ones is the
+# question Dockerfile.tinygo asks; docs/operations/tinygo.md has the answer,
+# which as of the fork's 0.43.0-net.1 is that a fork-built crier links but
+# cannot render, so nothing here is built with it.
 ARG GO_VERSION=1.26
 
 # --- dependencies -------------------------------------------------------------
@@ -77,9 +82,19 @@ RUN apk add --no-cache shellcheck >/dev/null && actionlint -color && echo "actio
 # The scripts are the install story and the release announcement, which is to
 # say they are the parts most likely to be run by somebody who cannot debug
 # them.
+#
+# The darwin half of the TinyGo spike is checked apart from the rest: it is the
+# one script that runs without `set -e` on purpose (its probes never abort, the
+# logs are what it produces), so shellcheck cannot see that a failing `cd`
+# there is followed by commands which record their own failure. Its `cd` calls
+# fail through `die` like anything fatal there; only the grouped-redirect style
+# note (SC2129) is left alone, because one log line per probe is the shape its
+# logs are read in.
 FROM source AS shellcheck
 RUN apk add --no-cache shellcheck >/dev/null && \
-    shellcheck install.sh announce/announce.sh announce/notes.sh cmd/crier/build.sh && \
+    shellcheck install.sh announce/announce.sh announce/notes.sh cmd/crier/build.sh \
+      scripts/install-tools.sh && \
+    shellcheck --exclude=SC2129 scripts/tinygo-spike-darwin.sh && \
     echo "shellcheck: clean"
 
 # --- documentation ------------------------------------------------------------

@@ -1,0 +1,18 @@
+# The build context of Dockerfile.tinygo alone: BuildKit reads a
+# <dockerfile>.dockerignore in preference to the one at the repository root,
+# so this can be exact where the root file only subtracts. The spike reads the
+# module, the install manifest it fetches the fork with, and one example
+# project for the render probe; the announcement's fonts and audio, the docs
+# and .git are none of its business.
+*
+!go.mod
+!go.sum
+!cmd
+!internal
+!test
+!tools
+!scripts
+!examples
+
+# The export folder of a release build: output rather than source.
+cmd/crier/dist

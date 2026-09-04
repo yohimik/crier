@@ -1,0 +1,1118 @@
+# syntax=docker/dockerfile:1
+#
+# The TinyGo spike: whether TinyGo can build crier, and what the binaries it
+# produces can actually do. A CI job needs a TinyGo toolchain for none of it,
+# exactly as the root Dockerfile's gates need no Go toolchain.
+#
+# It is dispat's spike, brought over: the same stages, the same probes, the
+# same instruments, asked of this repository's binary. dispat's answer, as of
+# upstream TinyGo 0.42.0, is no, and the reason is the TLS: TinyGo ships a
+# port of `net` over netdev, its network device driver interface, and while
+# 0.42.0 grew a host netdev on linux, its crypto/tls is still an offload stub.
+# tls.Dial returns a nil error, an https request ends in "unexpected EOF"
+# because the server closed on the plaintext it received, and the assertion
+# server at the far end of the wire records first-bytes=504c41
+# clienthello=false — the probe's own payload, unencrypted. Every network path
+# crier has is https: fourteen platform APIs, S3, self-update's listing and
+# download. tinygo-spike-net proves it a layer at a time, with a gc binary
+# built from the same source in the same container as the control.
+#
+# crier adds a second reason upstream cannot build it, found before the first
+# was even reachable: minio-go, the S3 stage, imports net/http/cookiejar
+# through golang.org/x/net/publicsuffix, and TinyGo's net/http tree is taken
+# whole rather than merged with Go's, so the package "is not in std" and the
+# build stops at that import. tinygo-spike-build records it; the fork stages
+# lay Go's own cookiejar over the installed tree through
+# scripts/install-tools.sh, which is the one place that workaround lives.
+#
+# THE FORK. github.com/yohimik/tinygo closes the gap the verdict rests on — a
+# real crypto/tls with a real certificate verifier, over a netdev that speaks
+# to the host's sockets on both linux and darwin, real process spawning and
+# real signal delivery — and tinygo-spike-fork, tinygo-spike-selfupdate and
+# tinygo-spike-e2e ask it the questions the verdict left open: crier's own
+# self-update, built by the fork, updating itself against a fake GitHub
+# release server over real TLS; the renderer, which is the half of crier
+# dispat has no counterpart for; and the whole black-box suite driven against
+# the fork-built binary.
+#
+# Real TLS is the whole point of that pairing. A stubbed crypto/tls answers
+# "did https work" cheerfully while sending plaintext, so the matrix is built
+# out of the things a stub cannot fake: a certificate signed by a CA the
+# client must actually verify, a run with that CA withheld that must fail, a
+# plaintext request the TLS listener must refuse, and a connection log taken
+# from the far end of the wire.
+#
+# Separate from the root Dockerfile on purpose. The gc gates own the unit
+# suite, coverage, the golden images and the lint — none of which TinyGo
+# implements — so the two toolchains are two files rather than two halves of
+# one, and churn here can never bust the gc gates' layer cache.
+#
+# Nothing a release ships is built with TinyGo. As of the fork's 0.43.0-net.1
+# a fork-built crier links and runs, reports its version, and panics on its
+# first template: TinyGo's reflect implements none of the function
+# introspection text/template lives on (Type.NumOut, Type.In, Value.Call), so
+# no template ever executes and crier renders nothing. docs/operations/tinygo.md
+# has the whole answer; this file is what to re-run when it changes.
+#
+# No target here aborts. What a spike is for is the log, and a build that dies
+# on the first failure reports one fact where the kill matrix needs all of
+# them, so each step records its own exit status and the export stage collects
+# the logs whatever they say. They land in coverage/tinygo-spike/.
+#
+# Two chains, two base images. The upstream stages run on tinygo/tinygo, which
+# carries both toolchains: gc for `go mod download`, for the gc baseline the
+# sizes are measured against and for the control the network probe needs,
+# TinyGo for everything else. The fork stages run on the golang image at the
+# Go the fork builds against: the upstream image's Go is a minor ahead of what
+# the fork's runtime overrides know (its internal/runtime/maps wants an
+# abi.MapType the fork's internal/abi has not got), so a fork build there stops
+# in the standard library before it reaches crier. Both images are
+# Debian-based, not alpine.
+#
+# The pins, never passed as --build-arg, exactly as GO_VERSION is the pin in
+# the root Dockerfile. Re-asking the upstream question is bumping
+# TINYGO_VERSION; re-asking the fork's is bumping the one number in
+# scripts/install-tools.sh, and GO_VERSION here follows what that fork
+# supports.
+ARG TINYGO_VERSION=0.42.0
+ARG GO_VERSION=1.26
+
+# The dispat that installs the fork, out of the image dispat publishes: the
+# install manifest is one `dispat install` line, and this is where the
+# container gets a dispat to run it with. The same tag the root Dockerfile's
+# tiny-toolchain stage copies from.
+ARG DISPAT_CLI_VERSION=1.7.2
+FROM yohimik/dispat-debian:${DISPAT_CLI_VERSION} AS dispat-cli
+
+FROM tinygo/tinygo:${TINYGO_VERSION} AS base
+
+# An unprivileged user, for the same reason dispat's gates run as one: the
+# suites inject failures by making folders read-only, and root does not honour
+# file permissions, so a root run turns those tests' expected errors into
+# successes that fail them. The image ships a uid-1000 tinygo user, which is
+# not that user, so gopher is created rather than reused.
+USER root
+RUN useradd --create-home --uid 1001 gopher
+WORKDIR /src
+RUN chown gopher:gopher /src
+
+ENV HOME=/home/gopher
+ENV GOPATH=/home/gopher/go
+ENV GOCACHE=/home/gopher/.cache/go-build
+# TinyGo keeps its own build cache beside Go's, and writes it under $HOME.
+ENV GOTMPDIR=/home/gopher/.cache/tmp
+RUN mkdir -p /home/gopher/.cache/tmp /out \
+ && chown -R gopher:gopher /home/gopher/.cache /out
+USER gopher
+
+# The dependency layer every probe shares: the manifests alone, before any
+# source. Downloaded with the gc toolchain, which is what populates the module
+# cache TinyGo reads from as well.
+FROM base AS deps
+COPY --chown=gopher:gopher go.mod go.sum ./
+RUN go mod download
+
+# The source: the binary's own folders and one example project, which the run
+# probe renders. The test suites are copied by the stages that run them, so a
+# test-only edit never re-runs a build probe.
+FROM deps AS src
+COPY --chown=gopher:gopher cmd ./cmd
+COPY --chown=gopher:gopher internal ./internal
+COPY --chown=gopher:gopher examples ./examples
+
+# ---------------------------------------------------------------------------
+# The probes. Every target below tees its own log and exits 0.
+# ---------------------------------------------------------------------------
+
+# The build probe and the size record. Both toolchains build the same four
+# unix targets from the same source in the same image, so the sizes compare
+# like with like: the gc column is the release pipeline's exact line
+# (-trimpath -s -w), the TinyGo column is the line a release would replace it
+# with. The kill row is a TinyGo binary within ~20% of its gc twin.
+#
+# Upstream stops at net/http/cookiejar (see the header), which this stage
+# records rather than works around: the fork stages below are where crier is
+# asked with the overlay in place, and a size for an upstream binary that
+# cannot exist would be a size of nothing.
+FROM src AS tinygo-spike-build
+RUN <<'EOF'
+set -u
+mkdir -p /src/spike
+log=/src/spike/build.log
+: > "$log"
+cd /src
+V=github.com/yohimik/crier/internal/version.Version
+for target in linux/amd64 linux/arm64 darwin/amd64 darwin/arm64; do
+  GOOS="${target%/*}"; GOARCH="${target#*/}"
+  echo "=== tinygo build $GOOS/$GOARCH ===" >> "$log"
+  GOOS="$GOOS" GOARCH="$GOARCH" tinygo build -opt=z -no-debug -tags noasm \
+    -interp-timeout=15m -ldflags="-X $V=0.0.0-spike" \
+    -o "/out/tinygo-crier-$GOOS-$GOARCH" ./cmd/crier >> "$log" 2>&1
+  echo "exit=$?" >> "$log"
+  echo "=== gc build $GOOS/$GOARCH ===" >> "$log"
+  GOOS="$GOOS" GOARCH="$GOARCH" CGO_ENABLED=0 go build -trimpath \
+    -ldflags "-s -w -X $V=0.0.0-spike" \
+    -o "/out/gc-crier-$GOOS-$GOARCH" ./cmd/crier >> "$log" 2>&1
+  echo "exit=$?" >> "$log"
+done
+{
+  echo "target                tinygo        gc            ratio"
+  for target in linux/amd64 linux/arm64 darwin/amd64 darwin/arm64; do
+    GOOS="${target%/*}"; GOARCH="${target#*/}"
+    t=$(wc -c < "/out/tinygo-crier-$GOOS-$GOARCH" 2>/dev/null || echo 0)
+    g=$(wc -c < "/out/gc-crier-$GOOS-$GOARCH" 2>/dev/null || echo 0)
+    if [ "$g" -gt 0 ] && [ "$t" -gt 0 ]; then
+      r=$(awk -v t="$t" -v g="$g" 'BEGIN{printf "%.3f", t/g}')
+    else
+      r="n/a"
+    fi
+    printf '%-20s  %-12s  %-12s  %s\n' "$GOOS/$GOARCH" "$t" "$g" "$r"
+  done
+} | tee /src/spike/sizes.log
+cat "$log"
+exit 0
+EOF
+
+# The execution probe: does the binary run at all, does it report its own
+# platform and the version the linker was asked for, does the pure-Go layout
+# engine and rasterizer render a card, and does TinyGo's own net stack reach
+# api.github.com. The last is the kill row with no first-party remedy — every
+# network path crier has is HTTPS.
+#
+# `self-update --check` is the https probe: it lists the releases and reports
+# whether a newer one exists, exit 1 when there is, which for a binary stamped
+# 0.0.0-spike is the good answer; a TLS failure is an error instead. The bare
+# net/tls probe in the next stage is what says whether an answer is about
+# crier or about the toolchain.
+FROM tinygo-spike-build AS tinygo-spike-run
+ARG TARGETARCH
+RUN <<'EOF'
+set -u
+log=/src/spike/run.log
+: > "$log"
+bin=/out/tinygo-crier-linux-${TARGETARCH}
+echo "=== native arch: ${TARGETARCH} ===" >> "$log"
+echo "=== $bin --version ===" >> "$log"
+"$bin" --version >> "$log" 2>&1
+echo "exit=$?" >> "$log"
+echo "=== render probe: examples/business-promo ===" >> "$log"
+"$bin" render --config /src/examples/business-promo/crier.yaml \
+  --render-output /tmp/card.png >> "$log" 2>&1
+echo "exit=$?" >> "$log"
+ls -la /tmp/card.png >> "$log" 2>&1
+echo "=== https probe: self-update --check ===" >> "$log"
+"$bin" self-update --check --json >> "$log" 2>&1
+echo "exit=$?" >> "$log"
+echo "=== https probe: gc twin, for comparison ===" >> "$log"
+/out/gc-crier-linux-${TARGETARCH} self-update --check --json >> "$log" 2>&1
+echo "exit=$?" >> "$log"
+cat "$log"
+exit 0
+EOF
+
+# The bare net stack and the linker's -X, both toolchains, one question at a
+# time. Its own stage because the module is written here rather than checked
+# in: it is the spike's instrument, not the repository's code, and asking about
+# -X with a program of its own is what keeps the answer independent of how
+# crier happens to declare its own version today (internal/version declares it
+# with an initialiser, which TinyGo 0.41.1 silently refused to stamp and
+# 0.42.0 and the fork both stamp; the ldflags row is where that is recorded).
+FROM tinygo-spike-run AS tinygo-spike-net
+COPY --chown=gopher:gopher <<'PROBE' /src/netprobe/main.go
+package main
+
+// The four network layers crier needs, each asked on its own, so a failure
+// names the layer it happened at rather than the command that reached it, plus
+// the two ways a version can be declared for -X to find, plus the client half
+// of the tls-reality check (the server half lives in the net stage).
+
+import (
+	"crypto/tls"
+	"fmt"
+	"net"
+	"net/http"
+	"os"
+	"time"
+)
+
+// The two declarations -X can be pointed at. TinyGo 0.41.1 applied the flag
+// to the bare one and silently ignored it for the one with an initialiser,
+// which is the difference this probe exists to report; gc stamps both.
+var (
+	Bare      string
+	Initialed = "dev"
+)
+
+func main() {
+	switch os.Args[1] {
+	case "ldflags":
+		fmt.Printf("bare=%q initialed=%q\n", Bare, Initialed)
+	case "tcp":
+		c, err := net.DialTimeout("tcp", "api.github.com:443", 15*time.Second)
+		fmt.Println("tcp err:", err)
+		if c != nil {
+			c.Close()
+		}
+	case "tls":
+		c, err := tls.Dial("tcp", "api.github.com:443", &tls.Config{ServerName: "api.github.com"})
+		fmt.Println("tls err:", err)
+		if c != nil {
+			c.Close()
+		}
+	case "http":
+		resp, err := (&http.Client{Timeout: 15 * time.Second}).Get("http://example.com")
+		fmt.Println("plain http err:", err)
+		if resp != nil {
+			fmt.Println("plain http status:", resp.Status)
+			resp.Body.Close()
+		}
+	case "https":
+		resp, err := (&http.Client{Timeout: 15 * time.Second}).Get("https://api.github.com/")
+		fmt.Println("https err:", err)
+		if resp != nil {
+			fmt.Println("https status:", resp.Status)
+			resp.Body.Close()
+		}
+	case "tlslocal":
+		// The client half of the TLS reality check: dial the local assertion
+		// server (tlsreality, gc-built), which reports what actually arrived
+		// on its socket. The error printed here proves nothing on its own — a
+		// stubbed crypto/tls returns nil errors all the way to a plaintext
+		// socket — which is exactly why the server holds the verdict.
+		// InsecureSkipVerify keeps the question to the record layer;
+		// verification against real roots is the https layer's job.
+		addr := "127.0.0.1:14443"
+		if len(os.Args) > 2 {
+			addr = os.Args[2]
+		}
+		c, err := tls.DialWithDialer(&net.Dialer{Timeout: 10 * time.Second}, "tcp", addr, &tls.Config{InsecureSkipVerify: true})
+		fmt.Println("tlslocal err:", err)
+		if c != nil {
+			// A real TLS client encrypts this; a stub leaks it verbatim. The
+			// server names the bytes it saw either way.
+			c.Write([]byte("PLAINTEXT-LEAK"))
+			c.Close()
+		}
+	}
+}
+PROBE
+# The TLS reality assertion. The tls/https layers above ask the client whether
+# it is happy, and a stubbed crypto/tls — a no-op handshake over a socket its
+# netdev quietly downgraded from TLS to TCP — is happy sending plaintext to
+# port 443. Only the far end of the wire can tell those apart, so this server
+# holds the socket itself: it records the connection's first bytes (a
+# ClientHello opens 0x16 0x03), then runs a real gc handshake over a
+# self-signed certificate, and prints both facts. Built with gc, the control
+# toolchain, so the instrument is never made of the thing it measures. The
+# exit status says whether a ClientHello arrived; the log records it like
+# every other step, and nothing gates on it.
+COPY --chown=gopher:gopher <<'TLSREALITY' /src/tlsreality/main.go
+package main
+
+import (
+	"crypto/ecdsa"
+	"crypto/elliptic"
+	"crypto/rand"
+	"crypto/tls"
+	"crypto/x509"
+	"crypto/x509/pkix"
+	"fmt"
+	"math/big"
+	"net"
+	"os"
+	"time"
+)
+
+// peekConn records the first bytes the client sends before handing them on to
+// the TLS server, so the verdict does not depend on the handshake getting far
+// enough to classify the failure.
+type peekConn struct {
+	net.Conn
+	first []byte
+}
+
+func (p *peekConn) Read(b []byte) (int, error) {
+	n, err := p.Conn.Read(b)
+	if len(p.first) < 3 && n > 0 {
+		keep := 3 - len(p.first)
+		if keep > n {
+			keep = n
+		}
+		p.first = append(p.first, b[:keep]...)
+	}
+	return n, err
+}
+
+func selfSigned() tls.Certificate {
+	key, err := ecdsa.GenerateKey(elliptic.P256(), rand.Reader)
+	if err != nil {
+		panic(err)
+	}
+	tmpl := &x509.Certificate{
+		SerialNumber: big.NewInt(1),
+		Subject:      pkix.Name{CommonName: "tlsreality"},
+		NotBefore:    time.Now().Add(-time.Hour),
+		NotAfter:     time.Now().Add(time.Hour),
+		IPAddresses:  []net.IP{net.ParseIP("127.0.0.1")},
+	}
+	der, err := x509.CreateCertificate(rand.Reader, tmpl, tmpl, &key.PublicKey, key)
+	if err != nil {
+		panic(err)
+	}
+	return tls.Certificate{Certificate: [][]byte{der}, PrivateKey: key}
+}
+
+func main() {
+	addr := "127.0.0.1:14443"
+	if len(os.Args) > 1 {
+		addr = os.Args[1]
+	}
+	ln, err := net.Listen("tcp", addr)
+	if err != nil {
+		fmt.Println("reality: listen err:", err)
+		os.Exit(2)
+	}
+	// The caller waits for this line before starting the client.
+	fmt.Println("reality: listening", addr)
+	ln.(*net.TCPListener).SetDeadline(time.Now().Add(15 * time.Second))
+	conn, err := ln.Accept()
+	if err != nil {
+		fmt.Println("reality: no connection:", err)
+		os.Exit(1)
+	}
+	conn.SetDeadline(time.Now().Add(5 * time.Second))
+	peek := &peekConn{Conn: conn}
+	herr := tls.Server(peek, &tls.Config{Certificates: []tls.Certificate{selfSigned()}}).Handshake()
+	hello := len(peek.first) >= 2 && peek.first[0] == 0x16 && peek.first[1] == 0x03
+	fmt.Printf("reality: first-bytes=%x clienthello=%v handshake-err=%v\n", peek.first, hello, herr)
+	conn.Close()
+	if !hello {
+		os.Exit(1)
+	}
+}
+TLSREALITY
+RUN <<'EOF'
+set -u
+log=/src/spike/net.log
+: > "$log"
+cd /src/netprobe
+printf 'module netprobe\n\ngo 1.24\n' > go.mod
+export GOWORK=off
+# The main package's symbols are addressed as main.<name> by both linkers,
+# whatever the module is called.
+X="-X main.Bare=1.2.3 -X main.Initialed=1.2.3"
+echo "=== tinygo build ===" >> "$log"
+tinygo build -ldflags "$X" -o /out/netprobe-tinygo . >> "$log" 2>&1
+echo "exit=$?" >> "$log"
+echo "=== gc build ===" >> "$log"
+CGO_ENABLED=0 go build -ldflags "$X" -o /out/netprobe-gc . >> "$log" 2>&1
+echo "exit=$?" >> "$log"
+# The darwin rows, build-only: a linux container cannot execute a darwin
+# binary, so proving these compile is the whole question it can ask — the
+# other half, running them, is scripts/tinygo-spike-darwin.sh on a Mac. The
+# same four unix targets as the build probe, so the matrices read alike.
+for target in darwin/amd64 darwin/arm64; do
+  GOOS="${target%/*}"; GOARCH="${target#*/}"
+  echo "=== tinygo build $GOOS/$GOARCH ===" >> "$log"
+  GOOS="$GOOS" GOARCH="$GOARCH" tinygo build -ldflags "$X" \
+    -o "/out/netprobe-tinygo-$GOOS-$GOARCH" . >> "$log" 2>&1
+  echo "exit=$?" >> "$log"
+  echo "=== gc build $GOOS/$GOARCH ===" >> "$log"
+  GOOS="$GOOS" GOARCH="$GOARCH" CGO_ENABLED=0 go build -ldflags "$X" \
+    -o "/out/netprobe-gc-$GOOS-$GOARCH" . >> "$log" 2>&1
+  echo "exit=$?" >> "$log"
+done
+for toolchain in tinygo gc; do
+  for layer in ldflags tcp tls http https; do
+    echo "=== $toolchain $layer ===" >> "$log"
+    "/out/netprobe-$toolchain" "$layer" >> "$log" 2>&1
+    echo "exit=$?" >> "$log"
+  done
+done
+# The reality rounds: one server per client, sequentially on one port, since
+# the server answers for exactly one connection and then reports. The gc
+# round is the control that proves the instrument — a real client must read
+# clienthello=true, or the tinygo row means nothing. The exit recorded is the
+# server's verdict, not the client's opinion.
+echo "=== tls-reality build (gc) ===" >> "$log"
+cd /src/tlsreality
+printf 'module tlsreality\n\ngo 1.24\n' > go.mod
+CGO_ENABLED=0 go build -o /out/tlsreality . >> "$log" 2>&1
+echo "exit=$?" >> "$log"
+for toolchain in tinygo gc; do
+  echo "=== $toolchain tls-reality ===" >> "$log"
+  : > "/tmp/reality-$toolchain"
+  /out/tlsreality 127.0.0.1:14443 > "/tmp/reality-$toolchain" 2>&1 &
+  server=$!
+  i=0
+  until grep -q listening "/tmp/reality-$toolchain" || [ "$i" -ge 50 ]; do
+    i=$((i + 1))
+    sleep 0.1
+  done
+  "/out/netprobe-$toolchain" tlslocal 127.0.0.1:14443 >> "$log" 2>&1
+  wait "$server"
+  status=$?
+  cat "/tmp/reality-$toolchain" >> "$log"
+  echo "exit=$status" >> "$log"
+done
+cat "$log"
+exit 0
+EOF
+
+# The fork, fetched through the repository's install manifest: one
+# `dispat install` line, run by the dispat copied out of its own image, so the
+# fetch is dispat's install verb with its checksum rather than a curl and the
+# version is the same one the darwin half of the spike installs. Its own
+# stage because a toolchain download must not be re-run every time a heredoc
+# below it changes, and because "did the fork install and report its version"
+# is a question worth answering on its own before anything is built with it.
+#
+# INSTALL_TOOLS_DISPAT names the dispat to install with and
+# INSTALL_TOOLS_PREFIX where the tree is unpacked; the manifest's own
+# idempotence check reads `tinygo version` out of that prefix, which is
+# exactly what the log's second header asks again. The manifest also lays
+# Go's net/http/cookiejar over the tree (see the header), and the log records
+# that too.
+#
+# GITHUB_TOKEN as a build secret rather than a build arg, so it never reaches
+# the image's history: the releases listing is one API call, and a runner
+# sharing its IP with the rest of a cloud region meets the unauthenticated
+# rate limit on a busy day. Optional, because a hand build on a laptop has no
+# token and does not need one.
+#
+# The fork chain's own base first: the golang image at the fork's Go, the same
+# gopher user for the same reason, the same dependency layer and the same
+# source folders as the upstream chain. What the upstream chain built that the
+# fork rows reuse — the netprobe source and the gc-built tlsreality — is copied
+# across from the net stage, so the instruments stay one set of heredocs and
+# the darwin half can still extract them by their markers.
+FROM golang:${GO_VERSION} AS fork-base
+RUN useradd --create-home --uid 1001 gopher
+WORKDIR /src
+RUN chown gopher:gopher /src
+ENV HOME=/home/gopher
+ENV GOPATH=/home/gopher/go
+ENV GOCACHE=/home/gopher/.cache/go-build
+ENV GOTMPDIR=/home/gopher/.cache/tmp
+RUN mkdir -p /home/gopher/.cache/tmp /out /src/spike \
+ && chown -R gopher:gopher /home/gopher/.cache /out /src/spike
+USER gopher
+
+FROM fork-base AS fork-deps
+COPY --chown=gopher:gopher go.mod go.sum ./
+RUN go mod download
+
+FROM fork-deps AS fork-src
+COPY --chown=gopher:gopher cmd ./cmd
+COPY --chown=gopher:gopher internal ./internal
+COPY --chown=gopher:gopher examples ./examples
+COPY --from=tinygo-spike-net --chown=gopher:gopher /src/netprobe ./netprobe
+COPY --from=tinygo-spike-net --chown=gopher:gopher /out/tlsreality /out/tlsreality
+
+FROM fork-src AS tinygo-spike-fork
+COPY --from=dispat-cli /usr/local/bin/dispat /usr/local/bin/dispat
+COPY --chown=gopher:gopher scripts/install-tools.sh /src/scripts/install-tools.sh
+# A stamped dispat otherwise checks the GitHub API for a newer dispat while it
+# is installing something else; anything that parses as false turns it off.
+ENV DISPAT_UPDATE_CHECK=false
+RUN --mount=type=secret,id=GITHUB_TOKEN,uid=1001 <<'EOF'
+set -u
+log=/src/spike/fork.log
+: > "$log"
+if [ -f /run/secrets/GITHUB_TOKEN ]; then
+  GITHUB_TOKEN="$(cat /run/secrets/GITHUB_TOKEN)"
+  export GITHUB_TOKEN
+  echo "=== installing with a GitHub token ===" >> "$log"
+else
+  echo "=== installing unauthenticated (no GITHUB_TOKEN secret) ===" >> "$log"
+fi
+version=$(sh /src/scripts/install-tools.sh --version tinygo)
+echo "=== install-tools.sh tinygo ($version) ===" >> "$log"
+INSTALL_TOOLS_DISPAT=/usr/local/bin/dispat \
+INSTALL_TOOLS_PREFIX=/home/gopher/fork \
+  sh /src/scripts/install-tools.sh tinygo >> "$log" 2>&1
+echo "exit=$?" >> "$log"
+echo "=== fork tinygo version ===" >> "$log"
+/home/gopher/fork/tinygo/bin/tinygo version >> "$log" 2>&1
+echo "exit=$?" >> "$log"
+echo "=== fork tree: net/http/cookiejar ===" >> "$log"
+ls /home/gopher/fork/tinygo/src/net/http/cookiejar >> "$log" 2>&1
+echo "exit=$?" >> "$log"
+cat "$log"
+exit 0
+EOF
+
+# The acceptance test the fork exists for: crier updating itself over real
+# TLS. Every earlier stage asks whether a layer works; this one asks whether
+# the product does, end to end, through the one release path that touches all
+# of them at once — listing, download, digest, a smoke execution of the new
+# binary, and the atomic swap.
+#
+# The instrument is gc-built, like tlsreality and for the same reason: a
+# measurement made of the thing it measures answers nothing. sufake is the
+# fakeGitHub fixture of test/e2e/selfupdate_test.go rendered as a server — the
+# same listing, the same tag lookup, the same streamed asset with a computed
+# sha256 — with two things that fixture has no need of: a certificate chain it
+# generates and hands the client through SSL_CERT_FILE, and a log of what
+# actually arrived on each connection.
+#
+# The cases a stub could not survive are the point. D withholds the CA and must
+# fail with a certificate error, which no no-op handshake can produce. E speaks
+# plaintext at the TLS port and must be refused by the listener itself. Every
+# other case's `req` lines carry the negotiated version, cipher and SNI from
+# Request.TLS, which only a real handshake fills in.
+#
+# Two rows are crier's own. R renders the example project with the fork-built
+# binary: the layout engine, the rasterizer and the PNG encoder are the half
+# of crier that dispat's spike never had to ask about. And the stage after
+# this one runs the whole black-box suite against the same binary.
+FROM tinygo-spike-fork AS tinygo-spike-selfupdate
+ARG TARGETARCH
+COPY --chown=gopher:gopher <<'SUFAKE' /src/sufake/main.go
+package main
+
+// The fake GitHub releases API the self-update matrix runs against, served
+// over real TLS from a certificate chain generated per run.
+//
+// It mirrors fakeGitHub in test/e2e/selfupdate_test.go: the listing, the tag
+// lookup, and /dl/<version> streaming the asset with the sha256 the release
+// advertised, plus a release-candidate decoy above the real release — crier
+// skips prereleases unless asked, so a listing whose highest tag is an rc is
+// what proves the fork-built binary compares versions the way the gc one
+// does. What it adds is the wire: a CA whose PEM the client is pointed at
+// with SSL_CERT_FILE, a leaf valid for localhost and 127.0.0.1, and a line
+// per connection and per request saying what arrived. The connection line is
+// taken before the handshake, so a client that never sent a ClientHello is
+// caught by the bytes rather than by its own opinion of how the request went.
+
+import (
+	"crypto/ecdsa"
+	"crypto/elliptic"
+	"crypto/rand"
+	"crypto/sha256"
+	"crypto/tls"
+	"crypto/x509"
+	"crypto/x509/pkix"
+	"encoding/hex"
+	"encoding/json"
+	"encoding/pem"
+	"flag"
+	"fmt"
+	"math/big"
+	"net"
+	"net/http"
+	"os"
+	"strings"
+	"time"
+)
+
+// peekConn records the first bytes of a connection before the TLS server sees
+// them, exactly as tlsreality does: a ClientHello opens 0x16 0x03, and a
+// plaintext request opens with its method.
+type peekConn struct {
+	net.Conn
+	first  []byte
+	logged bool
+}
+
+func (p *peekConn) Read(b []byte) (int, error) {
+	n, err := p.Conn.Read(b)
+	if len(p.first) < 3 && n > 0 {
+		keep := 3 - len(p.first)
+		if keep > n {
+			keep = n
+		}
+		p.first = append(p.first, b[:keep]...)
+	}
+	if !p.logged && len(p.first) >= 3 {
+		p.logged = true
+		hello := p.first[0] == 0x16 && p.first[1] == 0x03
+		fmt.Printf("sufake: conn first-bytes=%x clienthello=%v\n", p.first, hello)
+	}
+	return n, err
+}
+
+// peekListener wraps every accepted connection, so the record is of the wire
+// rather than of whatever the TLS layer decided to report.
+type peekListener struct{ net.Listener }
+
+func (l peekListener) Accept() (net.Conn, error) {
+	c, err := l.Listener.Accept()
+	if err != nil {
+		return nil, err
+	}
+	return &peekConn{Conn: c}, nil
+}
+
+// chain generates the root the client is asked to trust and the leaf the
+// server presents, writes the root's PEM where the shell can point
+// SSL_CERT_FILE at it, and returns the leaf.
+//
+// The root is written 0644 because the build runs as the unprivileged gopher
+// user and the reader is a separate process; there is no secret here, the key
+// never leaves this process, and the chain lives as long as one server does.
+func chain(caPath string) tls.Certificate {
+	caKey, err := ecdsa.GenerateKey(elliptic.P256(), rand.Reader)
+	if err != nil {
+		panic(err)
+	}
+	caTmpl := &x509.Certificate{
+		SerialNumber:          big.NewInt(1),
+		Subject:               pkix.Name{CommonName: "sufake root"},
+		NotBefore:             time.Now().Add(-time.Hour),
+		NotAfter:              time.Now().Add(24 * time.Hour),
+		IsCA:                  true,
+		BasicConstraintsValid: true,
+		KeyUsage:              x509.KeyUsageCertSign | x509.KeyUsageDigitalSignature,
+	}
+	caDER, err := x509.CreateCertificate(rand.Reader, caTmpl, caTmpl, &caKey.PublicKey, caKey)
+	if err != nil {
+		panic(err)
+	}
+	caCert, err := x509.ParseCertificate(caDER)
+	if err != nil {
+		panic(err)
+	}
+	pemBytes := pem.EncodeToMemory(&pem.Block{Type: "CERTIFICATE", Bytes: caDER})
+	if err := os.WriteFile(caPath, pemBytes, 0o644); err != nil {
+		panic(err)
+	}
+
+	leafKey, err := ecdsa.GenerateKey(elliptic.P256(), rand.Reader)
+	if err != nil {
+		panic(err)
+	}
+	leafTmpl := &x509.Certificate{
+		SerialNumber: big.NewInt(2),
+		Subject:      pkix.Name{CommonName: "localhost"},
+		NotBefore:    time.Now().Add(-time.Hour),
+		NotAfter:     time.Now().Add(24 * time.Hour),
+		DNSNames:     []string{"localhost"},
+		IPAddresses:  []net.IP{net.ParseIP("127.0.0.1")},
+		KeyUsage:     x509.KeyUsageDigitalSignature,
+		ExtKeyUsage:  []x509.ExtKeyUsage{x509.ExtKeyUsageServerAuth},
+	}
+	leafDER, err := x509.CreateCertificate(rand.Reader, leafTmpl, caCert, &leafKey.PublicKey, caKey)
+	if err != nil {
+		panic(err)
+	}
+	return tls.Certificate{Certificate: [][]byte{leafDER, caDER}, PrivateKey: leafKey}
+}
+
+func main() {
+	addr := flag.String("addr", "127.0.0.1:0", "listen address")
+	caPath := flag.String("ca", "", "where to write the root certificate PEM")
+	assetPath := flag.String("asset", "", "the file the release serves")
+	assetName := flag.String("asset-name", "", "the name the release gives it")
+	version := flag.String("version", "1.1.0", "the version the release publishes")
+	flag.Parse()
+
+	asset, err := os.ReadFile(*assetPath)
+	if err != nil {
+		fmt.Println("sufake: asset:", err)
+		os.Exit(2)
+	}
+	sum := sha256.Sum256(asset)
+	digest := "sha256:" + hex.EncodeToString(sum[:])
+	tag := "v" + *version
+	leaf := chain(*caPath)
+
+	ln, err := net.Listen("tcp", *addr)
+	if err != nil {
+		fmt.Println("sufake: listen:", err)
+		os.Exit(2)
+	}
+	// The download URL has to name this server, so it is built from the
+	// address the listener actually took. localhost rather than the IP,
+	// because that is the name the leaf is issued for and the name whose
+	// resolution the fork's own resolver is under test for.
+	_, port, _ := net.SplitHostPort(ln.Addr().String())
+	base := "https://localhost:" + port
+
+	release := func() map[string]any {
+		return map[string]any{
+			"tag_name": tag, "draft": false, "prerelease": strings.Contains(*version, "-"),
+			"body":     "### Features\n\n- a release to update to\n",
+			"html_url": base + "/yohimik/crier/releases/tag/" + tag,
+			"assets": []map[string]any{{
+				"name": *assetName, "size": len(asset),
+				"browser_download_url": base + "/dl/" + *version,
+				"digest":               digest,
+			}},
+		}
+	}
+	// The decoy: a release candidate above the real release, which crier must
+	// pass over without --prerelease. Its asset is never served; a client that
+	// asks for it has already answered the question wrongly.
+	decoy := map[string]any{
+		"tag_name": "v9.9.9-rc.0", "draft": false, "prerelease": true,
+		"body":     "### Features\n\n- a candidate nobody asked for\n",
+		"html_url": base + "/yohimik/crier/releases/tag/v9.9.9-rc.0",
+		"assets": []map[string]any{{
+			"name": *assetName, "size": 1,
+			"browser_download_url": base + "/dl/9.9.9-rc.0",
+			"digest":               "sha256:00",
+		}},
+	}
+
+	handler := http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
+		state := req.TLS
+		if state == nil {
+			fmt.Printf("sufake: req path=%s handshake=false\n", req.URL.Path)
+		} else {
+			fmt.Printf("sufake: req path=%s handshake=%v tlsver=%x cipher=%x sni=%q tls12plus=%v\n",
+				req.URL.Path, state.HandshakeComplete, state.Version, state.CipherSuite,
+				state.ServerName, state.Version >= tls.VersionTLS12)
+		}
+		if v, ok := strings.CutPrefix(req.URL.Path, "/dl/"); ok {
+			if v != *version {
+				w.WriteHeader(http.StatusNotFound)
+				return
+			}
+			w.Header().Set("Content-Length", fmt.Sprint(len(asset)))
+			_, _ = w.Write(asset)
+			return
+		}
+		w.Header().Set("Content-Type", "application/json")
+		if _, wanted, ok := strings.Cut(req.URL.Path, "/releases/tags/"); ok {
+			if wanted != tag {
+				w.WriteHeader(http.StatusNotFound)
+				fmt.Fprint(w, `{"message":"Not Found"}`)
+				return
+			}
+			_ = json.NewEncoder(w).Encode(release())
+			return
+		}
+		_ = json.NewEncoder(w).Encode([]map[string]any{decoy, release()})
+	})
+
+	srv := &http.Server{Handler: handler, TLSConfig: &tls.Config{
+		Certificates: []tls.Certificate{leaf},
+		MinVersion:   tls.VersionTLS12,
+	}}
+	// The caller waits for these two lines before starting the client.
+	fmt.Println("sufake: listening", base)
+	fmt.Println("sufake: ca", *caPath)
+	if err := srv.ServeTLS(peekListener{ln}, "", ""); err != nil {
+		fmt.Println("sufake: serve:", err)
+	}
+}
+SUFAKE
+RUN <<'EOF'
+set -u
+log=/src/spike/selfupdate.log
+: > "$log"
+fake=/out/sufake
+ca=/home/gopher/sufake-ca.pem
+work=/home/gopher/su
+mkdir -p "$work"
+V=github.com/yohimik/crier/internal/version.Version
+asset="crier-linux-${TARGETARCH}"
+
+# Which toolchain the rows below are actually about. The fork is used when
+# tinygo-spike-fork installed it and upstream when it did not, and the label
+# every row carries says which — a log that calls an upstream row a fork row
+# is worse than no log at all.
+if [ -x /home/gopher/fork/tinygo/bin/tinygo ]; then
+  export PATH=/home/gopher/fork/tinygo/bin:$PATH
+  tc=fork
+else
+  tc="upstream (the fork did not install; see fork.log)"
+fi
+echo "=== toolchain under test: $tc ===" >> "$log"
+tinygo version >> "$log" 2>&1
+echo "exit=$?" >> "$log"
+
+# One LLVM warning repeats once per inline asm block on arm64 — hundreds of
+# identical lines that bury every answer below them. Counted, not kept.
+#
+# TinyGo runs package initialisers at compile time, and minio-go's
+# regexp.MustCompile calls take it minutes; the default budget for that pass
+# is three, which a builder sharing its cores with the upstream chain's
+# unit-test probe overran once. The budget is raised rather than the
+# initialisers second-guessed.
+tinygo_build() {
+  out="$1"; shift
+  tinygo build -interp-timeout=15m "$@" -o "$out" ./cmd/crier > /tmp/tinygo.raw 2>&1
+  status=$?
+  noise="Reserved registers on the clobber list"
+  n=$(grep -c "$noise" /tmp/tinygo.raw || true)
+  grep -v "$noise" /tmp/tinygo.raw >> "$log"
+  [ "$n" -eq 0 ] || echo "($n identical \"$noise\" warnings elided)" >> "$log"
+  return $status
+}
+
+# versionOf reads the one line of --version that carries the version.
+versionOf() {
+  if [ -x "$1" ]; then
+    "$1" --version 2>&1 | grep '^crier ' | tail -n 1
+  else
+    echo "(absent)"
+  fi
+}
+
+# The instrument, gc-built, so the thing measuring TLS is never the thing
+# under measurement.
+echo "=== sufake build (gc) ===" >> "$log"
+cd /src/sufake
+printf 'module sufake\n\ngo 1.24\n' > go.mod
+GOWORK=off CGO_ENABLED=0 go build -o "$fake" . >> "$log" 2>&1
+echo "exit=$?" >> "$log"
+
+# The four binaries the matrix moves between: an old and a new crier from
+# each toolchain, stamped through the ldflags. The tiny pair is also the size
+# record for the fork, which the build probe above could not take of upstream.
+cd /src
+for pair in tinygo:1.0.0 tinygo:1.1.0 gc:1.0.0 gc:1.1.0; do
+  toolchain="${pair%%:*}"; ver="${pair#*:}"
+  echo "=== $toolchain build crier $ver ===" >> "$log"
+  if [ "$toolchain" = tinygo ]; then
+    tinygo_build "/out/su-tinygo-$ver" -opt=z -no-debug -tags noasm -ldflags="-X $V=$ver"
+  else
+    CGO_ENABLED=0 go build -trimpath -ldflags "-s -w -X $V=$ver" \
+      -o "/out/su-gc-$ver" ./cmd/crier >> "$log" 2>&1
+  fi
+  echo "exit=$?" >> "$log"
+done
+{
+  echo "target                tinygo        gc            ratio"
+  t=$(wc -c < /out/su-tinygo-1.0.0 2>/dev/null || echo 0)
+  g=$(wc -c < /out/su-gc-1.0.0 2>/dev/null || echo 0)
+  if [ "$g" -gt 0 ] && [ "$t" -gt 0 ]; then
+    r=$(awk -v t="$t" -v g="$g" 'BEGIN{printf "%.3f", t/g}')
+  else
+    r="n/a"
+  fi
+  printf '%-20s  %-12s  %-12s  %s\n' "linux/${TARGETARCH} ($tc)" "$t" "$g" "$r"
+} | tee /src/spike/fork-sizes.log >> "$log"
+
+# Row zero: the stamping acceptance the whole matrix rests on. A fork binary
+# that still reports `dev` is a local build to self-update, which refuses
+# before it reaches the network, and every row below it would be vacuous.
+echo "=== row zero: $tc su-tinygo-1.0.0 --version ===" >> "$log"
+/out/su-tinygo-1.0.0 --version >> "$log" 2>&1
+echo "exit=$?" >> "$log"
+
+# R: the renderer, which is the half of crier the network rows never touch.
+echo "=== R $tc render examples/business-promo ===" >> "$log"
+/out/su-tinygo-1.0.0 render --config /src/examples/business-promo/crier.yaml \
+  --render-output "$work/card.png" >> "$log" 2>&1
+echo "exit=$?" >> "$log"
+ls -la "$work/card.png" >> "$log" 2>&1
+
+# A fresh server per case, so a case's connection and request lines are its
+# own. Each returns once the fake has printed its two ready lines.
+start_fake() {
+  : > /tmp/sufake.out
+  "$fake" -addr 127.0.0.1:0 -ca "$ca" -asset "/out/su-$1-1.1.0" \
+    -asset-name "$asset" -version 1.1.0 > /tmp/sufake.out 2>&1 &
+  fake_pid=$!
+  i=0
+  until grep -q "sufake: ca" /tmp/sufake.out || [ "$i" -ge 100 ]; do
+    i=$((i + 1))
+    sleep 0.1
+  done
+  base=$(sed -n 's/^sufake: listening //p' /tmp/sufake.out | head -n 1)
+}
+stop_fake() {
+  kill "$fake_pid" 2>/dev/null
+  wait "$fake_pid" 2>/dev/null
+  cat /tmp/sufake.out >> "$log"
+}
+
+# One case: a fresh copy of the old binary, a run against a fresh fake, and
+# the versions the exe and its backup report afterwards. crier's self-update
+# takes the API through --api-url and names the repository itself; a token
+# only ever goes to github.com, so none is offered here.
+case_run() {
+  label="$1"; toolchain="$2"; host="$3"; trust="$4"; scheme="$5"
+  shift 5
+  echo "=== $label ===" >> "$log"
+  rm -f "$work/crier" "$work/crier.backup"
+  cp "/out/su-$toolchain-1.0.0" "$work/crier"
+  chmod 0755 "$work/crier"
+  start_fake "$toolchain"
+  port=${base##*:}
+  if [ "$trust" = trusted ]; then
+    SSL_CERT_FILE="$ca" "$work/crier" self-update \
+      --api-url "$scheme://$host:$port" "$@" >> "$log" 2>&1
+  else
+    "$work/crier" self-update \
+      --api-url "$scheme://$host:$port" "$@" >> "$log" 2>&1
+  fi
+  echo "exit=$?" >> "$log"
+  stop_fake
+  echo "--- exe: $(versionOf "$work/crier")" >> "$log"
+  if [ -f "$work/crier.backup" ]; then
+    echo "--- backup: $(versionOf "$work/crier.backup")" >> "$log"
+  else
+    echo "--- backup: none" >> "$log"
+  fi
+}
+
+# A: the control. The fixture and the CA are sound, or nothing below means
+# anything.
+case_run "A gc control, CA trusted, full update" gc localhost trusted https
+
+# B: the fork against the real listing over real TLS, reporting only. Nothing
+# is downloaded, so what this proves is the API half: resolver, handshake,
+# x509 verification against a root read off disk, HTTP over the result, and
+# the version comparison that passes the rc decoy over. --check exits 1 when
+# there is something to install, which here there is.
+case_run "B $tc --check, CA trusted" tinygo localhost trusted https --check
+
+# B2: the same by IP literal. SNI is waived by the client for an IP dial, so
+# the leaf's IPAddresses entry is what carries it — and the row documents
+# whether the fork resolves `localhost` at all by contrast with B.
+case_run "B2 $tc --check by IP literal" tinygo 127.0.0.1 trusted https --check
+
+# C: the whole update under the fork — download, size and digest check, a
+# smoke execution of the downloaded binary, and the atomic swap that keeps the
+# old one as .backup.
+case_run "C $tc full update, CA trusted" tinygo localhost trusted https
+
+# C2: rollback, offline. The exe left by C is put back, with no server running
+# at all, which is exec and rename under TinyGo and nothing else.
+echo "=== C2 $tc --rollback, sufake stopped ===" >> "$log"
+"$work/crier" self-update --rollback >> "$log" 2>&1
+echo "exit=$?" >> "$log"
+echo "--- exe: $(versionOf "$work/crier")" >> "$log"
+
+# D: the stub-killer. The same setup as C with the CA withheld, which a real
+# verification against real roots must refuse. A stubbed crypto/tls cannot
+# produce a certificate error, because it never verified anything.
+case_run "D $tc full update, SSL_CERT_FILE unset" tinygo localhost untrusted https
+
+# E: plaintext at the TLS port. The refusal is the listener's, by
+# construction, and the connection line records the method bytes rather than a
+# ClientHello.
+case_run "E $tc plaintext http at the TLS port" tinygo localhost trusted http --check
+
+# F: the net stage's own rows, re-asked with the fork. Every verdict above
+# tinygo-spike-net was measured against upstream TINYGO_VERSION, so the layers
+# are walked again here — the same probe, the same assertion server, the other
+# toolchain — and the tls-reality round is read from the far end of the wire as
+# it always is.
+echo "=== F $tc netprobe build ===" >> "$log"
+cd /src/netprobe
+export GOWORK=off
+tinygo build -ldflags "-X main.Bare=1.2.3 -X main.Initialed=1.2.3" \
+  -o /out/netprobe-fork . > /tmp/tinygo.raw 2>&1
+status=$?
+grep -v "Reserved registers on the clobber list" /tmp/tinygo.raw >> "$log"
+echo "exit=$status" >> "$log"
+for layer in ldflags tcp tls http https; do
+  echo "=== F $tc netprobe $layer ===" >> "$log"
+  /out/netprobe-fork "$layer" >> "$log" 2>&1
+  echo "exit=$?" >> "$log"
+done
+echo "=== F $tc tls-reality ===" >> "$log"
+: > /tmp/reality-fork
+/out/tlsreality 127.0.0.1:14443 > /tmp/reality-fork 2>&1 &
+server=$!
+i=0
+until grep -q listening /tmp/reality-fork || [ "$i" -ge 50 ]; do
+  i=$((i + 1))
+  sleep 0.1
+done
+/out/netprobe-fork tlslocal 127.0.0.1:14443 >> "$log" 2>&1
+wait "$server"
+status=$?
+cat /tmp/reality-fork >> "$log"
+echo "exit=$status" >> "$log"
+
+cat "$log"
+exit 0
+EOF
+
+# The black-box suite, whole, against the fork-built binary: every test in
+# test/e2e drives the crier a user would run, with fake platforms, a fake S3,
+# a fake tunnel and a fake ffmpeg on the other end. This is the question a
+# release would turn on before it shipped a fork-built binary, asked here so a
+# fork bump can be tried before anything is built with it for real.
+#
+# CRIER_E2E_BINARY points the harness at the prebuilt binary, so nothing is
+# rebuilt and no coverage is asked for; the test binary itself is gc-built by
+# the image's Go, which is the control toolchain as everywhere else here. The
+# self-update tests build their update targets with gc too, so what they
+# exercise is the fork binary downloading and swapping in a gc one — the
+# direction a real update would take. The verbose stream is kept beside the
+# verdict, because a failure under a different compiler needs its output read.
+FROM tinygo-spike-selfupdate AS tinygo-spike-e2e
+COPY --chown=gopher:gopher test ./test
+RUN <<'EOF'
+set -u
+log=/src/spike/e2e.log
+: > "$log"
+bin=/out/su-tinygo-1.0.0
+if [ -x /home/gopher/fork/tinygo/bin/tinygo ]; then tc=fork; else tc=upstream; fi
+echo "=== e2e: test/e2e against the $tc-built crier ($bin) ===" >> "$log"
+if [ -x "$bin" ]; then
+  cd /src
+  CRIER_E2E_BINARY="$bin" timeout 1800 go test -tags e2e ./test/e2e -count=1 -v \
+    > /src/spike/e2e-verbose.log 2>&1
+  echo "exit=$?" >> "$log"
+  grep -E '^(--- (PASS|FAIL|SKIP)|PASS|FAIL|ok|panic)' /src/spike/e2e-verbose.log >> "$log"
+  {
+    echo "--- totals ---"
+    printf 'pass=%s fail=%s skip=%s\n' \
+      "$(grep -c '^--- PASS' /src/spike/e2e-verbose.log || true)" \
+      "$(grep -c '^--- FAIL' /src/spike/e2e-verbose.log || true)" \
+      "$(grep -c '^--- SKIP' /src/spike/e2e-verbose.log || true)"
+  } >> "$log"
+else
+  echo "(absent: the $tc build did not produce it; see selfupdate.log)" >> "$log"
+  echo "exit=127" >> "$log"
+fi
+cat "$log"
+exit 0
+EOF
+
+# The unit-test probe, one package at a time, under upstream TinyGo. Three
+# bounds keep the row a matrix rather than one fact:
+#
+#  -tags safe   testify's go-spew reaches into reflect.Value's unexported flag
+#               field through unsafe and panics at init when it is absent,
+#               which under TinyGo's reflect is every package that imports
+#               testify, before its first test. go-spew's own `safe` tag
+#               selects its reflect-only path, so the tests themselves get to
+#               run and the answer is theirs, not go-spew's.
+#  -p 2         `tinygo test` compiles one test binary per core by default,
+#               and a folder of packages does not fit in memory that way.
+#  timeout      TinyGo's net/http/httptest hangs in Server.Close waiting for
+#               connections, and `-timeout` is not enforced on a hung test
+#               binary, so each package is bounded from outside; 124 is the
+#               exit a hang records.
+#
+# The black-box suite and the docs generator are left out: the first drives a
+# binary rather than testing a package, and is the e2e stage's question; the
+# second is a tool, not the product.
+#
+# On the upstream chain, after the net stage: this is upstream's answer, and
+# the fork chain's stages are not its concern.
+FROM tinygo-spike-net AS tinygo-spike-test
+RUN <<'EOF'
+set -u
+log=/src/spike/test.log
+echo "=== tinygo test -tags safe -p 2, one package at a time ===" > "$log"
+cd /src
+noise="Reserved registers on the clobber list"
+for pkg in $(go list ./cmd/... ./internal/...); do
+  # Redirected rather than piped: a pipeline's status is the last command's,
+  # and the status wanted here is the test run's.
+  timeout 300 tinygo test -tags safe -p 2 "$pkg" > /tmp/test.raw 2>&1
+  status=$?
+  n=$(grep -c "$noise" /tmp/test.raw || true)
+  grep -v "$noise" /tmp/test.raw >> "$log"
+  [ "$n" -eq 0 ] || echo "($n identical \"$noise\" warnings elided)" >> "$log"
+  echo "exit=$status $pkg" >> "$log"
+done
+grep '^exit=' "$log"
+exit 0
+EOF
+
+# The spike's whole answer, as files from both chains: the logs are the
+# artefact, so this stage holds nothing else.
+FROM scratch AS tinygo-spike-export
+COPY --from=tinygo-spike-test /src/spike /
+COPY --from=tinygo-spike-e2e /src/spike /

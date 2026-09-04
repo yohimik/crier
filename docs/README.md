@@ -56,3 +56,4 @@ crier renders an HTML template to an image or a video. It publishes this to four
 | [Installing](./operations/install.md) | Every way to get the binary |
 | [Development](./operations/development.md) | Building and testing crier itself |
 | [Releasing](./operations/release.md) | The dispat flow, and the first release |
+| [The TinyGo spike](./operations/tinygo.md) | Why every release binary is gc's, and what a TinyGo fork can and cannot do with crier |

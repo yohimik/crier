@@ -10,3 +10,6 @@ dist/
 coverage.txt
 /.idea/
 .DS_Store
+
+# The spike and the coverage gate write their logs and profiles here.
+coverage/

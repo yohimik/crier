@@ -196,3 +196,29 @@ scripts:
   cross-compile: >-
     docker buildx build --file "$(git rev-parse --show-toplevel)/Dockerfile"
     --target build --output type=cacheonly "$(git rev-parse --show-toplevel)"
+
+  # The TinyGo spike, as a build like every other gate. Its targets never
+  # abort: the logs are what it produces, so the export lands them in
+  # coverage/tinygo-spike/ whatever they say, and the verdict is read from the
+  # files rather than from a build's exit code.
+  #
+  # Not a gate, and not in any sweep: nothing a release ships is built with
+  # TinyGo. Upstream cannot build crier at all, and the fork that speaks real
+  # TLS links a crier that panics on its first template, because TinyGo's
+  # reflect has no function introspection. The spike is what to re-run when
+  # that changes: it installs the fork through scripts/install-tools.sh, builds
+  # crier with it, and runs the self-update matrix over real TLS and the whole
+  # black-box suite against the result. See the header of Dockerfile.tinygo and
+  # docs/operations/tinygo.md.
+  #
+  # The token rides in as a build secret, and only when there is one: the
+  # fork's install is one GitHub API call, which meets the unauthenticated rate
+  # limit on a runner sharing its IP. The ${VAR:+...} form passes no flag at
+  # all without a token, where an empty env=GITHUB_TOKEN would fail the build
+  # for want of a variable.
+  tinygo-spike: >-
+    docker buildx build --file "$(git rev-parse --show-toplevel)/Dockerfile.tinygo"
+    --target tinygo-spike-export
+    ${GITHUB_TOKEN:+--secret id=GITHUB_TOKEN,env=GITHUB_TOKEN}
+    --output "type=local,dest=$(git rev-parse --show-toplevel)/coverage/tinygo-spike"
+    "$(git rev-parse --show-toplevel)"

@@ -16,6 +16,13 @@ dispat run cross-compile  # all six targets, each validated
 dispat run coverage       # the same suites, with the merged profile in coverage/
 ```
 
+Not a gate, and not in any sweep: the [TinyGo spike](./tinygo.md), which asks what a TinyGo toolchain can do with crier rather than whether the tree is good. It fetches the TinyGo fork once (180 MB, cached as a layer until `scripts/install-tools.sh` changes); set `GITHUB_TOKEN` to keep that fetch's one API call off the unauthenticated rate limit.
+
+```sh
+dispat run tinygo-spike             # the linux half, into coverage/tinygo-spike/
+sh scripts/tinygo-spike-darwin.sh   # the darwin half, on a Mac
+```
+
 Or you can run it without dispat:
 
 ```sh
