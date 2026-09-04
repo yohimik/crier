@@ -1109,6 +1109,13 @@ func readBody(r *http.Request) string {
 // same way rather than reaching for whatever is on PATH.
 func buildAnnounceBinary(t *testing.T, dir string) string {
 	t.Helper()
+	// When the suite is testing a prebuilt binary, the announcement runs it:
+	// the release's own gate and the TinyGo spike both point the suite at
+	// the exact bytes they are about to judge, and an announcement rendered
+	// by a fresh gc build would say nothing about those.
+	if os.Getenv(binaryEnv) != "" {
+		return crierBin
+	}
 	root, err := repoRoot()
 	if err != nil {
 		t.Fatal(err)

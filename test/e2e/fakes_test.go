@@ -4,11 +4,14 @@ package e2e
 
 import (
 	"encoding/json"
+	"encoding/pem"
 	"fmt"
 	"io"
 	"net/http"
 	"net/http/httptest"
 	"net/url"
+	"os"
+	"path/filepath"
 	"strconv"
 	"strings"
 	"sync"
@@ -52,6 +55,9 @@ type request struct {
 	Query  string
 	Header http.Header
 	Body   string
+	// TLS is whether the request arrived over a completed TLS handshake,
+	// which only the TLS fakes ever see.
+	TLS bool
 }
 
 func newFakes(t *testing.T) *fakes {
@@ -68,11 +74,40 @@ func newFakes(t *testing.T) *fakes {
 	return f
 }
 
+// newTLSFakes is newFakes over HTTPS: the same handler behind httptest's
+// self-signed certificate for 127.0.0.1, with that certificate written out
+// as a PEM file a crier process can be pointed at through SSL_CERT_FILE. A
+// self-signed leaf in the root pool is a trusted root, so the handshake
+// verifies rather than being skipped: what this proves is that crier's
+// client speaks real TLS to a platform, and refuses one it cannot verify.
+func newTLSFakes(t *testing.T) (*fakes, string) {
+	t.Helper()
+	f := &fakes{
+		threadsContainers: map[string]url.Values{},
+		youtubeSessions:   map[string]string{},
+		boostyFiles:       map[string]int{},
+		boostyDone:        map[string]bool{},
+	}
+	f.Server = httptest.NewUnstartedServer(http.HandlerFunc(f.serve))
+	f.Server.StartTLS()
+	f.uploadHost = f.URL
+	t.Cleanup(f.Close)
+	pemPath := filepath.Join(t.TempDir(), "fake-ca.pem")
+	block := pem.EncodeToMemory(&pem.Block{Type: "CERTIFICATE", Bytes: f.Certificate().Raw})
+	if err := os.WriteFile(pemPath, block, 0o600); err != nil {
+		t.Fatal(err)
+	}
+	return f, pemPath
+}
+
 func (f *fakes) record(r *http.Request) request {
-	body, _ := io.ReadAll(io.LimitReader(r.Body, 8<<20))
+	// Generous, because the upload tests post multi-megabyte pictures and
+	// clips and read them back out of here whole.
+	body, _ := io.ReadAll(io.LimitReader(r.Body, 32<<20))
 	req := request{
 		Method: r.Method, Path: r.URL.Path, Query: r.URL.RawQuery,
 		Header: r.Header.Clone(), Body: string(body),
+		TLS: r.TLS != nil && r.TLS.HandshakeComplete,
 	}
 	f.mu.Lock()
 	f.requests = append(f.requests, req)
@@ -276,12 +311,38 @@ func (f *fakes) serve(w http.ResponseWriter, r *http.Request) {
 	case strings.HasPrefix(path, "/linkedin/rest/videos"):
 		switch r.URL.Query().Get("action") {
 		case "initializeUpload":
-			writeJSON(w, map[string]any{"value": map[string]any{
-				"video":       "urn:li:video:1",
-				"uploadToken": "tk",
-				"uploadInstructions": []map[string]any{
+			// The instructions follow the size the client declared, in the
+			// 4 MiB ranges LinkedIn hands out, so a file past one range is
+			// uploaded in parts and every part has to arrive. A size the
+			// client did not declare gets one token range, as before.
+			var init struct {
+				InitializeUploadRequest struct {
+					FileSizeBytes int64 `json:"fileSizeBytes"`
+				} `json:"initializeUploadRequest"`
+			}
+			_ = json.Unmarshal([]byte(req.Body), &init)
+			size := init.InitializeUploadRequest.FileSizeBytes
+			var instructions []map[string]any
+			if size <= 0 {
+				instructions = []map[string]any{
 					{"uploadUrl": f.uploadHost + "/linkedin-part-0", "firstByte": 0, "lastByte": 7},
-				},
+				}
+			}
+			const part = 4 << 20
+			for i, start := 0, int64(0); start < size; i, start = i+1, start+part {
+				end := start + part - 1
+				if end > size-1 {
+					end = size - 1
+				}
+				instructions = append(instructions, map[string]any{
+					"uploadUrl": fmt.Sprintf("%s/linkedin-part-%d", f.uploadHost, i),
+					"firstByte": start, "lastByte": end,
+				})
+			}
+			writeJSON(w, map[string]any{"value": map[string]any{
+				"video":              "urn:li:video:1",
+				"uploadToken":        "tk",
+				"uploadInstructions": instructions,
 			}})
 		case "finalizeUpload":
 			w.WriteHeader(http.StatusOK)

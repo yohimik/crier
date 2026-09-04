@@ -1040,6 +1040,10 @@ EOF
 # verdict, because a failure under a different compiler needs its output read.
 FROM tinygo-spike-selfupdate AS tinygo-spike-e2e
 COPY --chown=gopher:gopher test ./test
+# The announcement's scripts, layouts and fonts: the suite drives them
+# through the binary under test, so they are inputs to it as much as any
+# source file is.
+COPY --chown=gopher:gopher announce ./announce
 RUN <<'EOF'
 set -u
 log=/src/spike/e2e.log
