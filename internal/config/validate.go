@@ -84,6 +84,16 @@ func Validate(cfg *Config) error {
 	add(validateHTTP(&cfg.HTTP))
 	errs = append(errs, validateStage(&cfg.Stage)...)
 	errs = append(errs, validatePublish(&cfg.Publish)...)
+	if cfg.Publish.Instagram.Enabled && cfg.Publish.Instagram.CoverStory {
+		if cfg.Publish.Instagram.Story {
+			errs = append(errs, invalid("publish.instagram.cover-story", "true",
+				"cannot be combined with publish.instagram.story; the cover story is added alongside a feed post"))
+		}
+		if strings.TrimSpace(cfg.Render.Video.Audio) == "" && len(cfg.Render.Video.AudioPool) == 0 {
+			errs = append(errs, missing("render.video.audio",
+				"publish.instagram.cover-story needs render.video.audio or render.video.audio-pool"))
+		}
+	}
 
 	return errors.Join(errs...)
 }

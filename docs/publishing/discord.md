@@ -24,13 +24,16 @@ A free server allows 10MB per attachment. A boosted server allows more. crier wa
 
 ## Mentions
 
-The caption is posted as the message content. This means role and user mentions work:
+The caption is posted as the message content. Crier leaves Discord's ordinary mention behavior unchanged by default. An `@everyone` or `@here` notification must be enabled explicitly:
 
 ```yaml
 publish:
   discord:
-    caption: "{{ .product }} {{ .version }} is out <@&123456789012345678>"
+    caption: "{{ .product }} {{ .version }} is out @everyone"
+    mention-everyone: true
 ```
+
+The same setting is available as `--publish-discord-mention-everyone` and `CRIER_PUBLISH_DISCORD_MENTION_EVERYONE`. Keep it false for captions that should not notify the whole channel.
 
 ## What you get back
 

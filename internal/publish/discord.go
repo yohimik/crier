@@ -73,8 +73,13 @@ func (d *Discord) Needs() Needs {
 
 // discordMessage is the JSON half of the multipart request.
 type discordMessage struct {
-	Content  string `json:"content,omitempty"`
-	Username string `json:"username,omitempty"`
+	Content         string                  `json:"content,omitempty"`
+	Username        string                  `json:"username,omitempty"`
+	AllowedMentions *discordAllowedMentions `json:"allowed_mentions,omitempty"`
+}
+
+type discordAllowedMentions struct {
+	Parse []string `json:"parse"`
 }
 
 // discordResponse is what ?wait=true returns.
@@ -103,7 +108,13 @@ func (d *Discord) Publish(ctx context.Context, in Input) (Result, error) {
 		return Result{}, fmt.Errorf("a discord message carries %d files and this post has %d",
 			DiscordFileMax, len(arts))
 	}
-	payload, err := json.Marshal(discordMessage{Content: in.Caption, Username: d.cfg.Username})
+	message := discordMessage{Content: in.Caption, Username: d.cfg.Username}
+	if d.cfg.MentionEveryone {
+		// Webhooks parse only user mentions by default. Opting in is explicit:
+		// Discord will notify @everyone in Content only when this list says so.
+		message.AllowedMentions = &discordAllowedMentions{Parse: []string{"everyone"}}
+	}
+	payload, err := json.Marshal(message)
 	if err != nil {
 		return Result{}, err
 	}

@@ -268,11 +268,13 @@ type Instagram struct {
 	Music
 	LeadVideo
 
-	Enabled      bool
-	APIBaseURL   string
-	Token        string
-	UserID       string
-	Story        bool
+	Enabled    bool
+	APIBaseURL string
+	Token      string
+	UserID     string
+	Story      bool
+	// CoverStory adds one cover-only music story alongside the ordinary feed post.
+	CoverStory   bool
 	Caption      string
 	PollInterval string
 	PollTimeout  string
@@ -362,10 +364,11 @@ type Discord struct {
 	Music
 	LeadVideo
 
-	Enabled    bool
-	WebhookURL string
-	Username   string
-	Caption    string
+	Enabled         bool
+	WebhookURL      string
+	Username        string
+	Caption         string
+	MentionEveryone bool
 }
 
 // LinkedIn configures the LinkedIn REST publisher.

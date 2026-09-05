@@ -6,7 +6,7 @@ Render an HTML template to an image or a video, and publish it to fourteen socia
 cd my-project && crier
 ```
 
-Provide one layout, one data file, and one config. Instagram gets a story, Discord gets a card, and everyone gets the caption written for them.
+Provide one layout, one data file, and one config. Every enabled image-capable platform gets the same photo sequence in the shape it needs. Instagram can also get a music-backed cover story, and Discord mentions stay explicit.
 
 crier finds the configuration by walking up from where you are. It works the way git finds a repository. Publishing is what it does with no arguments. So the everyday flow is: change directory, run `crier`.
 
@@ -14,7 +14,7 @@ crier finds the configuration by walking up from where you are. It works the way
 - **HTML and CSS you already know.** Use gradients, web fonts, SVG, and blend modes. They are laid out by a pure-Go engine and painted by a rasterizer written for it. There is no headless browser.
 - **One layout, many shapes.** Use template overlays and per-platform sizes. One card becomes a story and a banner without a second template.
 - **Configuration that composes.** Set every value in a file, an environment variable, or a flag. The file is found by walking up from where you are, the way git finds a repository.
-- **A track with the post.** Attach [an audio file you have the rights to](./docs/publishing/music.md) at Discord, Slack and Telegram, or let TikTok pick one. Open an Instagram carousel or a Telegram album with a video, which is the only way a soundtrack reaches Instagram. No API anywhere names a licensed track, and the page says so rather than leaving you to search.
+- **A track with the post.** Attach [an audio file you have the rights to](./docs/publishing/music.md) at Discord, Slack and Telegram, or let TikTok pick one. Instagram can turn the first page into a separate 16-second cover story with that audio while the photo carousel still goes to the feed. No API anywhere names a licensed track, and the page says so rather than leaving you to search.
 - **A single static binary.** Built with `CGO_ENABLED=0` for six platforms. There is nothing to install alongside it.
 
 ## Install
@@ -141,6 +141,24 @@ crier ping        # 2. are the credentials right? nothing is posted
 crier --dry-run   # 3. what would be sent, still no network
 crier             # 4. post it
 ```
+
+One publish invocation can send the photo pages to every enabled image-capable platform and add a music-backed Instagram cover story:
+
+```yaml
+render:
+  video:
+    audio: launch-theme.mp3
+publish:
+  instagram:
+    enabled: true
+    cover-story: true
+  discord:
+    enabled: true
+    caption: "{{ .title }} is out @everyone"
+    mention-everyone: true
+```
+
+`cover-story` keeps the Instagram feed post or carousel and also publishes page one as a separate 16-second story. It cannot be combined with the older `story: true` mode, which turns the primary Instagram output into stories. Discord only interprets `@everyone` when `mention-everyone` is explicitly enabled.
 
 ### Or straight from the environment
 

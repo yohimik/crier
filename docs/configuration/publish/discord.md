@@ -13,6 +13,7 @@ See [the Discord guide](../../publishing/discord.md) for how to get these values
 | `publish.discord.height`<br>`CRIER_PUBLISH_DISCORD_HEIGHT`<br>`--publish-discord-height` | int | — | render height for discord; 0 inherits render.height |
 | `publish.discord.lead-video`<br>`CRIER_PUBLISH_DISCORD_LEAD_VIDEO`<br>`--publish-discord-lead-video` | string, path | — | not available: a discord post is pictures or a video and never both, so a value here is refused rather than ignored |
 | `publish.discord.max-attachments`<br>`CRIER_PUBLISH_DISCORD_MAX_ATTACHMENTS`<br>`--publish-discord-max-attachments` | int | — | post at most this many pages to discord at once; 0 uses the platform's own limit, which is also the ceiling |
+| `publish.discord.mention-everyone`<br>`CRIER_PUBLISH_DISCORD_MENTION_EVERYONE`<br>`--publish-discord-mention-everyone` | bool | — | allow @everyone in the Discord message to notify the channel |
 | `publish.discord.music-file`<br>`CRIER_PUBLISH_DISCORD_MUSIC_FILE`<br>`--publish-discord-music-file` | string, path | — | audio file attached to the discord post, overriding publish.music-file for this platform alone |
 | `publish.discord.overlay`<br>`CRIER_PUBLISH_DISCORD_OVERLAY`<br>`--publish-discord-overlay` | list, path | — | template overlays applied for discord only, after the global ones |
 | `publish.discord.username`<br>`CRIER_PUBLISH_DISCORD_USERNAME`<br>`--publish-discord-username` | string | — | override the webhook's display name |

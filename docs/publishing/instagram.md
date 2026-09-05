@@ -59,6 +59,24 @@ Reels are 3 seconds to 15 minutes. Stories are up to 60.
 **Stories carry no caption.** The API has no field for one. Meta ignores the parameter. Because of this, crier does not send it. It warns you when a caption was configured.
 Text that must appear on a story belongs in the image itself. Bake it into the template, or give the story pass an [overlay](../templates/overlays.md) of its own.
 
+### Add a music-backed cover story to a feed post
+
+`cover-story` adds a second Instagram publication without changing the primary feed post or carousel. Crier takes the first rendered page, encodes it as a 16-second MP4 with the audio selected by `render.video.audio` or `render.video.audio-pool`, stages the clip, and publishes it as a Story:
+
+```yaml
+render:
+  video:
+    audio: launch-theme.mp3
+publish:
+  instagram:
+    enabled: true
+    cover-story: true
+```
+
+This does not turn on video for the main render. The normal photo pages still go to the feed, and the cover clip is a separate Story made during the same `crier publish` invocation. `cover-story` requires ffmpeg, an audio source, and a stager that can expose the generated MP4. It cannot be combined with `story: true`, because that setting changes the primary publication into stories instead.
+
+A dry run renders and plans both outputs without staging or posting them. If the cover Story fails after the feed succeeds, the run reports a partial failure; it does not post the successful feed output again. Normal cleanup still removes staged media.
+
 ## When the fetch fails
 
 `status_code: ERROR` almost always means Meta could not reach the URL. Here are the causes in order of likelihood:
@@ -105,7 +123,7 @@ A feed post takes up to ten images as one carousel. A story takes one, because t
 
 ## Opening the carousel with a video
 
-Set `publish.instagram.lead-video` and the carousel's first child is a clip, with the pages after it. This is the only way music reaches Instagram: the API takes no audio file and no track id, so a soundtrack has to arrive inside a video.
+Set `publish.instagram.lead-video` and the carousel's first child is a clip, with the pages after it. Like a generated cover Story, this carries its soundtrack inside a video; the API takes no audio file and no track id.
 
 ```yaml
 publish:
@@ -119,6 +137,6 @@ The child container is `video_url`, `is_carousel_item=true` and `media_type=VIDE
 
 Instagram crops a carousel to the shape of its **first** item, which with a lead video is the clip. Render the cards to match it.
 
-A story ignores this setting: stories have no carousel. Post the clip as its own story with `publish.input` instead. See [music](./music.md#a-video-that-opens-the-post).
+A primary story made with `story: true` ignores this setting: stories have no carousel. Post the clip as its own story with `publish.input`, or use `cover-story` to add the generated first-page clip beside a normal feed publication. See [music](./music.md#a-video-that-opens-the-post).
 
 Configuration keys: [`publish.instagram.*`](../configuration/publish/instagram.md).

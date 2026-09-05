@@ -227,6 +227,42 @@ func (p *Pipeline) Template() string { return p.template }
 // the one picked out of render.video.audio-pool.
 func (p *Pipeline) Audio() string { return p.audio }
 
+// CoverStory turns one already-rendered cover page into a fixed-length MP4.
+// The same decoded still is streamed for every frame, so the document is not
+// rendered a second time. It deliberately does not consult Video.Enabled:
+// this is an Instagram sidecar to a photo run, not the run's main artifact.
+func (p *Pipeline) CoverStory(ctx context.Context, cover render.Artifact) (Artifacts, error) {
+	frame, err := decodeFrame(cover.Path)
+	if err != nil {
+		return Artifacts{}, fail(ExitRender, err)
+	}
+	fps := p.cfg.Render.Video.FPS
+	if fps <= 0 {
+		fps = 30
+	}
+	const seconds = 16
+	const storyWidth, storyHeight = 1080, 1920
+	bg, _ := config.ParseColor(p.cfg.Render.Background)
+	art, err := render.EncodeVideo(ctx, render.VideoOptions{
+		Output: filepath.Join(p.dir, "instagram-cover-story.mp4"),
+		Frames: fps * seconds,
+		FPS:    fps,
+		Width:  frame.Bounds().Dx(), Height: frame.Bounds().Dy(),
+		Bin:       p.cfg.Render.Video.FFmpegBin,
+		Preset:    p.cfg.Render.Video.CodecPreset,
+		Format:    "mp4",
+		FitFilter: render.FitFilter(storyWidth, storyHeight, config.FitContain, p.cfg.Render.Background),
+		ExtraArgs: p.cfg.Render.Video.FFmpegArgs,
+		Audio:     p.audio, AudioLoop: true,
+		Background: bg, Logger: p.log,
+	}, func(context.Context, int) (*image.RGBA, error) { return frame, nil })
+	if err != nil {
+		return Artifacts{}, fail(ExitRender, err)
+	}
+	art.Width, art.Height = storyWidth, storyHeight
+	return Artifacts{Video: &art}, nil
+}
+
 // Data loads the template's data document once, so it can be shared by the
 // layout and by every caption.
 func (p *Pipeline) Data() (any, error) {

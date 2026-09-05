@@ -257,6 +257,21 @@ func (a App) runPublish(ctx context.Context, args []string) error {
 	for _, pub := range publishers {
 		byName[pub.Name()] = pub
 	}
+	var storyPublisher publish.Publisher
+	if cfg.Publish.Instagram.Enabled && cfg.Publish.Instagram.CoverStory {
+		storyCfg := *cfg
+		storyCfg.Publish = cfg.Publish
+		enableOnly(&storyCfg, "instagram")
+		storyCfg.Publish.Instagram.Story = true
+		storyCfg.Publish.Instagram.CoverStory = false
+		storyPublishers, buildErr := publish.Build(&storyCfg, publish.Deps{
+			Client: s.Client, Logger: s.Log, UserAgent: userAgent(), Dir: s.Result.Dir,
+		})
+		if buildErr != nil {
+			return fail(ExitConfig, buildErr)
+		}
+		storyPublisher = storyPublishers[0]
+	}
 
 	p, err := NewPipeline(PipelineOptions{
 		Config: cfg, Logger: s.Log, Client: s.Client, Stdin: a.Stdin, Environ: a.Environ,
@@ -346,6 +361,7 @@ func (a App) runPublish(ctx context.Context, args []string) error {
 
 	report := PublishReport{DryRun: cfg.Publish.DryRun}
 	var jobs []publish.Job
+	var instagramCover *render.Artifact
 
 	// Per-platform overlays and sizes are instructions to the renderer, and in
 	// the other two modes there is nothing to render: every platform shares the
@@ -382,6 +398,18 @@ func (a App) runPublish(ctx context.Context, args []string) error {
 		arts, err := p.Render(ctx, v, data, FormatsFor(cfg, group))
 		if err != nil {
 			return err
+		}
+		if storyPublisher != nil {
+			for _, name := range v.Platforms {
+				if name == "instagram" {
+					cover, pickErr := arts.Primary(byName[name].Needs())
+					if pickErr != nil {
+						return fail(ExitRender, pickErr)
+					}
+					instagramCover = &cover
+					break
+				}
+			}
 		}
 		// A clip crier was handed has no rendered frame to serve as a poster,
 		// so one is taken out of the file for the platform that insists.
@@ -426,6 +454,34 @@ func (a App) runPublish(ctx context.Context, args []string) error {
 				continue
 			}
 			jobs = append(jobs, publish.Job{Publisher: pub, Posts: posts})
+		}
+	}
+
+	if storyPublisher != nil {
+		if instagramCover == nil {
+			return failf(ExitConfig, "publish.instagram.cover-story needs the Instagram photo variant")
+		}
+		if cfg.Publish.DryRun {
+			story, storyErr := p.CoverStory(ctx, *instagramCover)
+			if storyErr != nil {
+				return storyErr
+			}
+			posts, storyErr := PostsFor(p.Engine(), cfg, storyPublisher, story, data)
+			if storyErr != nil {
+				return storyErr
+			}
+			report.Variants = append(report.Variants, VariantReport{
+				Name: "instagram-cover-story", Platforms: []string{"instagram"},
+				Files: []string{story.Video.Path}, Width: story.Video.Width, Height: story.Video.Height,
+			})
+			for _, in := range posts {
+				report.Plan = append(report.Plan, PlannedPublisher{Platform: "instagram", Variant: "instagram-cover-story",
+					File: in.Artifact.Path, NeedsURL: true, Caption: "", Post: in.Post, Posts: in.Posts, Files: in.Files()})
+			}
+		} else {
+			jobs = append(jobs, publish.Job{Publisher: &coverStoryPublisher{
+				instagram: storyPublisher, pipeline: p, stager: stager,
+			}, Posts: []publish.Input{{Artifact: *instagramCover, Post: 1, Posts: 1, Page: 1, Pages: 1}}})
 		}
 	}
 

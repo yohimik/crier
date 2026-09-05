@@ -331,24 +331,55 @@ func TestDiscordPostsToTheWebhook(t *testing.T) {
 	cfg.Publish.Discord.Enabled = true
 	cfg.Publish.Discord.WebhookURL = srv.URL + "/api/webhooks/1/token"
 	cfg.Publish.Discord.Username = "crier"
+	cfg.Publish.Discord.MentionEveryone = true
 
 	p := onlyPublisher(t, &cfg)
-	res, err := p.Publish(context.Background(), Input{Artifact: imageArtifact(t), Caption: "hi there"})
+	arts := realPages(t, 2)
+	res, err := p.Publish(context.Background(), Input{
+		Artifact: arts[0], Artifacts: arts, Caption: "@everyone hi there",
+	})
 	if err != nil {
 		t.Fatal(err)
 	}
 	if res.ID != "99" || !strings.Contains(res.URL, "55") {
 		t.Errorf("result = %+v", res)
 	}
-	req := rec.all()[0]
+	reqs := rec.all()
+	if len(reqs) != 1 {
+		t.Fatalf("Discord received %d requests, want one message for the caption and all images", len(reqs))
+	}
+	req := reqs[0]
 	if req.Query != "wait=true" {
 		t.Errorf("query = %q, want wait=true so the message comes back", req.Query)
 	}
-	if !strings.Contains(req.Body, `name="files[0]"`) {
-		t.Errorf("the file part is missing: %q", req.Body)
+	if !strings.Contains(req.Body, `name="files[0]"`) || !strings.Contains(req.Body, `name="files[1]"`) {
+		t.Errorf("the ordered file parts are missing: %q", req.Body)
 	}
-	if !strings.Contains(req.Body, `"content":"hi there"`) || !strings.Contains(req.Body, `"username":"crier"`) {
+	if strings.Index(req.Body, `name="files[0]"`) > strings.Index(req.Body, `name="files[1]"`) {
+		t.Errorf("the image order changed: %q", req.Body)
+	}
+	if !strings.Contains(req.Body, `"content":"@everyone hi there"`) ||
+		!strings.Contains(req.Body, `"username":"crier"`) ||
+		!strings.Contains(req.Body, `"allowed_mentions":{"parse":["everyone"]}`) {
 		t.Errorf("payload_json = %q", req.Body)
+	}
+}
+
+func TestDiscordPreservesDefaultMentionsUnlessEveryoneIsEnabled(t *testing.T) {
+	rec := newRecorder()
+	srv := fakeServer(t, func(w http.ResponseWriter, r *http.Request) {
+		rec.record(r)
+		_, _ = w.Write([]byte(`{"id":"99"}`))
+	})
+	cfg := config.Defaults()
+	cfg.Publish.Discord.Enabled = true
+	cfg.Publish.Discord.WebhookURL = srv.URL + "/api/webhooks/1/token"
+	p := onlyPublisher(t, &cfg)
+	if _, err := p.Publish(context.Background(), Input{Artifact: imageArtifact(t), Caption: "hi"}); err != nil {
+		t.Fatal(err)
+	}
+	if strings.Contains(rec.all()[0].Body, "allowed_mentions") {
+		t.Errorf("disabled mention-everyone changed Discord's existing default: %q", rec.all()[0].Body)
 	}
 }
 

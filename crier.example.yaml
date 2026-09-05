@@ -87,6 +87,8 @@ publish:
     lead-video: ""
     # post at most this many pages to discord at once; 0 uses the platform's own limit, which is also the ceiling
     max-attachments: 0
+    # allow @everyone in the Discord message to notify the channel
+    mention-everyone: false
     # audio file attached to the discord post, overriding publish.music-file for this platform alone
     music-file: ""
     # template overlays applied for discord only, after the global ones
@@ -137,6 +139,8 @@ publish:
     api-base-url: "https://graph.facebook.com/v25.0"
     # Instagram specific caption
     caption: ""
+    # add a sixteen-second cover story with render.video audio alongside the feed post
+    cover-story: false
     # publish to Instagram
     enabled: false
     # how the render is made to match instagram's frame: none, cover, contain or stretch; anything but none needs width and height

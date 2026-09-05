@@ -243,6 +243,7 @@ var registry = []Descriptor{
 	{Key: "publish.instagram.token", Kind: KindString, Usage: "Instagram access token", Secret: true},
 	{Key: "publish.instagram.user-id", Kind: KindString, Usage: "Instagram professional account user id"},
 	{Key: "publish.instagram.story", Kind: KindBool, Usage: "publish as a story instead of a feed post"},
+	{Key: "publish.instagram.cover-story", Kind: KindBool, Usage: "add a sixteen-second cover story with render.video audio alongside the feed post"},
 	{Key: "publish.instagram.caption", Kind: KindString, Usage: "Instagram specific caption"},
 	{Key: "publish.instagram.poll-interval", Kind: KindDuration, Default: "2s", Usage: "how often the media container status is polled"},
 	{Key: "publish.instagram.poll-timeout", Kind: KindDuration, Default: "2m", Usage: "how long to wait for the media container to be ready"},
@@ -293,6 +294,7 @@ var registry = []Descriptor{
 	{Key: "publish.discord.webhook-url", Kind: KindString, Usage: "full Discord webhook URL (it is the credential)", Secret: true},
 	{Key: "publish.discord.username", Kind: KindString, Usage: "override the webhook's display name"},
 	{Key: "publish.discord.caption", Kind: KindString, Usage: "Discord specific message content"},
+	{Key: "publish.discord.mention-everyone", Kind: KindBool, Usage: "allow @everyone in the Discord message to notify the channel"},
 
 	{Key: "publish.linkedin.enabled", Kind: KindBool, Usage: "publish to LinkedIn"},
 	{Key: "publish.linkedin.api-base-url", Kind: KindString, Default: "https://api.linkedin.com", Usage: "LinkedIn REST API base URL"},

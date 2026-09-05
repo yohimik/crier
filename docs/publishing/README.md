@@ -17,6 +17,7 @@ Publishing is the default action when you provide no command. Running `crier` is
 5. **Formats are encoded**: the configured one, plus whatever a platform insists on. Instagram takes JPEG and nothing else.
 6. **Staging**, if any enabled platform can only be given a URL. See [staging](../staging/README.md).
 7. **The fan-out**, `publish.concurrency` at a time. One platform's failure never cancels another's. The whole point of posting to fourteen places is that thirteen of them still get the post when the fourteenth is down.
+   When `publish.instagram.cover-story` is enabled, the Instagram job also publishes a separate 16-second Story made from the first page and the selected audio track; the normal feed post remains intact.
 8. **The report**, on standard output.
 9. **Cleanup**: staged objects deleted, the local server stopped, the tunnel killed, temporary files removed. This runs on a context of its own, so it happens even after Ctrl-C.
 
@@ -105,7 +106,7 @@ Seven of the fourteen platforms accept them: Telegram, Discord, Mastodon, X, Red
 
 ## A track with the post
 
-Discord, Slack and Telegram accept an audio file, and TikTok can add a track it picks itself. No API anywhere takes the id of a licensed song, so there is no key for one. Instagram and Telegram can open a post with a video instead, which is the only way a soundtrack reaches Instagram at all. See [music](./music.md).
+Discord, Slack and Telegram accept an audio file, and TikTok can add a track it picks itself. No API anywhere takes the id of a licensed song, so there is no key for one. Instagram can open a carousel with a video or add a 16-second cover Story generated from page one; either way, its soundtrack is carried inside the video. See [music](./music.md).
 
 ## A platform crier does not have
 

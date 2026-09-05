@@ -129,6 +129,7 @@ func Bindings(cfg *Config) map[string]Binding {
 		"publish.instagram.token":         bindString(&ig.Token),
 		"publish.instagram.user-id":       bindString(&ig.UserID),
 		"publish.instagram.story":         bindBool(&ig.Story),
+		"publish.instagram.cover-story":   bindBool(&ig.CoverStory),
 		"publish.instagram.caption":       bindString(&ig.Caption),
 		"publish.instagram.poll-interval": bindString(&ig.PollInterval),
 		"publish.instagram.poll-timeout":  bindString(&ig.PollTimeout),
@@ -179,10 +180,11 @@ func Bindings(cfg *Config) map[string]Binding {
 		"publish.mastodon.poll-interval": bindString(&ma.PollInterval),
 		"publish.mastodon.poll-timeout":  bindString(&ma.PollTimeout),
 
-		"publish.discord.enabled":     bindBool(&dc.Enabled),
-		"publish.discord.webhook-url": bindString(&dc.WebhookURL),
-		"publish.discord.username":    bindString(&dc.Username),
-		"publish.discord.caption":     bindString(&dc.Caption),
+		"publish.discord.enabled":          bindBool(&dc.Enabled),
+		"publish.discord.webhook-url":      bindString(&dc.WebhookURL),
+		"publish.discord.username":         bindString(&dc.Username),
+		"publish.discord.caption":          bindString(&dc.Caption),
+		"publish.discord.mention-everyone": bindBool(&dc.MentionEveryone),
 
 		"publish.linkedin.enabled":      bindBool(&li.Enabled),
 		"publish.linkedin.api-base-url": bindString(&li.APIBaseURL),

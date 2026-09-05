@@ -8,6 +8,7 @@ See [the Instagram guide](../../publishing/instagram.md) for how to get these va
 | --- | ---- | ------- | ----------- |
 | `publish.instagram.api-base-url`<br>`CRIER_PUBLISH_INSTAGRAM_API_BASE_URL`<br>`--publish-instagram-api-base-url` | string | `https://graph.facebook.com/v25.0` | Instagram Graph API base URL |
 | `publish.instagram.caption`<br>`CRIER_PUBLISH_INSTAGRAM_CAPTION`<br>`--publish-instagram-caption` | string | — | Instagram specific caption |
+| `publish.instagram.cover-story`<br>`CRIER_PUBLISH_INSTAGRAM_COVER_STORY`<br>`--publish-instagram-cover-story` | bool | — | add a sixteen-second cover story with render.video audio alongside the feed post |
 | `publish.instagram.enabled`<br>`CRIER_PUBLISH_INSTAGRAM_ENABLED`<br>`--publish-instagram-enabled` | bool | — | publish to Instagram |
 | `publish.instagram.fit`<br>`CRIER_PUBLISH_INSTAGRAM_FIT`<br>`--publish-instagram-fit` | string | `none` | how the render is made to match instagram's frame: none, cover, contain or stretch; anything but none needs width and height |
 | `publish.instagram.fit-background`<br>`CRIER_PUBLISH_INSTAGRAM_FIT_BACKGROUND`<br>`--publish-instagram-fit-background` | string | `#ffffff` | hex colour behind a contain letterbox for instagram, and what transparency is flattened onto |

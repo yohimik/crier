@@ -4,11 +4,14 @@ import (
 	"context"
 	"flag"
 	"fmt"
+	"path/filepath"
 	"strings"
 	"text/tabwriter"
 	"time"
 
+	"github.com/rs/zerolog"
 	"github.com/yohimik/crier/internal/config"
+	"github.com/yohimik/crier/internal/procutil"
 	"github.com/yohimik/crier/internal/publish"
 	"github.com/yohimik/crier/internal/stage"
 )
@@ -62,7 +65,8 @@ func (a App) runPing(ctx context.Context, args []string) error {
 	// publisher refuses a file that is not audio or is not an MP4, so a check
 	// that ran after the build would never be reached by the very configuration
 	// it exists to explain.
-	files := append(pingMusic(cfg), pingLeadVideos(cfg)...)
+	files := append(pingMusic(cfg), pingCoverStory(ctx, cfg, s.Log)...)
+	files = append(files, pingLeadVideos(cfg)...)
 
 	// The same constructors publish uses, so a configuration ping accepts is a
 	// configuration publish would get as far as the network with.
@@ -154,6 +158,54 @@ func pingMusic(cfg *config.Config) []PingResult {
 		row.OK = true
 		row.Account = c.Audio.Name
 		row.Note = c.Describe()
+		out = append(out, row)
+	}
+	return out
+}
+
+// pingCoverStory checks the encoder and every possible seeded audio choice, rather than only
+// the track this invocation happened to pick. A later publish can use another
+// seed, so ping must establish that the whole configured pool is usable.
+func pingCoverStory(ctx context.Context, cfg *config.Config, log zerolog.Logger) []PingResult {
+	if !cfg.Publish.Instagram.Enabled || !cfg.Publish.Instagram.CoverStory {
+		return nil
+	}
+	bin := cfg.Render.Video.FFmpegBin
+	if strings.TrimSpace(bin) == "" {
+		bin = "ffmpeg"
+	}
+	encoder := PingResult{Target: "cover-story-encoder"}
+	checkCtx, cancel := context.WithTimeout(ctx, 5*time.Second)
+	proc, err := procutil.Start(checkCtx, procutil.Options{Name: "ffmpeg", Bin: bin, Args: []string{"-version"}, Logger: log})
+	if err == nil {
+		err = proc.Wait()
+	}
+	cancel()
+	if err != nil {
+		encoder.Error = err.Error()
+	} else {
+		encoder.OK, encoder.Account = true, filepath.Base(bin)
+		encoder.Note = "encodes the generated Instagram cover story"
+	}
+	paths := cfg.Render.Video.AudioPool
+	if len(paths) == 0 {
+		paths = []string{cfg.Render.Video.Audio}
+	}
+	out := make([]PingResult, 0, len(paths)+1)
+	out = append(out, encoder)
+	for i, path := range paths {
+		target := "cover-story-music"
+		if len(paths) > 1 {
+			target = fmt.Sprintf("cover-story-music:%d", i+1)
+		}
+		row := PingResult{Target: target}
+		audio, err := publish.SniffAudio(path)
+		if err != nil {
+			row.Error = err.Error()
+		} else {
+			row.OK, row.Account = true, audio.Name
+			row.Note = "used by the generated Instagram cover story"
+		}
 		out = append(out, row)
 	}
 	return out

@@ -29,7 +29,13 @@ What is left is an audio file you send yourself, and one TikTok flag that asks T
 | [TikTok](./tiktok.md) | TikTok adds a track it recommends | `auto_add_music` on a photo post |
 | Instagram, Facebook, X, Mastodon, LinkedIn, Reddit | nothing | there is no API for it |
 
-Discord and Slack show a player inline. Telegram renders the audio message as a player under the album. Instagram and Facebook get nothing this way, which is what the [lead video](#a-video-that-opens-the-post) is for: a soundtrack reaches Instagram only inside a video.
+Discord and Slack show a player inline. Telegram renders the audio message as a player under the album. Instagram and Facebook get nothing this way: a soundtrack reaches Instagram only inside a video, either as a [lead video](#a-video-that-opens-the-post) or a [generated cover Story](#a-cover-story-beside-the-feed-post).
+
+## A cover Story beside the feed post
+
+Set `publish.instagram.cover-story: true` with `render.video.audio` or `render.video.audio-pool`. Crier keeps the normal Instagram feed post or carousel and turns its first page into a separate 16-second MP4 Story with the selected track. It loops shorter audio to fill the clip. The photo document is rendered once.
+
+This mode needs the same public staging as every Instagram publication. It cannot be combined with `publish.instagram.story: true`, which makes the primary output story-only. See [Instagram](./instagram.md#add-a-music-backed-cover-story-to-a-feed-post).
 
 Telegram is a second message because it has to be. The Bot API groups audio only with other audio, so a track cannot join the album of pictures it belongs to. crier sends the pictures, waits for them to land, and sends the audio next. That message failing is a warning rather than a failure of the post. The pictures are already out, and there is no taking them back.
 
@@ -104,7 +110,7 @@ A GIF has no audio track, so `render.video.audio` is ignored for one.
 
 ## A video that opens the post
 
-This is the other half of the story, and the way a soundtrack reaches Instagram at all.
+This is one way a soundtrack reaches Instagram. A generated [cover Story](#a-cover-story-beside-the-feed-post) can carry the selected track beside an ordinary photo feed post instead.
 
 ```yaml
 publish:
