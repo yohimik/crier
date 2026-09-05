@@ -1,5 +1,5 @@
 <h1>
-  <img src="./assets/logo.svg" alt="Crier logo" width="80" height="80" align="right">
+  <img src="./assets/logo.svg" alt="Crier logo" height="80" align="right">
   crier
   <br clear="all">
 </h1>
