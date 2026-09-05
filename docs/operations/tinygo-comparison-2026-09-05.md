@@ -12,7 +12,8 @@ This report does not approve or publish a TinyGo release. The experiment changes
 | Source feature | `feat(crier): publish release media together` |
 | Go used to build Crier | `go1.26.7 darwin/arm64` |
 | TinyGo compiler | Released `0.43.0-net.1 darwin/arm64`, LLVM `22.1.4` |
-| TinyGo tag commit | `1b2b1d163409b9f151d96dc494cf27b1114d39e5` |
+| TinyGo annotated tag object | `1b2b1d163409b9f151d96dc494cf27b1114d39e5` |
+| TinyGo release source commit | `c3bc7ea74ad3d1032bcd5f1f745520b0e8122acf` |
 | Local TinyGo checkout at copy time | `3a9fc1feba199b8d5735b1b4cd3830cf49be6b95` |
 | Copied net commit | `476a4e3241ee8061a8ae6a311884f6304fda7ea0` |
 | Cookiejar overlay | `jar.go` and `punycode.go` from Go 1.26.7 |
@@ -22,6 +23,8 @@ This report does not approve or publish a TinyGo release. The experiment changes
 | Linux test image | `golang@sha256:26326682769ca980f8f1d3b1f52be2dd1c1d25270e3de3fe0c97d6bb65df3556` |
 | Linux test harness | Go 1.26.6, linux/arm64, root, FFmpeg 7.1.5 |
 | Linux symbol removal | GNU Binutils 2.44, native and x86_64 cross `strip` |
+
+The release source commit is the result of `git rev-parse 'v0.43.0-net.1^{}'`. The annotated tag object is the result without `^{}`. They identify different Git objects.
 
 The compiler executable itself was built with Go 1.27.0, as its Go build metadata reports. It uses Go 1.26.7 to compile this Crier source. These are separate version facts.
 
