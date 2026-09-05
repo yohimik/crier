@@ -1,5 +1,7 @@
 # crier
 
+[![tests](https://github.com/yohimik/crier/actions/workflows/tests.yml/badge.svg)](https://github.com/yohimik/crier/actions/workflows/tests.yml)
+
 Render an HTML template to an image or a video, and publish it to fourteen social platforms with one command.
 
 ```sh
