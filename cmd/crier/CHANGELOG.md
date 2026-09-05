@@ -1,5 +1,51 @@
 # Changelog
 
+## v1.1.0 (2026-09-05)
+
+### Features
+
+- publish release media together ([7edaff9](https://github.com/yohimik/crier/commit/7edaff931ac9367734d806b684389b3ba4caf026)) (by yohimik)
+
+### Fixes
+
+- templates execute without reflect ([daf8778](https://github.com/yohimik/crier/commit/daf8778b7eb900a4c92477e42380a4c74119cc58)) (by yohimik, Claude Fable 5.1)
+  crier's templates ran on html/template and text/template, whose executors
+  reach into values and call functions through reflection. That was the one
+  thing a TinyGo toolchain could not do for crier: its reflect has no
+  Type.NumOut and no Value.Call, and text/template needs both before it
+  executes a line, so a fork-built crier panicked on its first template.
+
+  internal/template/exec is an executor over text/template/parse's tree with
+  no reflection in it. crier's data is never an arbitrary struct — a document
+  is YAML or JSON, so maps, lists and scalars — and its function set is its
+  own, so the executor walks plain values and dispatches functions through
+  a typed table. Its tests run the same templates through both executors
+  and require the same output: the truth rules, the missing-key options,
+  the comparison functions and their errors, the printing, the variable
+  scoping, the range order. The real templates — every example and both
+  announcement layouts — render byte for byte what html/template rendered,
+  comments aside.
+
+  What changes for a gc binary is small and written down in the template
+  documentation: one escaping rule (every value escaped as HTML text) where
+  html/template had a context machine for URLs, CSS and scripts that a
+  renderer never needed; template comments kept rather than stripped;
+  method calls limited to times; join accepting a list from the data
+  document, which the documentation's own example relied on and
+  text/template refused; and a version line that names TinyGo when TinyGo
+  built the binary.
+
+  Under the fork the black-box suite now passes 106 of its tests where it
+  passed 47, and renders. What fails is the fork's net, which dials and
+  does not listen, so the stage server cannot serve; that is the fork's to
+  close, and until it does the release binaries stay gc's.
+
+### Authors
+
+- yohimik
+- Claude Fable 5.1
+
+
 ## v1.0.0 (2026-09-02)
 
 ### Breaking Changes
