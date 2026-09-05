@@ -1,0 +1,7 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="-24 -48 560 560" role="img" aria-labelledby="title">
+  <title id="title">Crier logo</title>
+  <g transform="translate(-31 -6) rotate(-30 256 256)">
+    <polygon points="256,25 160,445 352,445" transform="translate(256 368.467028) scale(1.25) translate(-256 -368.467028)" fill="#fff"/>
+    <polygon points="256,25 160,445 352,445" fill="#000"/>
+  </g>
+</svg>

@@ -1,3 +1,5 @@
+<img src="./assets/logo.svg" alt="Crier logo" width="120" align="right">
+
 # crier
 
 [![tests](https://github.com/yohimik/crier/actions/workflows/tests.yml/badge.svg)](https://github.com/yohimik/crier/actions/workflows/tests.yml)
