@@ -163,3 +163,31 @@ Run the [native test script](../../scripts/size-comparison-darwin-test.sh) on ma
 The committed [results](./tinygo-comparison-2026-09-05/results.json) contain executable SHA-256 values. The [evidence archive](./tinygo-comparison-2026-09-05/evidence.tar.gz) contains full test logs, build records, TLS logs, source manifests, section records, upstream inventory, and pixel measurements.
 
 The original local artifact directory is `/Users/yohimik/Projects/crier-size-comparison/coverage/size-comparison/`. It also retains the measured binaries, PNGs, and toolchain copy. Crier main and release work remained under the separate release owner's control. This experiment made no release or push.
+
+## Follow-up with the CI-built compiler
+
+The next fork candidate fixes the Darwin startup failure. This follow-up keeps Crier source at `7edaff931ac9367734d806b684389b3ba4caf026`. It uses CI-built TinyGo `e7d34c8c126e0eecd2ce711915f2f88d112d833a` with net `0f460803c832e5edad095ce02731f1000496dd88`. No compiler or runtime source overlay is applied. The compiler still prints `0.43.0-net.1` because the branch has not changed its version constant. These are not the published release artifacts.
+
+All 24 candidate checks passed. See [Linux CI](https://github.com/yohimik/tinygo/actions/runs/33944102078), [macOS CI](https://github.com/yohimik/tinygo/actions/runs/33944102124), and [the validation PR](https://github.com/yohimik/tinygo/pull/18). Downloaded tarball hashes match the Actions API digests.
+
+| Check | Linux arm64 | Darwin arm64 |
+| --- | --- | --- |
+| Host Go | 1.26.6 | 1.26.7 |
+| Crier startup | pass | pass |
+| Crier E2E | 143 pass, 0 fail, 0 skip | 142 pass, 0 fail, 1 skip |
+| E2E recorded duration | 95.029s | 73.914s |
+| Spawn probe | 16 pass | 16 pass |
+| Signal probe | 11 pass | 11 pass |
+| Cookiejar | pass | pass |
+| Full os package, including fd remapping and fcntl | pass | pass |
+| TCP, TLS 1.3, HTTP, HTTPS, DNS probes | pass | pass |
+
+The Linux net suite also passed. Darwin tests confirm port-zero reporting, address Zone preservation, and SO_NOSIGPIPE on accepted sockets. These checks do not prove that all descriptor lifetime and deadline behavior is complete.
+
+The Darwin skip is the same platform trust-store condition described above. A separate native Crier test uses a local TLS server and explicit PEM roots. It passes trusted-name and trusted-IP checks, rejects an untrusted CA, and rejects plaintext at the TLS port. It updates a copy to a Go 1.1.0 target, verifies the original TinyGo backup, stops the server, and rolls back. The restored file matches the original bytes. Server logs show completed handshakes and ClientHello bytes. No keychain change is made.
+
+This run uses the same build options and version stamp as the original comparison. The new unstripped Crier binaries are 29,101,552 bytes on Linux arm64 and 25,573,008 bytes on Darwin arm64. No new stripped-size or pixel comparison was run. The original size table and render limits remain results for the earlier compiler, not these new binaries.
+
+The [follow-up evidence](./tinygo-comparison-2026-09-05/candidate-e7d34c8c.tar.gz) contains provenance, bounded test scripts, and selected logs. It excludes generated private keys and toolchain binaries. The full local directory is `/private/tmp/tinygo-candidate-e7d34c8c.PiviTx`.
+
+This result does not publish a fork release or validate current Dispat acceptance. The separate Dispat task has the results for coordination. WaitDelay, full descriptor lifetime, in-flight deadline changes, and the earlier render differences remain open.
