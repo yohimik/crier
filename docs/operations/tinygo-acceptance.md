@@ -1,18 +1,35 @@
 # TinyGo release acceptance
 
-Status on September 6, 2026: **pending; no TinyGo Crier release has been published**.
-The current stable Crier release is `v1.1.0`. The intended next patch is `v1.1.1`,
-subject to every acceptance gate below. TinyGo `v0.43.0-net.2` was published
-on September 6 at 16:49:57 UTC; its tagged release workflow `34042895556`
-passed. Crier now pins `v0.43.0-net.2` without the obsolete cookiejar source
-overlay. Published-toolchain acceptance is the current gate; see the saved
-restart checkpoint for historical state, not current running-job instructions.
+Status on September 7, 2026: **v1.1.1 published and post-release CI validated**.
+The [release](https://github.com/yohimik/crier/releases/tag/v1.1.1) includes six
+standard binaries and two opt-in, stripped static TinyGo Linux binaries.
+Published TinyGo `v0.43.0-net.2` is pinned without source overlays.
 
-The user approved the explicit-rounding build patch on September 6. Fresh
-patched candidate acceptance passed and Crier's pre-tag confirmation was
-sent; the TinyGo owner independently verified the evidence. Published-fork
-acceptance and Crier publication remain pending. Historical unpatched results
-below are retained, not reclassified as passing.
+[CI run 34061068016](https://github.com/yohimik/crier/actions/runs/34061068016)
+passed all eight jobs against exact released source
+`acac2f0eae0d98e42f442c7f4e6a36ccf9bc3665` and verified published bytes.
+All six native OS/architecture targets passed Dispat, platform-script and
+released-composite-action installation checks. Unix smoke suites passed seven
+tests each; Windows passed six with one explicitly recorded Unix-shell-only
+announcement test skip. Native Linux AMD64 and ARM64 each passed full Go and
+TinyGo integration: 144 top-level tests / 156 events per compiler, no failures
+or skips, including stamped updates, TLS/rollback and real FFmpeg.
+Each 13-PNG matrix passed unchanged thresholds; AMD64 was pixel-exact, ARM64
+differed only in four event-card pixels by one channel value. Standard source
+CI/lint/coverage gates passed, with combined statement coverage 90.6%.
+
+The release was originally published manually before that CI run. This was a
+process error, not the release procedure to repeat: **future releases must use
+the release workflow and complete its validation gates**. Source tags and
+accepted binaries must not be rewritten to disguise that history. See the
+[release notes](../releases/v1.1.1.md), attached
+[artifact report](https://github.com/yohimik/crier/releases/download/v1.1.1/crier-v1.1.1-acceptance.md)
+and [checksums](https://github.com/yohimik/crier/releases/download/v1.1.1/SHA256SUMS).
+The attached report predates CI; the run above supplies subsequent native
+Windows/macOS AMD64 and native Linux AMD64 evidence.
+
+Historical candidate and unpatched results below remain historical, not
+current blockers or instructions to rerun the experiment.
 
 ## Published-toolchain release validation
 
@@ -24,7 +41,7 @@ against GitHub's published SHA-256 digests before unpacking:
 - AMD64: `e94fcab3acad305fc2b7eb729578aa911af153a3750038cf54b4c11de6cffa6d`
 - ARM64: `af96dc321b172c1418dffd877063cd830f01c685ae4dbc10e6846c8b5fd62c16`
 
-For this manual release, one fixed source snapshot and timestamp identify all
+For the historical v1.1.1 release, one fixed source snapshot and timestamp identify all
 eight assets. `go-export` exports the six standard artifacts only after the
 ordinary Go test gate. The published-toolchain diagnostic runner creates the
 two tiny artifacts with the same version, source and timestamp, retains raw
@@ -32,12 +49,10 @@ copies, and tests both raw and stripped executables. Exported candidates are
 not published unless all verdicts pass. No rebuild or re-stamping of accepted
 bytes is permitted between their final acceptance and upload.
 
-The source snapshot is intended to be transferred using GitHub's Git-object
-API with exact Git tree/commit hash verification, without a Git push or
-updating main. Only after acceptance will its release tag and assets be
-published. The snapshot's source archive must match the tested source tree;
-the normal release workflow is not dispatched. The local development branch
-and its complete history are retained separately.
+That source snapshot was transferred with exact Git tree/commit verification.
+Its tag and assets are immutable acceptance inputs for the CI follow-up.
+The Git-object/manual-publication route is not an approved future release
+path. Follow [Releasing](./release.md) for CI/CD publication.
 
 ## Reproducible renderer rounding
 
@@ -148,7 +163,7 @@ candidate is not proof that the candidate is the published release.
 
 ## Artifacts
 
-The six standard Go asset names remain unchanged. The proposed additional
+The six standard Go asset names remain unchanged. The additional published
 assets are `crier-tiny-linux-amd64` and `crier-tiny-linux-arm64`, statically
 linked, stripped ELF executables. Raw compiler output is retained for the
 comparison but is not the intended upload. `scripts/build-tiny.sh` records

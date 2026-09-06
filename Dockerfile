@@ -259,7 +259,7 @@ RUN --mount=type=cache,target=/root/.cache/go-build \
 FROM scratch AS coverage-export
 COPY --from=test /coverage /
 
-# Manual release assembly can reuse these exact tested standard binaries with
+# Diagnostic artifact export can reuse these exact tested standard binaries with
 # separately accepted TinyGo artifacts. This stage does not publish anything.
 FROM scratch AS go-export
 COPY --from=test /out /

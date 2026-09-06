@@ -1,6 +1,10 @@
 # Releasing
 
-Releases are cut with [dispat](https://dispat.dev). It reads the conventional commits since the last tag and works out the version. Next, it writes the changelog. Finally, it tags, builds, and publishes a GitHub release with the six binaries attached.
+Releases must be cut through GitHub Actions with [dispat](https://dispat.dev).
+It reads conventional commits since the last tag, works out the version,
+writes the changelog, builds, tags and publishes six standard binaries plus
+two opt-in TinyGo Linux binaries. Permission to push or dispatch CI does not
+authorize bypassing the release pipeline.
 
 ```sh
 dispat status     # what would be released, and why
@@ -10,7 +14,7 @@ You can find the whole configuration in [`dispat.yaml`](../../dispat.yaml).
 
 ## Running one
 
-The **release** workflow uses `workflow_dispatch`. It has four jobs:
+The **release** workflow uses `workflow_dispatch`. It has five jobs:
 
 1. **plan**: Runs `dispat status --require-release`. Exit 3 means the commits hold nothing releasable. The run stops there.
 2. **ping**: Runs `crier ping` with the previous release's binary against the announcement's credentials. Nothing is posted. A revoked or expired token fails the run here, in a minute, instead of surfacing as a skipped announcement at the end. A repository without the announcement secrets skips this and releases without announcing.
@@ -19,6 +23,19 @@ The **release** workflow uses `workflow_dispatch`. It has four jobs:
 5. **install**: Runs on Ubuntu, macOS and Windows. It installs the published binary and runs it. A release is not finished until its assets install.
 
 It needs no secrets beyond the automatic `GITHUB_TOKEN`. The announcement secrets are optional; when they are set, the ping job holds the release to them.
+
+Do not publish with a local `gh release create`, Git-object transfer, or local
+`dispat` invocation. Diagnostic builds and artifact checks are not substitutes
+for the release workflow. Preserve exact release tags; merge already-tagged
+release branches with a merge commit rather than squashing away their ancestry.
+
+### v1.1.1 reconciliation
+
+v1.1.1 was published manually in error. Its unchanged bytes subsequently
+passed [native CI validation](https://github.com/yohimik/crier/actions/runs/34061068016).
+The one-off **Reconcile v1.1.1 metadata** workflow repairs its release title,
+description and moving `v1` alias only after green main CI. It does not build,
+replace assets, alter the exact `v1.1.1` tag or publish another release.
 
 ## Commits
 
@@ -48,7 +65,7 @@ This turns `%re` or `%RC` into a named error (E181). It prevents the quiet start
 | Tag | `v1.0.0-rc.0` | `v1.0.0` |
 | GitHub release | created, **flagged prerelease** | created |
 | Changelog entry | written | written |
-| Alias tags moved | none | none |
+| Alias tags moved | none | `v1` |
 
 
 Both channels get a changelog entry and a GitHub release. This is the default for dispat. It is also what crier wants. If nobody can read the notes for a release candidate, nobody tries it. dispat flags the GitHub release as a prerelease whenever the version is one. It does this without being asked. This keeps the install scripts and `dispat install` from resolving to it.
@@ -163,16 +180,27 @@ INF picked an audio track from the pool audio=announce/anthem-william-tell.mp3 p
 
 ## The assets
 
-Six bare, uncompressed binaries:
+Six standard bare, uncompressed binaries, plus two opt-in tiny binaries:
 
 ```
 crier-linux-amd64    crier-darwin-amd64    crier-windows-amd64.exe
 crier-linux-arm64    crier-darwin-arm64    crier-windows-arm64.exe
+crier-tiny-linux-amd64
+crier-tiny-linux-arm64
 ```
 
-The names are a contract. `install.sh`, `install.ps1` and a bare `dispat install` look for the repository's name and the platform. They all resolve exactly these. There are no archives and no checksum file. GitHub publishes a sha256 digest per asset, and all three verify against it.
+The six standard names are a contract. `install.sh`, `install.ps1` and a bare
+`dispat install` resolve those standard assets. Tiny assets are explicit
+opt-in; normal self-update switches a tiny installation to the standard Go
+flavor. GitHub publishes a SHA-256 digest per asset and installers verify it.
+v1.1.1 additionally carries a frozen acceptance report and `SHA256SUMS`; those
+historical metadata assets must not be overwritten when updating release notes.
 
-They are built by the root `Dockerfile`'s `export` target. This target descends from the `test` target. What lands in `dist/` is six validated binaries. They are executed where possible and put through both suites. Six binaries that merely compiled are never uploaded.
+They are built by the root `Dockerfile`'s `export` target, which descends from
+`release-test`: the standard Go test/coverage gate and native TinyGo full
+integration/pixel gate. Foreign architectures require separate execution
+evidence; cross-compilation alone is not runtime acceptance. The published
+installation matrix remains mandatory.
 
 ### The binaries are smoke-tested before upload
 

@@ -34,8 +34,12 @@ jobs:
       - run: dispat run gofmt --since all
       - run: dispat run vet --since all
       - run: dispat run lint --since all
+      - run: dispat run actionlint --since all
+      - run: dispat run shellcheck --since all
       - name: Documentation is in step with the configuration
         run: dispat run docs --since all
+      - name: Metadata-repair guardrails
+        run: node --test .github/scripts/reconcile-v1.1.1.test.cjs
 
   test:
     name: Tests

@@ -1,5 +1,10 @@
 # Crier TinyGo restart checkpoint
 
+> Archived checkpoint, not current execution instructions. Crier v1.1.1 is
+> published and its follow-up CI validation completed successfully. See
+> [current acceptance](./tinygo-acceptance.md). Do not resume the old monitor,
+> repeat publication, or treat the historical pending items below as active.
+
 Saved September 6, 2026 for the requested app update/restart. No Crier build
 or test process is running. All implementation and acceptance documentation
 are committed locally on `codex/crier-tiny-acceptance`. Nothing was pushed,

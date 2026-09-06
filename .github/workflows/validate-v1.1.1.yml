@@ -1,8 +1,8 @@
 name: Validate published v1.1.1
 
 on:
-  push:
-    branches: [codex/validate-v1.1.1]
+  # Historical published-artifact validation; normal PR/main CI is tests.yml.
+  workflow_dispatch:
 
 # This workflow cannot publish, update refs, or use announcement credentials.
 permissions:
