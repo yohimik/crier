@@ -1,0 +1,221 @@
+name: Validate published v1.1.1
+
+on:
+  # Historical published-artifact validation; normal PR/main CI is tests.yml.
+  workflow_dispatch:
+
+# This workflow cannot publish, update refs, or use announcement credentials.
+permissions:
+  contents: read
+
+concurrency:
+  group: validate-v1.1.1
+  cancel-in-progress: false
+
+jobs:
+  native:
+    name: Native ${{ matrix.os }}/${{ matrix.arch }}
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: 100
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - {runner: ubuntu-24.04, os: linux, arch: amd64}
+          - {runner: ubuntu-24.04-arm, os: linux, arch: arm64}
+          - {runner: macos-15-intel, os: darwin, arch: amd64}
+          - {runner: macos-15, os: darwin, arch: arm64}
+          - {runner: windows-2025, os: windows, arch: amd64}
+          - {runner: windows-11-arm, os: windows, arch: arm64}
+    env:
+      TARGET_OS: ${{ matrix.os }}
+      TARGET_ARCH: ${{ matrix.arch }}
+      GOMAXPROCS: '2'
+      GOMEMLIMIT: 6GiB
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/checkout@v4
+        with:
+          ref: acac2f0eae0d98e42f442c7f4e6a36ccf9bc3665
+          path: released
+          persist-credentials: false
+      - name: Verify source, native architecture and published bytes
+        id: artifacts
+        uses: actions/github-script@v7
+        with:
+          script: |
+            await require('./.github/scripts/validate-v1.1.1.cjs')({github, core});
+      - uses: actions/setup-go@v5
+        with:
+          go-version: '1.26.8'
+          cache-dependency-path: released/go.sum
+      - name: Install Dispat
+        uses: yohimik/dispat@v1
+      - name: Install through Dispat
+        shell: bash
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+        run: dispat install yohimik/crier --release 1.1.1 --as crier-via-dispat --bin-dir ./dispat-bin
+      - name: Verify Dispat installation
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const ext = process.platform === 'win32' ? '.exe' : '';
+            require('./.github/scripts/validate-v1.1.1.cjs').verifyInstalled(`dispat-bin/crier-via-dispat${ext}`, process.env.TARGET_OS, process.env.TARGET_ARCH);
+            await exec.exec(`./dispat-bin/crier-via-dispat${ext}`, ['--version']);
+      - name: Unix script installation
+        if: runner.os != 'Windows'
+        shell: bash
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+          CRIER_VERSION: '1.1.1'
+          CRIER_BIN_DIR: ${{ runner.temp }}/crier-script-install
+        run: |
+          set -euo pipefail
+          version=$(sh released/install.sh)
+          test "$version" = 1.1.1
+          "$CRIER_BIN_DIR/crier" --version
+      - name: Windows script installation
+        if: runner.os == 'Windows'
+        shell: pwsh
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $dir = Join-Path $env:RUNNER_TEMP 'crier-script-install'
+          $version = & ./released/install.ps1 -Version '1.1.1' -BinDir $dir
+          if ($version -ne '1.1.1') { throw "Wrong installed version: $version" }
+          & "$dir/crier.exe" --version
+          if ($LASTEXITCODE -ne 0) { throw 'Installed binary failed' }
+      - name: Verify script-installed bytes
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const p = require('node:path').join(process.env.RUNNER_TEMP, 'crier-script-install', process.platform === 'win32' ? 'crier.exe' : 'crier');
+            require('./.github/scripts/validate-v1.1.1.cjs').verifyInstalled(p, process.env.TARGET_OS, process.env.TARGET_ARCH);
+      - name: Install through released composite action
+        id: action
+        uses: ./released
+        with:
+          version: '1.1.1'
+          bin-dir: ${{ runner.temp }}/crier-action-install
+      - name: Verify composite outputs and installed bytes
+        uses: actions/github-script@v7
+        env:
+          ACTION_VERSION: ${{ steps.action.outputs.version }}
+          ACTION_PATH: ${{ steps.action.outputs.path }}
+        with:
+          script: |
+            require('node:assert/strict').equal(process.env.ACTION_VERSION, '1.1.1');
+            require('./.github/scripts/validate-v1.1.1.cjs').verifyInstalled(process.env.ACTION_PATH, process.env.TARGET_OS, process.env.TARGET_ARCH);
+            await exec.exec(process.env.ACTION_PATH, ['--version']);
+      - name: Native published standard binary smoke suite
+        shell: bash
+        working-directory: released
+        env:
+          CRIER_E2E_BINARY: ${{ steps.artifacts.outputs.binary }}
+        run: |
+          set -euo pipefail
+          go test -tags=e2e ./test/e2e -run '^TestSmoke' -count=1 -json -timeout=15m > ../evidence/smoke.json
+          node -e 'require("../.github/scripts/validate-v1.1.1.cjs").verifySmoke("../evidence/smoke.json", process.env.TARGET_OS)'
+      - name: Prepare Linux published-toolchain integration
+        if: runner.os == 'Linux'
+        shell: bash
+        working-directory: released
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          sudo apt-get update -qq
+          sudo apt-get install -y ffmpeg binutils patch jq
+          mkdir "$RUNNER_TEMP/crier-toolchain"
+          asset="tinygo0.43.0-net.2.linux-$TARGET_ARCH.tar.gz"
+          gh release download v0.43.0-net.2 -R yohimik/tinygo -p "$asset" -D "$RUNNER_TEMP/crier-toolchain"
+          case "$TARGET_ARCH" in
+            amd64) expected=e94fcab3acad305fc2b7eb729578aa911af153a3750038cf54b4c11de6cffa6d ;;
+            arm64) expected=af96dc321b172c1418dffd877063cd830f01c685ae4dbc10e6846c8b5fd62c16 ;;
+          esac
+          echo "$expected  $RUNNER_TEMP/crier-toolchain/$asset" | sha256sum -c -
+          tar -xzf "$RUNNER_TEMP/crier-toolchain/$asset" -C "$RUNNER_TEMP/crier-toolchain"
+          echo "$RUNNER_TEMP/crier-toolchain/tinygo/bin" >> "$GITHUB_PATH"
+          sh scripts/prepare-renderer.sh "$RUNNER_TEMP/crier-renderer"
+          echo "GOFLAGS=-modfile=$RUNNER_TEMP/crier-renderer/crier.mod" >> "$GITHUB_ENV"
+          echo 'GOWORK=off' >> "$GITHUB_ENV"
+      - name: Full native Linux published Go and tiny integration and pixels
+        if: runner.os == 'Linux'
+        shell: bash
+        working-directory: released
+        run: |
+          set -euo pipefail
+          for compiler in go tinygo; do
+            if [ "$compiler" = tinygo ]; then name="crier-tiny-linux-$TARGET_ARCH"; else name="crier-linux-$TARGET_ARCH"; fi
+            CRIER_E2E_BINARY="$GITHUB_WORKSPACE/evidence/$name" CRIER_E2E_COMPILER="$compiler" \
+              timeout 65m go test -tags=e2e ./test/e2e -json -count=1 -timeout=60m > "../evidence/e2e-$compiler.json"
+            jq -s -e 'any(.[]; .Action == "pass" and (has("Test") | not)) and all(.[]; .Action != "fail" and .Action != "skip") and ([.[] | select(.Action == "pass" and has("Test"))] | length == 156)' "../evidence/e2e-$compiler.json"
+          done
+          CRIER_PIXEL_REFERENCE="$GITHUB_WORKSPACE/evidence/crier-linux-$TARGET_ARCH" \
+            CRIER_PIXEL_BINARY="$GITHUB_WORKSPACE/evidence/crier-tiny-linux-$TARGET_ARCH" \
+            CRIER_PIXEL_OUTPUT="$GITHUB_WORKSPACE/evidence/pixels" \
+            go test -tags=pixels ./test/pixels -json -count=1 -timeout=12m > ../evidence/pixels.json
+      - name: Retain verification evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: published-v1.1.1-${{ matrix.os }}-${{ matrix.arch }}
+          path: |
+            evidence/*.json
+            evidence/*.md
+            evidence/SHA256SUMS
+            evidence/pixels/
+          if-no-files-found: error
+
+  lint:
+    name: Released source lint gates
+    runs-on: ubuntu-24.04
+    timeout-minutes: 40
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: acac2f0eae0d98e42f442c7f4e6a36ccf9bc3665
+          persist-credentials: false
+      - uses: docker/setup-buildx-action@v3
+      - name: Format, vet, lint, workflows, shell and docs
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p coverage/ci
+          for gate in gofmt vet golangci-lint actionlint shellcheck docs; do
+            docker buildx build --build-arg GO_VERSION=1.26.8 --target "$gate" --progress=plain . 2>&1 | tee "coverage/ci/$gate.log"
+          done
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: v1.1.1-source-lint
+          path: coverage/ci/
+
+  tests:
+    name: Released source unit, E2E, FFmpeg, coverage and cross-build
+    runs-on: ubuntu-24.04
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: acac2f0eae0d98e42f442c7f4e6a36ccf9bc3665
+          persist-credentials: false
+      - uses: docker/setup-buildx-action@v3
+      - name: Run exact released Docker test gate and all six Go builds
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p coverage/ci
+          docker buildx build --build-arg GO_VERSION=1.26.8 --build-arg DISPAT_VERSION=1.1.1 \
+            --build-arg DISPAT_COMMIT=acac2f0eae0d98e42f442c7f4e6a36ccf9bc3665 \
+            --build-arg DISPAT_DATE=2026-09-06T16:57:36Z \
+            --target coverage-export --output type=local,dest=coverage/ci/profile --progress=plain . 2>&1 | tee coverage/ci/tests.log
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: v1.1.1-source-tests
+          path: coverage/ci/

@@ -111,6 +111,13 @@ func run(m *testing.M) (int, error) {
 			return 1, fmt.Errorf("%s: %w", binaryEnv, err)
 		}
 		crierBin = abs
+		info, err := exec.Command(crierBin, "--version").CombinedOutput()
+		if err != nil {
+			return 1, fmt.Errorf("prebuilt version: %w: %s", err, info)
+		}
+		if strings.Contains(string(info), "tinygo ") && os.Getenv(compilerEnv) != "tinygo" {
+			return 1, fmt.Errorf("TinyGo acceptance requires %s=tinygo for self-update fixtures", compilerEnv)
+		}
 		fmt.Fprintln(os.Stderr, "e2e: testing the prebuilt binary", abs)
 		return m.Run(), nil
 	}

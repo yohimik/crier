@@ -1,12 +1,11 @@
 # syntax=docker/dockerfile:1
 #
-# crier's build-and-test image: the six release binaries, built from this
-# checkout with the release version baked in, validated, tested, and exported
-# to the host as a plain folder.
+# crier's build-and-test image: six standard Go binaries and two additive
+# TinyGo Linux binaries, built from this checkout and exported as bare files.
 #
 # The export descends from the test stage, so a failed check fails this build
-# and nothing comes out: what lands in dist/ is six binaries that were tested,
-# never six that merely compiled.
+# and nothing comes out. Native artifacts pass full integration gates; foreign
+# targets are cross-compiled and require separate platform acceptance.
 #
 # One binary per mainstream platform. The names — crier-{goos}-{goarch}[.exe] —
 # are a contract: install.sh, install.ps1 and a bare `dispat install` all
@@ -17,11 +16,11 @@
 # native builder — no --platform fan-out and no emulation, which is why six
 # targets cost roughly what one does.
 #
-# Every binary is gc's. Whether a TinyGo fork could build smaller ones is the
-# question Dockerfile.tinygo asks; docs/operations/tinygo.md has the answer,
-# which as of the fork's 0.43.0-net.1 is that a fork-built crier links but
-# cannot render, so nothing here is built with it.
+# Six standard Go binaries retain their installer/self-update names. Two
+# stripped TinyGo Linux binaries are additive assets; export depends on their
+# full native E2E gate, including TinyGo-built self-update replacements.
 ARG GO_VERSION=1.26
+ARG DISPAT_CLI_VERSION=1.7.2
 
 # --- dependencies -------------------------------------------------------------
 #
@@ -35,6 +34,10 @@ RUN --mount=type=cache,target=/go/pkg/mod \
 
 FROM deps AS source
 COPY . .
+RUN apk add --no-cache patch >/dev/null
+RUN --mount=type=cache,target=/go/pkg/mod \
+    sh scripts/prepare-renderer.sh /opt/crier-renderer
+ENV GOFLAGS=-modfile=/opt/crier-renderer/crier.mod GOWORK=off
 
 # --- lint ---------------------------------------------------------------------
 #
@@ -52,17 +55,22 @@ RUN set -eu; \
 FROM source AS vet
 RUN --mount=type=cache,target=/root/.cache/go-build \
     --mount=type=cache,target=/go/pkg/mod \
-    go vet ./... && go vet -tags e2e ./test/... && echo "vet: clean"
+    go vet ./... && go vet -tags e2e ./test/... && go vet -tags pixels ./test/pixels && \
+    go vet -tags rounding ./test/rounding && echo "vet: clean"
 
 FROM source AS golangci-lint
 ARG GOLANGCI_LINT_VERSION=v2.6.1
 RUN --mount=type=cache,target=/root/.cache/go-build \
     --mount=type=cache,target=/go/pkg/mod \
-    go install github.com/golangci/golangci-lint/v2/cmd/golangci-lint@${GOLANGCI_LINT_VERSION}
+    GOFLAGS='' go install github.com/golangci/golangci-lint/v2/cmd/golangci-lint@${GOLANGCI_LINT_VERSION}
+# go/packages probes GOPATH mode internally, where GOFLAGS=-modfile is invalid.
+# Use the same prepared manifest in this disposable lint stage only.
 RUN --mount=type=cache,target=/root/.cache/go-build \
     --mount=type=cache,target=/root/.cache/golangci-lint \
     --mount=type=cache,target=/go/pkg/mod \
-    golangci-lint run ./...
+    cp /opt/crier-renderer/crier.mod go.mod && \
+    cp /opt/crier-renderer/crier.sum go.sum && \
+    GOFLAGS='' golangci-lint run ./...
 
 # --- workflows ----------------------------------------------------------------
 #
@@ -74,7 +82,7 @@ FROM source AS actionlint
 ARG ACTIONLINT_VERSION=v1.7.7
 RUN --mount=type=cache,target=/root/.cache/go-build \
     --mount=type=cache,target=/go/pkg/mod \
-    go install github.com/rhysd/actionlint/cmd/actionlint@${ACTIONLINT_VERSION}
+    GOFLAGS='' go install github.com/rhysd/actionlint/cmd/actionlint@${ACTIONLINT_VERSION}
 RUN apk add --no-cache shellcheck >/dev/null && actionlint -color && echo "actionlint: clean"
 
 # --- shell --------------------------------------------------------------------
@@ -93,7 +101,7 @@ RUN apk add --no-cache shellcheck >/dev/null && actionlint -color && echo "actio
 FROM source AS shellcheck
 RUN apk add --no-cache shellcheck >/dev/null && \
     shellcheck install.sh announce/announce.sh announce/notes.sh cmd/crier/build.sh \
-      scripts/install-tools.sh && \
+      scripts/install-tools.sh scripts/build-tiny.sh scripts/accept-tiny.sh scripts/prepare-renderer.sh && \
     shellcheck --exclude=SC2129 scripts/tinygo-spike-darwin.sh && \
     echo "shellcheck: clean"
 
@@ -138,6 +146,7 @@ ARG DISPAT_VERSION=dev
 # where git does. Left empty, the resolution below reads it out of .git, which
 # is why .dockerignore keeps that directory.
 ARG DISPAT_COMMIT=
+ARG DISPAT_DATE=
 ARG TARGETARCH
 
 RUN --mount=type=cache,target=/root/.cache/go-build \
@@ -159,7 +168,7 @@ RUN --mount=type=cache,target=/root/.cache/go-build \
       esac; \
     fi; \
     commit="$(printf '%s' "${commit:-none}" | cut -c1-12)"; \
-    date="$(date -u +%Y-%m-%dT%H:%M:%SZ)"; \
+    date="${DISPAT_DATE:-$(date -u +%Y-%m-%dT%H:%M:%SZ)}"; \
     assets=""; \
     for target in linux/amd64 linux/arm64 darwin/amd64 darwin/arm64 windows/amd64 windows/arm64; do \
       GOOS="${target%/*}"; \
@@ -176,7 +185,8 @@ RUN --mount=type=cache,target=/root/.cache/go-build \
       assets="${assets}${assets:+ }$name"; \
     done; \
     echo "DISPAT_EXPORT_GITHUB=$assets" > /out/dispat-output; \
-    printf '%s' "$commit" > /commit
+    printf '%s' "$commit" > /commit; \
+    printf '%s' "$date" > /date
 
 # Every binary is read back to prove it is a Go executable for the platform its
 # name claims, and the linux ones are run: a binary that merely compiled is not
@@ -235,6 +245,7 @@ RUN --mount=type=cache,target=/root/.cache/go-build \
     --mount=type=cache,target=/go/pkg/mod \
     set -eu; \
     mkdir -p /coverage/unit /coverage/e2e; \
+    go run -tags=rounding ./test/rounding; \
     go test ./... -count=1 -covermode=atomic \
       -args -test.gocoverdir=/coverage/unit; \
     GOCOVERDIR=/coverage/e2e go test -tags e2e ./test/e2e -count=1; \
@@ -248,6 +259,89 @@ RUN --mount=type=cache,target=/root/.cache/go-build \
 FROM scratch AS coverage-export
 COPY --from=test /coverage /
 
+# Diagnostic artifact export can reuse these exact tested standard binaries with
+# separately accepted TinyGo artifacts. This stage does not publish anything.
+FROM scratch AS go-export
+COPY --from=test /out /
+
+FROM build AS e2e-check
+ARG TARGETARCH
+RUN --mount=type=cache,target=/root/.cache/go-build \
+    --mount=type=cache,target=/go/pkg/mod \
+    CRIER_E2E_BINARY="/out/crier-linux-${TARGETARCH}" \
+      go test -tags=e2e ./test/e2e -run TestSelfUpdateTLSAndOfflineRollback -count=1 -v -timeout=2m
+
+# The published fork is installed once; Crier does not patch its sources.
+# LLVM needs glibc, while the resulting Linux binaries link musl statically.
+FROM yohimik/dispat-debian:${DISPAT_CLI_VERSION} AS dispat-cli
+FROM golang:${GO_VERSION} AS tiny-toolchain
+COPY --from=dispat-cli /usr/local/bin/dispat /usr/local/bin/dispat
+COPY scripts/install-tools.sh /tmp/install-tools.sh
+ENV DISPAT_UPDATE_CHECK=false
+RUN --mount=type=secret,id=GITHUB_TOKEN \
+    set -eu; \
+    if [ -f /run/secrets/GITHUB_TOKEN ]; then \
+      GITHUB_TOKEN="$(cat /run/secrets/GITHUB_TOKEN)"; export GITHUB_TOKEN; \
+    fi; \
+    sh /tmp/install-tools.sh tinygo
+RUN apt-get update && apt-get install -y --no-install-recommends \
+      binutils-aarch64-linux-gnu binutils-x86-64-linux-gnu ffmpeg git jq patch \
+    && rm -rf /var/lib/apt/lists/*
+ENV PATH=/usr/local/tinygo/bin:$PATH
+ENV GOMAXPROCS=2 GOMEMLIMIT=6GiB
+
+FROM tiny-toolchain AS tiny-build
+ARG DISPAT_VERSION=dev
+WORKDIR /src
+COPY go.mod go.sum ./
+RUN --mount=type=cache,target=/go/pkg/mod go mod download
+COPY . .
+COPY --from=build /commit /date /stamp/
+RUN --mount=type=cache,target=/go/pkg/mod \
+    sh scripts/prepare-renderer.sh /opt/crier-renderer
+ENV GOFLAGS=-modfile=/opt/crier-renderer/crier.mod GOWORK=off
+RUN --mount=type=cache,target=/root/.cache/go-build \
+    --mount=type=cache,target=/root/.cache/tinygo \
+    --mount=type=cache,target=/go/pkg/mod \
+    DISPAT_COMMIT="$(cat /stamp/commit)" DISPAT_DATE="$(cat /stamp/date)" \
+      DISPAT_VERSION="$DISPAT_VERSION" sh scripts/build-tiny.sh /tiny
+
+# Permission-injection tests must not run as root. The runner is Go, but the
+# binary AND the versioned self-update fixtures use the published TinyGo fork.
+# An explicit zero-skip assertion prevents missing ffmpeg from looking green.
+FROM tiny-build AS tiny-test
+ARG TARGETARCH
+COPY --from=build /out/crier-linux-${TARGETARCH} /reference/crier
+RUN useradd --create-home --uid 1001 gopher \
+    && mkdir /gate && chown -R gopher:gopher /src /gate
+USER gopher
+ENV GOPATH=/home/gopher/go
+ENV CRIER_E2E_COMPILER=tinygo
+RUN --mount=type=cache,target=/home/gopher/.cache,uid=1001,gid=1001 \
+    --mount=type=cache,target=/home/gopher/go/pkg/mod,uid=1001,gid=1001 \
+    set -eu; \
+    CRIER_E2E_BINARY="/tiny/crier-tiny-linux-${TARGETARCH}" \
+      timeout 65m go test -tags=e2e ./test/e2e -json -count=1 -timeout=60m > /gate/e2e.json \
+      || { cat /gate/e2e.json; exit 1; }; \
+    jq -s -e 'any(.[]; .Action == "pass" and .Package == "github.com/yohimik/crier/test/e2e" and (has("Test") | not)) and all(.[]; .Action != "skip" and .Action != "fail")' /gate/e2e.json; \
+    jq -s '{passed:([.[] | select(.Action == "pass" and has("Test"))] | length),failed:([.[] | select(.Action == "fail")] | length),skipped:([.[] | select(.Action == "skip")] | length)}' /gate/e2e.json; \
+    CRIER_PIXEL_REFERENCE=/reference/crier CRIER_PIXEL_BINARY="/tiny/crier-tiny-linux-${TARGETARCH}" CRIER_PIXEL_OUTPUT=/gate/pixels \
+      timeout 15m go test -tags=pixels ./test/pixels -json -count=1 -timeout=12m > /gate/pixels.json \
+      || { cat /gate/pixels.json; exit 1; }; \
+    touch /gate/passed
+
+FROM test AS release-test
+COPY --from=tiny-test /gate /tiny-gate
+COPY --from=tiny-build /tiny/crier-tiny-linux-amd64 /tiny/crier-tiny-linux-arm64 /out/
+COPY --from=tiny-build /tiny/tinygo-build-info.txt /tiny-gate/
+RUN set -eu; \
+    assets="$(sed -n 's/^DISPAT_EXPORT_GITHUB=//p' /out/dispat-output)"; \
+    echo "DISPAT_EXPORT_GITHUB=$assets crier-tiny-linux-amd64 crier-tiny-linux-arm64" > /out/dispat-output
+
+FROM scratch AS tiny-evidence
+COPY --from=tiny-test /gate /
+COPY --from=tiny-build /tiny/tinygo-build-info.txt /
+
 # --- export -------------------------------------------------------------------
 #
 # The stage's outputs, GITHUB_OUTPUT-style, as the caller will read them: the
@@ -256,7 +350,7 @@ COPY --from=test /coverage /
 #
 # A stage of its own, and the only place DISPAT_EXPORT_BASE is declared, so
 # building from a different checkout path does not invalidate the layers above.
-FROM test AS staged
+FROM release-test AS staged
 ARG DISPAT_EXPORT_BASE=.
 RUN set -eu; \
     while IFS= read -r line; do \

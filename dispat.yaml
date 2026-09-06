@@ -113,8 +113,7 @@ github:
     ```
 
     ```powershell
-    $env:CRIER_VERSION = '${DISPAT_NEW_VERSION}'
-    irm https://raw.githubusercontent.com/yohimik/crier/v${DISPAT_NEW_VERSION}/install.ps1 | iex
+    & ([scriptblock]::Create((irm https://raw.githubusercontent.com/yohimik/crier/v${DISPAT_NEW_VERSION}/install.ps1))) -Version '${DISPAT_NEW_VERSION}'
     ```
 
     ```sh
@@ -176,11 +175,12 @@ scripts:
     --target docs --output type=cacheonly "$(git rev-parse --show-toplevel)"
 
   # The unit suite, the black-box suite, the real-ffmpeg smoke and the coverage
-  # floor, all in the test target — and the same target the release's export
-  # descends from, so a release cannot carry binaries this did not pass.
+  # floor, plus the native stripped TinyGo E2E/pixel gates. The release export
+  # descends from the same target; the optional token installs the fork.
   tests: >-
     docker buildx build --file "$(git rev-parse --show-toplevel)/Dockerfile"
-    --target test --output type=cacheonly "$(git rev-parse --show-toplevel)"
+    --target release-test ${GITHUB_TOKEN:+--secret id=GITHUB_TOKEN,env=GITHUB_TOKEN}
+    --output type=cacheonly "$(git rev-parse --show-toplevel)"
 
   # The same suite, with the merged coverage profile exported for a caller that
   # wants the numbers.
@@ -195,21 +195,18 @@ scripts:
   # release.
   cross-compile: >-
     docker buildx build --file "$(git rev-parse --show-toplevel)/Dockerfile"
-    --target build --output type=cacheonly "$(git rev-parse --show-toplevel)"
+    --target tiny-build ${GITHUB_TOKEN:+--secret id=GITHUB_TOKEN,env=GITHUB_TOKEN}
+    --output type=cacheonly "$(git rev-parse --show-toplevel)"
 
   # The TinyGo spike, as a build like every other gate. Its targets never
   # abort: the logs are what it produces, so the export lands them in
   # coverage/tinygo-spike/ whatever they say, and the verdict is read from the
   # files rather than from a build's exit code.
   #
-  # Not a gate, and not in any sweep: nothing a release ships is built with
-  # TinyGo. Upstream cannot build crier at all, and the fork that speaks real
-  # TLS links a crier that panics on its first template, because TinyGo's
-  # reflect has no function introspection. The spike is what to re-run when
-  # that changes: it installs the fork through scripts/install-tools.sh, builds
-  # crier with it, and runs the self-update matrix over real TLS and the whole
-  # black-box suite against the result. See the header of Dockerfile.tinygo and
-  # docs/operations/tinygo.md.
+  # Historical diagnostics, not an acceptance gate or a publication path.
+  # Releases now include two opt-in tiny Linux binaries and are gated by the
+  # root Dockerfile's release-test stage. See tinygo-acceptance.md for current
+  # evidence; Dockerfile.tinygo retains the earlier experimental matrix.
   #
   # The token rides in as a build secret, and only when there is one: the
   # fork's install is one GitHub API call, which meets the unauthenticated rate

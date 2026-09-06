@@ -1,0 +1,28 @@
+# syntax=docker/dockerfile:1
+# Diagnostic acceptance of an externally verified compiler tree, copied from
+# the named build context "toolchain" without changing its source. This never
+# installs a compiler pin, tags source, or publishes a release.
+FROM golang:1.26 AS run
+COPY --from=toolchain / /usr/local/tinygo/
+RUN apt-get update && apt-get install -y --no-install-recommends ffmpeg binutils git jq patch \
+    && rm -rf /var/lib/apt/lists/* \
+    && useradd --create-home --uid 1001 gopher
+ENV PATH=/usr/local/tinygo/bin:$PATH
+ENV GOPATH=/home/gopher/go GOMAXPROCS=2 GOMEMLIMIT=6GiB
+WORKDIR /src
+COPY --chown=gopher:gopher . .
+RUN mkdir /evidence && chown gopher:gopher /src /evidence /opt
+USER gopher
+RUN --mount=type=cache,target=/home/gopher/go/pkg/mod,uid=1001,gid=1001 \
+    sh scripts/prepare-renderer.sh /opt/crier-renderer
+ENV GOFLAGS=-modfile=/opt/crier-renderer/crier.mod GOWORK=off
+ARG SOURCE_COMMIT
+ARG TOOLCHAIN_ID
+ARG TARGETARCH
+ARG BUILD_DATE=unknown
+RUN --mount=type=cache,target=/home/gopher/.cache,uid=1001,gid=1001 \
+    --mount=type=cache,target=/home/gopher/go/pkg/mod,uid=1001,gid=1001 \
+    SOURCE_COMMIT="$SOURCE_COMMIT" TOOLCHAIN_ID="$TOOLCHAIN_ID" TARGETARCH="$TARGETARCH" BUILD_DATE="$BUILD_DATE" \
+      sh scripts/accept-tiny.sh /evidence
+FROM scratch AS export
+COPY --from=run /evidence /

@@ -34,8 +34,12 @@ jobs:
       - run: dispat run gofmt --since all
       - run: dispat run vet --since all
       - run: dispat run lint --since all
+      - run: dispat run actionlint --since all
+      - run: dispat run shellcheck --since all
       - name: Documentation is in step with the configuration
         run: dispat run docs --since all
+      - name: Metadata-repair guardrails
+        run: node --test .github/scripts/reconcile-v1.1.1.test.cjs
 
   test:
     name: Tests
@@ -49,7 +53,9 @@ jobs:
         uses: yohimik/dispat@v1
       # The unit suite, the black-box suite, the real-ffmpeg smoke and the
       # coverage floor: one target, because they are one verdict.
-      - run: dispat run tests --since HEAD~1
+      - env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: dispat run tests --since HEAD~1
 
   build:
     name: Cross-compile
@@ -63,4 +69,6 @@ jobs:
         uses: yohimik/dispat@v1
       # Every target the release builds, each binary read back to prove it is
       # what its name claims, and the Linux ones executed.
-      - run: dispat run cross-compile --since HEAD~1
+      - env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: dispat run cross-compile --since HEAD~1

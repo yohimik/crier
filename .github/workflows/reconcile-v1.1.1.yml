@@ -1,0 +1,34 @@
+# Historical metadata repair only. This is not a publication workflow.
+name: Reconcile v1.1.1 metadata
+
+on:
+  workflow_dispatch:
+
+concurrency:
+  group: release
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  reconcile:
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      actions: read
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - name: Test metadata-repair guardrails
+        run: node --test .github/scripts/reconcile-v1.1.1.test.cjs
+      - name: Verify CI and immutable artifacts, then reconcile metadata
+        uses: actions/github-script@v7
+        env:
+          TARGET_OS: linux
+          TARGET_ARCH: amd64
+        with:
+          script: |
+            await require('./.github/scripts/reconcile-v1.1.1.cjs')({github, core, context});

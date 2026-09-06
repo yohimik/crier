@@ -1,0 +1,8 @@
+# GitHub-hosted labels added after the pinned actionlint v1.7.7 catalog.
+# This extends lint's label allowlist only; workflow runs-on still selects
+# GitHub-hosted VMs, whose native architecture is asserted by the verifier.
+# https://docs.github.com/en/actions/reference/runners/github-hosted-runners
+self-hosted-runner:
+  labels:
+    - macos-15-intel
+    - windows-11-arm

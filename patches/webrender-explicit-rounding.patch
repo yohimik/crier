@@ -1,0 +1,13 @@
+--- a/images/gradients.go
++++ b/images/gradients.go
+@@ -231,8 +231,8 @@
+ 	if lg.repeating {
+ 		spread = svg.Repeat
+ 	}
+-	startX := (pr.Fl(width) - dx*vectorLength) / 2
+-	startY := (pr.Fl(height) - dy*vectorLength) / 2
++	startX := (pr.Fl(width) - pr.Fl(dx*vectorLength)) / 2
++	startY := (pr.Fl(height) - pr.Fl(dy*vectorLength)) / 2
+ 
+ 	return spread.LinearGradient(positions, colors, startX, startY, dx, dy, vectorLength)
+ }
