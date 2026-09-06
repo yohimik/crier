@@ -1,5 +1,13 @@
 # The TinyGo spike
 
+> September 6, 2026: the narrative below is historical spike evidence, not
+> acceptance of the current checkout. Crier `v1.1.0` still ships standard Go
+> binaries only. A patch with additive, stripped Linux TinyGo assets is being
+> evaluated against the frozen `e7d34c8c` compiler candidate before the planned
+> `v0.43.0-net.2` release. See [current acceptance](./tinygo-acceptance.md) for
+> the gates and evidence requirements. Candidate results do not authorize
+> shipping artifacts built by an unpublished compiler.
+
 Read this page to understand why every one of crier's six release binaries is built with the Go compiler, and what a TinyGo fork can and cannot do with crier today. It describes a spike: an experiment kept in the repository because its answer is a version number away from changing, not a gate any job runs, and not something a release ships.
 
 TinyGo produces smaller binaries than gc for the same source. A CLI distributed as six platform binaries has an obvious interest in that, so the question was asked properly, with the whole answer written down. It is [dispat's spike](https://dispat.dev/internals/tinygo/), brought over and asked of crier, and the answer is different: dispat ships two fork-built binaries beside its six, and crier cannot, yet.

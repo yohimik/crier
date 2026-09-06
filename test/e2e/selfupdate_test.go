@@ -3,6 +3,7 @@
 package e2e
 
 import (
+	"context"
 	"crypto/sha256"
 	"encoding/hex"
 	"encoding/json"
@@ -14,13 +15,20 @@ import (
 	"runtime"
 	"strings"
 	"testing"
+	"time"
 )
 
 // The self-update tests drive the real command against a fake GitHub: a
 // releases listing, an asset server, and a real crier binary stamped with a
 // version to update to. Nothing here is mocked inside the program — the
 // binary being replaced is a binary on disk, and the one replacing it is one
-// the Go toolchain built.
+// the selected toolchain built.
+
+// TinyGo acceptance must opt in explicitly: otherwise an update could quietly
+// switch compilers halfway through a test and hide runtime failures.
+const compilerEnv = "CRIER_E2E_COMPILER"
+
+var stampedBinaries = map[string][]byte{}
 
 // assetName mirrors internal/selfupdate.AssetName, spelled out rather than
 // imported: an end-to-end test asserts the contract as the outside world sees
@@ -38,6 +46,9 @@ func assetName() string {
 // release promised before anything is moved.
 func buildStamped(t *testing.T, version string) []byte {
 	t.Helper()
+	if body, ok := stampedBinaries[version]; ok {
+		return body
+	}
 	root, err := repoRoot()
 	if err != nil {
 		t.Fatal(err)
@@ -46,18 +57,50 @@ func buildStamped(t *testing.T, version string) []byte {
 	if runtime.GOOS == "windows" {
 		out += ".exe"
 	}
-	cmd := exec.Command("go", "build",
-		"-ldflags", "-X github.com/yohimik/crier/internal/version.Version="+version,
-		"-o", out, "./cmd/crier")
+	compiler := os.Getenv(compilerEnv)
+	if compiler == "" {
+		compiler = "go"
+	}
+	args := []string{"build", "-trimpath"}
+	flags := "-s -w -X github.com/yohimik/crier/internal/version.Version=" + version
+	if compiler == "tinygo" {
+		args = []string{"build", "-opt=z", "-no-debug", "-tags=noasm", "-interp-timeout=15m", "-p=2"}
+		flags = "-X github.com/yohimik/crier/internal/version.Version=" + version
+	} else if compiler != "go" {
+		t.Fatalf("%s must be go or tinygo, got %q", compilerEnv, compiler)
+	}
+	args = append(args, "-ldflags", flags, "-o", out, "./cmd/crier")
+	ctx, cancel := context.WithTimeout(context.Background(), 20*time.Minute)
+	defer cancel()
+	cmd := exec.CommandContext(ctx, compiler, args...)
 	cmd.Dir = root
 	cmd.Env = append(os.Environ(), "CGO_ENABLED=0")
 	if combined, err := cmd.CombinedOutput(); err != nil {
 		t.Fatalf("building a stamped crier: %v\n%s", err, combined)
 	}
+	if compiler == "tinygo" {
+		stripArgs := []string{"--strip-all", out}
+		if runtime.GOOS == "darwin" {
+			stripArgs = []string{"-S", "-x", out}
+		}
+		strip := exec.CommandContext(ctx, "strip", stripArgs...)
+		if combined, err := strip.CombinedOutput(); err != nil {
+			t.Fatalf("stripping stamped TinyGo fixture: %v\n%s", err, combined)
+		}
+		res := runAt(t, out, "--version")
+		if res.Code != exitOK || !strings.Contains(res.Stdout, "tinygo ") {
+			t.Fatalf("replacement is not TinyGo: code=%d stdout=%s stderr=%s", res.Code, res.Stdout, res.Stderr)
+		}
+	}
+	if got := versionOf(t, out); got != version {
+		t.Fatalf("replacement version=%q, want %q", got, version)
+	}
 	body, err := os.ReadFile(out)
 	if err != nil {
 		t.Fatal(err)
 	}
+	stampedBinaries[version] = body
+	t.Logf("self-update fixture: compiler=%s version=%s bytes=%d sha256=%x", compiler, version, len(body), sha256.Sum256(body))
 	return body
 }
 
@@ -144,9 +187,15 @@ func installed(t *testing.T) string {
 // runAt drives a specific binary rather than the shared one.
 func runAt(t *testing.T, bin string, args ...string) result {
 	t.Helper()
+	return runAtEnv(t, bin, nil, args...)
+}
+
+func runAtEnv(t *testing.T, bin string, env []string, args ...string) result {
+	t.Helper()
 	cmd := exec.Command(bin, args...)
 	cmd.Dir = t.TempDir()
 	cmd.Env = append(os.Environ(), "GOCOVERDIR="+coverDir)
+	cmd.Env = append(cmd.Env, env...)
 	return runCmd(t, cmd)
 }
 

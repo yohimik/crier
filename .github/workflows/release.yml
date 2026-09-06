@@ -96,8 +96,12 @@ jobs:
       - run: dispat run vet --since all
       # The tests target carries the unit suite, the black-box e2e suite and
       # the coverage floor in one build; there is no separate e2e script.
-      - run: dispat run tests --since all
-      - run: dispat run cross-compile --since all
+      - env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: dispat run tests --since all
+      - env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: dispat run cross-compile --since all
 
   release:
     name: Release

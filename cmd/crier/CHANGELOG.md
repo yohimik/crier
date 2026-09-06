@@ -1,5 +1,25 @@
 # Changelog
 
+## v1.1.1 (2026-09-06)
+
+### Fixes
+
+- Make repeating-gradient origins round consistently in packaged Go and
+  TinyGo builds using a pinned, two-line webrender build patch. Pixel
+  acceptance thresholds are unchanged; unprepared source builds continue
+  to use upstream webrender's permitted floating-point behavior.
+- Add stripped, static TinyGo Linux amd64 and arm64 binaries alongside the
+  six standard release binaries, using the published `v0.43.0-net.2` fork.
+  The installer and normal self-update continue to choose standard binaries;
+  tiny assets are an explicit opt-in.
+- Gate tiny artifacts on full CLI integration, real FFmpeg, TinyGo-built
+  update replacements, TLS refusal/trust and offline rollback, plus
+  same-source pixel comparisons. Preserve compiler and artifact provenance.
+
+See [TinyGo acceptance](../../docs/operations/tinygo-acceptance.md) for the
+build contract, evidence and known fork limitations. These application checks
+do not establish general Go networking compatibility.
+
 ## v1.1.0 (2026-09-05)
 
 ### Features

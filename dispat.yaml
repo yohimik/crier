@@ -176,11 +176,12 @@ scripts:
     --target docs --output type=cacheonly "$(git rev-parse --show-toplevel)"
 
   # The unit suite, the black-box suite, the real-ffmpeg smoke and the coverage
-  # floor, all in the test target — and the same target the release's export
-  # descends from, so a release cannot carry binaries this did not pass.
+  # floor, plus the native stripped TinyGo E2E/pixel gates. The release export
+  # descends from the same target; the optional token installs the fork.
   tests: >-
     docker buildx build --file "$(git rev-parse --show-toplevel)/Dockerfile"
-    --target test --output type=cacheonly "$(git rev-parse --show-toplevel)"
+    --target release-test ${GITHUB_TOKEN:+--secret id=GITHUB_TOKEN,env=GITHUB_TOKEN}
+    --output type=cacheonly "$(git rev-parse --show-toplevel)"
 
   # The same suite, with the merged coverage profile exported for a caller that
   # wants the numbers.
@@ -195,7 +196,8 @@ scripts:
   # release.
   cross-compile: >-
     docker buildx build --file "$(git rev-parse --show-toplevel)/Dockerfile"
-    --target build --output type=cacheonly "$(git rev-parse --show-toplevel)"
+    --target tiny-build ${GITHUB_TOKEN:+--secret id=GITHUB_TOKEN,env=GITHUB_TOKEN}
+    --output type=cacheonly "$(git rev-parse --show-toplevel)"
 
   # The TinyGo spike, as a build like every other gate. Its targets never
   # abort: the logs are what it produces, so the export lands them in

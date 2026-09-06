@@ -29,7 +29,7 @@ set -eu
 
 # The pin. A release version of a repository this repository does not build,
 # so there is nothing to derive it from and one place to state it.
-TINYGO_FORK_VERSION=0.43.0-net.1
+TINYGO_FORK_VERSION=0.43.0-net.2
 
 # Every tool this manifest knows, in the order a bare run installs them.
 TOOLS="tinygo"
@@ -92,32 +92,8 @@ command -v "$dispat_bin" >/dev/null 2>&1 ||
 
 prefix=${INSTALL_TOOLS_PREFIX:-/usr/local}
 
-# The fork's net/http is TinyGo's own tree, taken whole rather than merged
-# with Go's (loader/goroot.go there lists "net/http/" as not merged), and that
-# tree carries no cookiejar. minio-go, which is crier's S3 stage, imports it
-# through golang.org/x/net/publicsuffix, so a fork-built crier stops at that
-# import before compiling a line of its own. The package is pure Go over
-# net/http's exported API and Go's own copy compiles against the fork's
-# net/http unchanged, so it is laid over the installed tree here, from the Go
-# the toolchain builds with, until the fork carries it. Deleting this
-# function is how that bump is taken.
-#
-# Only the two source files: the package's tests import a stand-in public
-# suffix list that has no business in a toolchain tree.
-overlay_cookiejar() {
-	dest=$prefix/tinygo/src/net/http/cookiejar
-	if [ -f "$dest/jar.go" ]; then
-		log "net/http/cookiejar is already laid over $prefix/tinygo"
-		return 0
-	fi
-	command -v go >/dev/null 2>&1 ||
-		die "laying net/http/cookiejar over the fork needs go on PATH, the one tinygo builds with"
-	src=$(go env GOROOT)/src/net/http/cookiejar
-	[ -f "$src/jar.go" ] || die "no net/http/cookiejar under $(go env GOROOT)"
-	mkdir -p "$dest"
-	cp "$src/jar.go" "$src/punycode.go" "$dest/"
-	log "laid Go's net/http/cookiejar over $prefix/tinygo"
-}
+# net.2 resolves cookiejar itself. Install published trees unchanged; Crier
+# no longer overlays Go source files into the compiler distribution.
 
 # The TinyGo fork the spike builds crier with. It is a toolchain tree rather
 # than a binary, so --pipe 'tar -xz' unpacks the
@@ -133,7 +109,6 @@ install_tinygo() {
 	tinygo_bin=$prefix/tinygo/bin/tinygo
 	if "$tinygo_bin" version 2>/dev/null | grep -qF "$TINYGO_FORK_VERSION"; then
 		log "tinygo $TINYGO_FORK_VERSION is already at $prefix/tinygo"
-		overlay_cookiejar
 		return 0
 	fi
 	rm -rf "$prefix/tinygo"
@@ -149,7 +124,6 @@ install_tinygo() {
 	"$tinygo_bin" version | grep -qF "$TINYGO_FORK_VERSION" ||
 		die "the installed tinygo does not report $TINYGO_FORK_VERSION"
 	log "installed tinygo $TINYGO_FORK_VERSION"
-	overlay_cookiejar
 }
 
 for tool in "$@"; do
