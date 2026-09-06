@@ -1,0 +1,522 @@
+{
+  "source_commit": "7edaff931ac9367734d806b684389b3ba4caf026",
+  "binaries": {
+    "go-darwin-arm64": {
+      "bytes": 31205970,
+      "sha256": "38dd724fd34a12e65169d9e2b8b9736e6e45368a068374ee201a13fb3c785765"
+    },
+    "go-linux-amd64": {
+      "bytes": 32518306,
+      "sha256": "ed3c907c5c2dae9f9ee9b98bd0679fab225c2ddd1bd5bf784f2706d09762628a"
+    },
+    "go-linux-arm64": {
+      "bytes": 30277794,
+      "sha256": "94cf8bb88ebed404d645d196b1acee9fab600570be52f573650c52757d3d03d5"
+    },
+    "pixels-darwin-arm64": {
+      "bytes": 3136194,
+      "sha256": "771c2a12eb277ac6d2d1f3f1e254fb063185cfa93b9a64d2a6be8b7a600b8ca9"
+    },
+    "renderer-go-linux-arm64": {
+      "bytes": 25755810,
+      "sha256": "1cc2495543b33da9bed264a3552220cb4f9e639d921e0989e416b20201985551"
+    },
+    "renderer-tinygo-linux-arm64": {
+      "bytes": 26445496,
+      "sha256": "a9e14fc5520bee54d85e17acf5cb5f59d1d9dec78c56061bdddf7786bf6c84e8"
+    },
+    "renderer-tinygo-stripped-linux-arm64": {
+      "bytes": 12776704,
+      "sha256": "c1dc0b289798daab4120779f47d6874e4fc12d2c6f2a804abdf5c68864685d42"
+    },
+    "sufake-linux-arm64": {
+      "bytes": 8648402,
+      "sha256": "d5967a444cc67b189a0a7aff82cdcd438a0ab4e3a7c1ca744adb1298caa561e4"
+    },
+    "tinygo-darwin-arm64": {
+      "bytes": 25555184,
+      "sha256": "4fa1fd72f56b2e203ac128fe05d685a7cc92f7d3c0bfc10751e391c8019dcd90",
+      "reduction_bytes": 5650786,
+      "reduction_percent": 18.108028688100386
+    },
+    "tinygo-linux-amd64": {
+      "bytes": 29119952,
+      "sha256": "5eb302a101882e819446583164d245df695acbd4bc1d6f6fab297ce94eabd5b8",
+      "reduction_bytes": 3398354,
+      "reduction_percent": 10.450587432198954
+    },
+    "tinygo-linux-arm64": {
+      "bytes": 29097232,
+      "sha256": "b278c1fc88186312a11dcf6d4010ddfcf47cc75071dce29cf4f9065bd2f77a2c",
+      "reduction_bytes": 1180562,
+      "reduction_percent": 3.8991017641509806
+    },
+    "tinygo-stripped-darwin-arm64": {
+      "bytes": 13976832,
+      "sha256": "49291633c9c4582c171a83b117e86388feff9cc89792ca570b7b9eb0860b4a31",
+      "reduction_bytes": 17229138,
+      "reduction_percent": 55.21103173527373
+    },
+    "tinygo-stripped-linux-amd64": {
+      "bytes": 16443104,
+      "sha256": "721d8a0c4421adad647a0f11ce9bc96816bf163a8776bade489fabfeb02b0b18",
+      "reduction_bytes": 16075202,
+      "reduction_percent": 49.43431555136974
+    },
+    "tinygo-stripped-linux-arm64": {
+      "bytes": 13829248,
+      "sha256": "12ee131c28f3f345c5e173ba0796238f115f01fedbfbdf42049bee620fb765b0",
+      "reduction_bytes": 16448546,
+      "reduction_percent": 54.32544392104657
+    },
+    "update-linux-arm64": {
+      "bytes": 30277794,
+      "sha256": "02c855d6d5617b5f64c71f3f365cf7bd1f2e616ca6763028144e41437fb2ff95"
+    }
+  },
+  "tests": {
+    "e2e-go-darwin-arm64": {
+      "pass": 142,
+      "fail": 0,
+      "skip": 1,
+      "exit": 0,
+      "failed_tests": [],
+      "elapsed_seconds": [
+        "87.803"
+      ]
+    },
+    "e2e-go-linux-arm64": {
+      "pass": 143,
+      "fail": 0,
+      "skip": 0,
+      "exit": 0,
+      "failed_tests": [],
+      "elapsed_seconds": [
+        "124.200"
+      ]
+    },
+    "e2e-tinygo-darwin-arm64": {
+      "pass": 7,
+      "fail": 136,
+      "skip": 0,
+      "exit": 1,
+      "failed_tests": [
+        "TestAnnouncePostsFeedThenStory",
+        "TestAnnounceRendersBothShapes",
+        "TestAnnounceIsReproducibleForAVersion",
+        "TestAnnounceNumbersEveryPageOfANocoverDocument",
+        "TestAnnounceCoverKeepsItsCleanFirstPage",
+        "TestSmokeHostileChangelog",
+        "TestAnnounceLinkedInFallsBackToAnAlbum",
+        "TestAnnounceOnlyLinkedInLeavesInstagramAlone",
+        "TestPhotoFanoutAndMusicCoverStoryLandFromOneCommand",
+        "TestEveryExampleStillRenders",
+        "TestOverlayVariantOfAnExample",
+        "TestSeededExampleIsReproducible",
+        "TestMusicReachesTheThreePlatformsThatCanCarryIt",
+        "TestMusicFollowsTheAlbum",
+        "TestPingChecksTheMusicFile",
+        "TestPingRefusesAMusicFileThatIsNotAudio",
+        "TestPingReportsAMusicFileThatIsNotThere",
+        "TestMusicOnAPlatformThatCannotCarryItIsRefused",
+        "TestMusicWithNoCarrierEnabledWarns",
+        "TestLeadVideoOpensTheTelegramAlbum",
+        "TestLeadVideoIsRefusedWhereItCannotWork",
+        "TestPingChecksTheLeadVideo",
+        "TestSmokePagedPostsLandEverywhere",
+        "TestPagesReachEveryPlatformInTheSameOrder",
+        "TestStoriesArePublishedOneAtATime",
+        "TestACarouselIsOnePost",
+        "TestPagesMaxRefusesTheRun",
+        "TestRenderWritesEveryPage",
+        "TestSmokeStoriesRecoverFromNotReady",
+        "TestVKPagesBecomeOneWallPost",
+        "TestVKLoweredCapSplitsTheWall",
+        "TestThreadsPagesBecomeOneCarousel",
+        "TestThreadsASinglePageIsNotACarousel",
+        "TestThreadsLoweredCapSplitsTheCarousel",
+        "TestPublishInputFitsAClipToTheStoryFrame",
+        "TestPublishInputLeavesAClipAloneWithoutAFit",
+        "TestPublishInputFitsAClipForInstagramOnly",
+        "TestSmokeRenderProducesAPNG",
+        "TestRenderJPEGAndScale",
+        "TestRenderReadsDataFromStdin",
+        "TestDataFromTheEnvironment",
+        "TestDataFromTheEnvironmentWithNothingSet",
+        "TestDataFromTheEnvironmentNeedsAPrefix",
+        "TestRenderFailsOnABrokenTemplate",
+        "TestRenderFailsOnABrokenOverlay",
+        "TestBareCrierInAProjectDirectory",
+        "TestBareCrierTakesFlags",
+        "TestStrictCLIRefusesWhatItDoesNotKnow",
+        "TestSetReachesAnyKey",
+        "TestUnknownBareWordIsAUsageError",
+        "TestConfigDiscoveryPicksTheProjectYouAreIn",
+        "TestEnvironmentOverridesTheFile",
+        "TestSmokeFlagsOverrideTheEnvironment",
+        "TestEveryKeyCanBeSetFromTheEnvironment",
+        "TestUnknownConfigKeyIsAConfigError",
+        "TestConfigRefsAreFollowed",
+        "TestSecretsAreRedacted",
+        "TestUsageErrorForAnUnknownFlag",
+        "TestSmokePublishToEveryPlatform",
+        "TestPerPlatformCaptionOverrideFromTheEnvironment",
+        "TestDryRunMakesNoRequests",
+        "TestPartialFailureIsExitFour",
+        "TestTotalFailureIsExitFive",
+        "TestInstagramWithoutStagingIsAConfigError",
+        "TestNoPlatformEnabledIsAConfigError",
+        "TestMisconfiguredPlatformIsAConfigError",
+        "TestStageServerServesTheImageToTheFetcher",
+        "TestStageServerWithATunnel",
+        "TestStageServerTunnelFailureIsExitSix",
+        "TestStageURLMode",
+        "TestStageURLModeWithoutAURLIsAConfigError",
+        "TestInstagramForcesJPEGWhileOthersKeepPNG",
+        "TestOverlaysProduceDifferentImagesPerPlatform",
+        "TestVideoIsRenderedAndPublished",
+        "TestAudioPoolPicksOneTrackPerSeed",
+        "TestGIFGoesOutAsAnAnimation",
+        "TestGIFToAPlatformThatCannotTakeOne",
+        "TestVideoWithoutFFmpegIsARenderError",
+        "TestTheThreeConfigFormatsAgree",
+        "TestPingChecksEveryEnabledPlatform",
+        "TestPingWithOneBadTokenIsExitFour",
+        "TestPingWithNoPlatformIsAConfigError",
+        "TestFitPerPlatform",
+        "TestFitAClip",
+        "TestFitWithoutDimensionsIsAConfigError",
+        "TestFitContainLetterboxesToTheConfiguredColour",
+        "TestSlackThreeStepUpload",
+        "TestSlackBadTokenIsReported",
+        "TestSlackNotInChannel",
+        "TestVKWallPostCarriesWhatItUploaded",
+        "TestVKPostsAnAnimationAsADocument",
+        "TestVKBadTokenIsReported",
+        "TestVKWithOneBadTokenIsExitFour",
+        "TestVKOwnerIDIsRequired",
+        "TestThreadsContainerFlowPostsOnePost",
+        "TestThreadsBadTokenIsReported",
+        "TestThreadsWithOneBadTokenIsExitFour",
+        "TestThreadsUserIDIsRequired",
+        "TestYouTubeUploadsTheRenderedClip",
+        "TestYouTubeSetsAThumbnail",
+        "TestYouTubeWithAnImageRunIsAConfigError",
+        "TestYouTubeBadRefreshTokenIsReported",
+        "TestYouTubePingNamesTheChannel",
+        "TestBoostyPublishesTheCardAsAPost",
+        "TestBoostyPagesBecomeOneBoostyPost",
+        "TestBoostyPaidPostCarriesThePrice",
+        "TestBoostyAccessLevelIsRefusedWithoutItsKey",
+        "TestBoostyNeedsABlog",
+        "TestBoostyBadTokenIsAPartialFailure",
+        "TestBoostyRenewsAnExpiredTokenAndCarriesOn",
+        "TestBoostyPingNamesTheBlog",
+        "TestPublishOnlyUsesAnExistingFile",
+        "TestPublishOnlyTranscodesForInstagram",
+        "TestPublishOnlyWithAVideo",
+        "TestPublishOnlyVideoToReddit",
+        "TestEncodeOnlyFromFrames",
+        "TestMixedModesAreAConfigError",
+        "TestCustomPlatformIsAPeer",
+        "TestCustomPlatformFailureIsPartial",
+        "TestCustomPlatformPingAndSet",
+        "TestInitThenPublish",
+        "TestInitFullLoadsBack",
+        "TestPlatformsCommand",
+        "TestSmokeVersionFlag",
+        "TestLogsGoToStderrAndResultsToStdout",
+        "TestSelfUpdateReplacesTheBinaryAndRollsBack",
+        "TestSelfUpdateCheckChangesNothing",
+        "TestSelfUpdateRefusesATamperedAsset",
+        "TestSelfUpdateSkipsPrereleasesUnlessAsked",
+        "TestSelfUpdateAtAVersion",
+        "TestSelfUpdateWithNoReleaseAtAll",
+        "TestSelfUpdateRollbackWithNothingToRollBackTo",
+        "TestSelfUpdateUsageErrors",
+        "TestVideoUploadReachesEveryPlatform",
+        "TestLargeImageUploadReachesEveryPlatform",
+        "TestPublishOverTLSVerifiesThePlatform"
+      ],
+      "elapsed_seconds": [
+        "13.285"
+      ]
+    },
+    "e2e-tinygo-linux-arm64": {
+      "pass": 143,
+      "fail": 0,
+      "skip": 0,
+      "exit": 0,
+      "failed_tests": [],
+      "elapsed_seconds": [
+        "84.658"
+      ]
+    },
+    "e2e-tinygo-stripped-linux-arm64": {
+      "pass": 143,
+      "fail": 0,
+      "skip": 0,
+      "exit": 0,
+      "failed_tests": [],
+      "elapsed_seconds": [
+        "83.338"
+      ]
+    }
+  },
+  "strip_preserves_allocated_sections": true,
+  "tinygo_symbol_table_bytes": 15267837,
+  "hyphenation": [
+    {
+      "file": "hyph_af_ZA.dic",
+      "bytes": 62925,
+      "sha256": "541a45d73d92c69445613ec558c2c1a6829550d1a1ad8aa9dc6dfb752db87da1",
+      "symbol_present": true
+    },
+    {
+      "file": "hyph_be_BY.dic",
+      "bytes": 31963,
+      "sha256": "e4339b5a53d2f0fb4179c1060173788d5b6ed3f07bbbccb8b74f5cea614a809e",
+      "symbol_present": true
+    },
+    {
+      "file": "hyph_bg_BG.dic",
+      "bytes": 59388,
+      "sha256": "7dad4f2ccfce1909b27f53082cf57c7914809a8ba31ccbcee3dc817dcd7c7994",
+      "symbol_present": true
+    },
+    {
+      "file": "hyph_cs_CZ.dic",
+      "bytes": 20049,
+      "sha256": "a378d024438b446ac0524237dc6d728dc520550db5fe0fb1fdbb47c2ee0ca525",
+      "symbol_present": true
+    },
+    {
+      "file": "hyph_da_DK.dic",
+      "bytes": 6049,
+      "sha256": "44d0dd1d85bcdb1e63003c97cd08924f10a8a8127380b1b07ac2e75a950c216b",
+      "symbol_present": true
+    },
+    {
+      "file": "hyph_de_AT.dic",
+      "bytes": 1093611,
+      "sha256": "3e0b4687479d25099e37ebd946998c08fcccc12a0acf9380d8b19319a50b9f3a",
+      "symbol_present": true
+    },
+    {
+      "file": "hyph_de_CH.dic",
+      "bytes": 1093611,
+      "sha256": "825159436515ab150d3da0ddf5eedb814c0ec6c7eec98fbd53e3ba5b2a4a1443",
+      "symbol_present": true
+    },
+    {
+      "file": "hyph_de_DE.dic",
+      "bytes": 1093611,
+      "sha256": "2e2f5ffea6bc53f67ffe8c076921c7b1b34a2ec2b9ec57a4608374bb65a1a1e1",
+      "symbol_present": true
+    },
+    {
+      "file": "hyph_el_GR.dic",
+      "bytes": 3205,
+      "sha256": "f2284153c3f9a809b959dcaeb349e00d90b4c4cf37c3d3a338b371c32f10e89d",
+      "symbol_present": true
+    },
+    {
+      "file": "hyph_en_GB.dic",
+      "bytes": 107031,
+      "sha256": "9fdc97f7faabcda30c15a9d53bc7fbf21daec795fb3c9a9588f7bdb30c563f41",
+      "symbol_present": true
+    },
+    {
+      "file": "hyph_en_US.dic",
+      "bytes": 106414,
+      "sha256": "486fb6840b1049d5d252ef784be11cd4dc2be0bf296568b74b41e4f4e17cba7d",
+      "symbol_present": true
+    },
+    {
+      "file": "hyph_eo.dic",
+      "bytes": 29876,
+      "sha256": "f2feb4cabe54b696affec72960b1670cfd9e4eae007854944bd02c0d348f59d7",
+      "symbol_present": true
+    },
+    {
+      "file": "hyph_es.dic",
+      "bytes": 5699,
+      "sha256": "b2e170c3c25f5de25447ca0acf6bc8baf9dd761e228e9646e2c25f2e7c47f4f6",
+      "symbol_present": true
+    },
+    {
+      "file": "hyph_et_EE.dic",
+      "bytes": 22637,
+      "sha256": "2ee13914fcd9e9b110e9e3d56e1d6acc28bf792c15b1b69efc2e71ac96c23c74",
+      "symbol_present": true
+    },
+    {
+      "file": "hyph_fr.dic",
+      "bytes": 23631,
+      "sha256": "476ca60b958400c8b3fbe55764b4900df87acf60394ef62362705d9c701db191",
+      "symbol_present": true
+    },
+    {
+      "file": "hyph_gl.dic",
+      "bytes": 1420,
+      "sha256": "357355b82eb82ed081433503327ac4ba5b4f3606b6a3e50d69091d57eef4d5b8",
+      "symbol_present": true
+    },
+    {
+      "file": "hyph_hr_HR.dic",
+      "bytes": 7789,
+      "sha256": "77613ff6e907d2e9ffd93d45bfb16873aa9182e2215df276dbf850d1b0e28f65",
+      "symbol_present": true
+    },
+    {
+      "file": "hyph_hu_HU.dic",
+      "bytes": 876247,
+      "sha256": "1044ffe80b43c5e842c4bc452da5b7cdb1d474a7cdacec09485d8d8f8b8826d0",
+      "symbol_present": true
+    },
+    {
+      "file": "hyph_id_ID.dic",
+      "bytes": 104072,
+      "sha256": "ac53214620527f8a145ce4d70f0a3a5d336a145643b52547375aedacef558dc0",
+      "symbol_present": true
+    },
+    {
+      "file": "hyph_is.dic",
+      "bytes": 50011,
+      "sha256": "690ed04b72b60d05f66971ad9fd799656419228bfa8df00190adf02e27c0b1ef",
+      "symbol_present": true
+    },
+    {
+      "file": "hyph_it_IT.dic",
+      "bytes": 2308,
+      "sha256": "8c25b6fb62c2fb97586c6f7c6fb48f29f49e90a5c33c09ac9112dba6942b50cd",
+      "symbol_present": true
+    },
+    {
+      "file": "hyph_lt.dic",
+      "bytes": 7817,
+      "sha256": "376e9fbdc09db5feb0025181d84242b6e01e02f413301f7d059fd99dc0597316",
+      "symbol_present": true
+    },
+    {
+      "file": "hyph_lv_LV.dic",
+      "bytes": 79409,
+      "sha256": "775d9a539fd8e98fabbfefd87af5887bb24eb4700b47ed5f8e360b0bab75b078",
+      "symbol_present": true
+    },
+    {
+      "file": "hyph_mn_MN.dic",
+      "bytes": 13557,
+      "sha256": "1a84d6b69fef22efdbee6e2f53e45b2aabfbfc7789b1dabc54950d7d3cd29ebe",
+      "symbol_present": true
+    },
+    {
+      "file": "hyph_nb_NO.dic",
+      "bytes": 186678,
+      "sha256": "c6c9b07d9f2c60bb47857fd629d9a453026312c894665d22c72e8e1699420f6c",
+      "symbol_present": true
+    },
+    {
+      "file": "hyph_nl_NL.dic",
+      "bytes": 116507,
+      "sha256": "0a97b76b259ed4165d094dedf9b6fb98c57734a437df0b5b263ee13e262d5f8f",
+      "symbol_present": true
+    },
+    {
+      "file": "hyph_nn_NO.dic",
+      "bytes": 186678,
+      "sha256": "c6c9b07d9f2c60bb47857fd629d9a453026312c894665d22c72e8e1699420f6c",
+      "symbol_present": true
+    },
+    {
+      "file": "hyph_pl_PL.dic",
+      "bytes": 37931,
+      "sha256": "9fe3917ec1fb09b7ffa560e85fb810e098d45a9a45ad6d5c08311544dd92a100",
+      "symbol_present": true
+    },
+    {
+      "file": "hyph_pt_BR.dic",
+      "bytes": 11260,
+      "sha256": "a8eb1a64e4af4649c739211b397fa37b01f9d5774cf558fe3895fc3f26fd33a4",
+      "symbol_present": true
+    },
+    {
+      "file": "hyph_pt_PT.dic",
+      "bytes": 1288,
+      "sha256": "6f18ee89de6db21d9b06120a5527ec41d8132514fc112ccfe7d289ba91649840",
+      "symbol_present": true
+    },
+    {
+      "file": "hyph_ro_RO.dic",
+      "bytes": 34597,
+      "sha256": "24adbfe7cc2267ea5ce4afd34f7d69da5a9163ef3dd57b158bbb196b9d651e94",
+      "symbol_present": true
+    },
+    {
+      "file": "hyph_ru_RU.dic",
+      "bytes": 35415,
+      "sha256": "e9a6ae92765fc7e63d879f2ccf3f50f2b95bc8ed7618a6f31c34ce7d39844c83",
+      "symbol_present": true
+    },
+    {
+      "file": "hyph_sk_SK.dic",
+      "bytes": 18205,
+      "sha256": "7359863ec5d5dbbf35c7d4f38faca1af7b43bc4aa643871e63f2dc0dfac4f922",
+      "symbol_present": true
+    },
+    {
+      "file": "hyph_sl_SI.dic",
+      "bytes": 8245,
+      "sha256": "3d9026755aa0936e9331595a08bb65c295ccac84acefe58cb6c9fe2ff11ceef8",
+      "symbol_present": true
+    },
+    {
+      "file": "hyph_sq_AL.dic",
+      "bytes": 127201,
+      "sha256": "99fbce3b0e60cc500e45643dd40903dfa71cfc1605a5b139cfb22129bd665dbe",
+      "symbol_present": true
+    },
+    {
+      "file": "hyph_sr.dic",
+      "bytes": 27355,
+      "sha256": "ce785026592f525c38e67152699224d47a4cdf555a1a4eb65d50458c5548f69f",
+      "symbol_present": true
+    },
+    {
+      "file": "hyph_sr_Latn.dic",
+      "bytes": 28392,
+      "sha256": "b423f910400472979a2b0fe1c95965c940e927f7588dace0e42c17f7b0663376",
+      "symbol_present": true
+    },
+    {
+      "file": "hyph_sv.dic",
+      "bytes": 102979,
+      "sha256": "44c5a59f1ef8a17b9433e4510a1abcac753d34ac875dc27ea95427f1e581f17b",
+      "symbol_present": true
+    },
+    {
+      "file": "hyph_te_IN.dic",
+      "bytes": 1592,
+      "sha256": "2ad470071dfd9bb3ad5101d528e1fb0090d96c841c4f2bb07b325476b3c853fe",
+      "symbol_present": true
+    },
+    {
+      "file": "hyph_th_TH.dic",
+      "bytes": 66279,
+      "sha256": "fbd19d561c19a13d1901a0b9653e24b4c0c2c81177064266e2acb23bac68145b",
+      "symbol_present": true
+    },
+    {
+      "file": "hyph_uk_UA.dic",
+      "bytes": 20222,
+      "sha256": "ae80645b757d6b57e5cdf34ab6cf7441a2414c60bff2352c7e815c1c12baad3d",
+      "symbol_present": true
+    },
+    {
+      "file": "hyph_zu_ZA.dic",
+      "bytes": 1956,
+      "sha256": "e75802e08127877d38891c140e8989af559665bae82f94d33c340cba2aa9de20",
+      "symbol_present": true
+    }
+  ]
+}
