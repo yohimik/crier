@@ -56,3 +56,21 @@ module.exports.verifyInstalled = (file, os, arch) => {
   assert.equal(sha(fs.readFileSync(file)), expected[name], `installed ${file}`);
   console.log(`Verified installed ${file} matches published ${name}`);
 };
+module.exports.verifySmoke = (file, os) => {
+  const events = fs.readFileSync(file, 'utf8').trim().split('\n').map(JSON.parse);
+  const tests = ['TestSmokeHostileChangelog', 'TestSmokePagedPostsLandEverywhere',
+    'TestSmokeStoriesRecoverFromNotReady', 'TestSmokeRenderProducesAPNG',
+    'TestSmokeFlagsOverrideTheEnvironment', 'TestSmokePublishToEveryPlatform',
+    'TestSmokeVersionFlag'];
+  assert(!events.some(e => e.Action === 'fail'), 'smoke failure');
+  assert(events.some(e => e.Action === 'pass' && !e.Test), 'package did not pass');
+  const skipped = events.filter(e => e.Action === 'skip').map(e => e.Test);
+  assert.deepEqual(skipped, os === 'windows' ? ['TestSmokeHostileChangelog'] : []);
+  if (os === 'windows') {
+    assert(events.some(e => e.Test === 'TestSmokeHostileChangelog' &&
+      e.Output?.includes('the announce scripts are sh')), 'unexpected skip reason');
+  }
+  const passed = events.filter(e => e.Action === 'pass' && e.Test).map(e => e.Test).sort();
+  assert.deepEqual(passed, tests.filter(t => !skipped.includes(t)).sort());
+  console.log(`Smoke: ${passed.length} passed, 0 failed, ${skipped.length} documented platform skips: ${skipped.join(', ')}`);
+};
