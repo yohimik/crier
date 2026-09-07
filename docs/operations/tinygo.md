@@ -1,10 +1,39 @@
 # The TinyGo spike
 
-> September 7, 2026: the narrative below is historical spike evidence.
-> Crier `v1.1.1` now includes two opt-in TinyGo Linux binaries, built with
-> published `v0.43.0-net.2` and subsequently validated in native CI on all six
-> standard release platforms. See [current acceptance](./tinygo-acceptance.md)
-> for final results, known limitations and the mandatory CI/CD release path.
+## Current outcome: v1.1.1
+
+As of September 7, 2026, Crier ships six standard Go binaries plus two opt-in
+TinyGo binaries, `crier-tiny-linux-amd64` and `crier-tiny-linux-arm64`, built
+with published TinyGo `v0.43.0-net.2`. This spike document belongs in the
+repository, not among the release assets. The release asset convention is
+the eight binaries, without an acceptance Markdown or checksum attachment.
+
+Crier replaced reflection-dependent template execution with its own executor
+over the standard template parse tree, added TinyGo-only portable shims for
+assembly-dependent libraries, and made gradient rounding explicit for
+consistent Go/TinyGo rendering. Compiler and networking fixes belong to the
+TinyGo fork; the application changes and acceptance harness live here.
+
+[Native acceptance CI](https://github.com/yohimik/crier/actions/runs/34061068016)
+validated the published v1.1.1 bytes: all six standard OS/architecture targets
+passed installation checks; Linux AMD64 and ARM64 each passed the complete
+Go and TinyGo integration suites (144 top-level tests / 156 passing events
+per compiler, no failures or skips). Both 13-image rendering comparisons
+passed the existing thresholds. Windows smoke tests had one declared
+Unix-shell-only skip. These are application acceptance results, not a claim
+of full Go runtime or networking compatibility.
+
+The initial publication was manual, before that native CI validation; this
+was a process error. Future releases must use the CI/CD release workflow.
+See [current acceptance](./tinygo-acceptance.md) for evidence, renderer build
+preparation and known deadline/cancellation limitations. Tiny binaries remain
+opt-in: normal installation and self-update select the standard Go flavor.
+
+## Historical spike narrative
+
+The remainder records the earlier experiment, including failures, old fork
+versions and size measurements. Statements below about missing support or
+waiting for a fork release describe that historical state, not v1.1.1.
 
 Read this page to understand why every one of crier's six release binaries is built with the Go compiler, and what a TinyGo fork can and cannot do with crier today. It describes a spike: an experiment kept in the repository because its answer is a version number away from changing, not a gate any job runs, and not something a release ships.
 
