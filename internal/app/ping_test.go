@@ -1,6 +1,7 @@
 package app
 
 import (
+	"encoding/json"
 	"strings"
 	"testing"
 )
@@ -65,5 +66,35 @@ func TestPingSkipsStagingThatHoldsNothing(t *testing.T) {
 		if strings.Contains(stdout, "stage:") {
 			t.Errorf("%s: a staging row appeared for a mode with nothing to check:\n%s", mode, stdout)
 		}
+	}
+}
+
+func TestPingTransportFailureHidesTokensInReportAndStderr(t *testing.T) {
+	for _, platform := range []string{"telegram", "discord"} {
+		t.Run(platform, func(t *testing.T) {
+			const secret = "short-secret"
+			platformConfig := "  discord:\n    enabled: true\n    webhook-url: http://127.0.0.1:1/api/webhooks/42/" + secret
+			if platform == "telegram" {
+				platformConfig = "  telegram:\n    enabled: true\n    token: 42:" + secret + "\n    chat-id: 1\n    api-base-url: http://127.0.0.1:1"
+			}
+			dir := project(t, "http:\n  retry-max: 0\n  timeout: 1s\nlog:\n  level: debug\npublish:\n"+platformConfig)
+			code, stdout, stderr := run(t, dir, []string{}, "ping", "--json")
+			if code != ExitPublish {
+				t.Fatalf("code = %d: %s %s", code, stdout, stderr)
+			}
+			var report PingReport
+			if err := json.Unmarshal([]byte(stdout), &report); err != nil {
+				t.Fatal(err)
+			}
+			if len(report.Results) != 1 || report.Results[0].Error == "" {
+				t.Fatalf("missing failure: %+v", report)
+			}
+			if strings.Contains(stdout+stderr, secret) {
+				t.Fatalf("token leaked: %s %s", stdout, stderr)
+			}
+			if !strings.Contains(report.Results[0].Error, "REDACTED") {
+				t.Fatalf("not a redacted transport failure: %+v", report)
+			}
+		})
 	}
 }

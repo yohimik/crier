@@ -1,6 +1,8 @@
 package httpx
 
 import (
+	"errors"
+	"net"
 	"net/url"
 	"strings"
 )
@@ -56,14 +58,20 @@ var secretQuery = map[string]bool{
 //
 // url.URL.Redacted only hides a password in the userinfo, which is the one
 // place crier never puts a secret. The two places it does are a query
-// parameter — Meta's access_token, an S3 signature — and Telegram's path,
-// where the bot token is a path segment rather than a header.
+// parameter — Meta's access_token, an S3 signature — and credential-bearing
+// paths such as Telegram bot tokens and Discord webhook tokens.
 func RedactURL(u *url.URL) string {
 	if u == nil {
 		return ""
 	}
 	clean := *u
-	clean.Path = redactPath(clean.Path)
+	if clean.Opaque != "" {
+		return RedactedValue
+	}
+	if clean.Fragment != "" {
+		clean.Fragment, clean.RawFragment = RedactedValue, ""
+	}
+	clean.Path = strings.Join(redactPath(pathSegments(u)), "/")
 	clean.RawPath = ""
 	if clean.RawQuery != "" {
 		clean.RawQuery = redactQuery(clean.RawQuery)
@@ -92,11 +100,8 @@ func redactQuery(raw string) string {
 		return RedactedValue
 	}
 	for key, list := range values {
-		if !secretQuery[strings.ToLower(key)] {
-			continue
-		}
 		for i := range list {
-			if list[i] != "" {
+			if list[i] != "" && (secretName(key) || tokenLike(list[i])) {
 				list[i] = RedactedValue
 			}
 		}
@@ -104,19 +109,139 @@ func redactQuery(raw string) string {
 	return values.Encode()
 }
 
-// redactPath masks a credential that lives in the path rather than in a header.
-//
-// Telegram is the reason: its Bot API is /bot<token>/sendPhoto, so the whole
-// credential is in the path of every call and in every error about one.
-func redactPath(path string) string {
-	segments := strings.Split(path, "/")
-	for i, seg := range segments {
-		if rest, ok := strings.CutPrefix(seg, "bot"); ok && strings.Contains(rest, ":") {
-			// A bot token is <id>:<secret>; the colon is what tells it apart
-			// from a path segment that merely starts with "bot".
-			id, _, _ := strings.Cut(rest, ":")
-			segments[i] = "bot" + id + ":" + RedactedValue
+// secretName also recognizes custom API credential names, with common word
+// separators ignored. Explicit non-secret signing metadata stays visible.
+func secretName(name string) bool {
+	lower := strings.ToLower(name)
+	if secret, known := secretQuery[lower]; known {
+		return secret
+	}
+	normal := strings.NewReplacer("-", "", "_", "", ".", "").Replace(lower)
+	for _, suffix := range []string{"token", "secret", "password", "signature", "apikey", "authorization", "credential"} {
+		if strings.HasSuffix(normal, suffix) {
+			return true
 		}
 	}
-	return strings.Join(segments, "/")
+	return false
+}
+
+// tokenLike errs toward hiding long opaque values, including JWTs and custom
+// API keys whose parameter names crier cannot know. Short ordinary IDs and
+// filenames remain useful in diagnostics.
+func tokenLike(value string) bool {
+	if len(value) < 32 {
+		return false
+	}
+	for _, c := range value {
+		if !(c >= 'a' && c <= 'z' || c >= 'A' && c <= 'Z' || c >= '0' && c <= '9' || strings.ContainsRune("_-.:+=", c)) {
+			return false
+		}
+	}
+	return true
+}
+
+// pathSegments decodes each escaped segment independently so an encoded slash
+// inside a credential cannot turn its tail into an apparently safe path.
+func pathSegments(u *url.URL) []string {
+	segments := strings.Split(u.EscapedPath(), "/")
+	for i, segment := range segments {
+		segments[i], _ = url.PathUnescape(segment)
+	}
+	return segments
+}
+
+// redactPath handles known credential paths even when a token is too short to
+// look opaque. Discord webhook IDs remain visible; the following token does not.
+func redactPath(original []string) []string {
+	segments := append([]string(nil), original...)
+	for i, seg := range segments {
+		switch {
+		case strings.HasPrefix(seg, "bot") && strings.Contains(seg[3:], ":"):
+			id, _, _ := strings.Cut(seg[3:], ":")
+			segments[i] = "bot" + id + ":" + RedactedValue
+		case i >= 2 && strings.EqualFold(segments[i-2], "webhooks"):
+			segments[i] = RedactedValue
+		case i > 0 && segments[i-1] == original[i-1] && secretName(original[i-1]), tokenLike(seg):
+			segments[i] = RedactedValue
+		}
+	}
+	return segments
+}
+
+// transportError retains the original cause for errors.Is/As while displaying
+// only the scrubbed message. Timeout/Temporary preserve net.Error behavior.
+type transportError struct {
+	cause   error
+	message string
+}
+
+func (e *transportError) Error() string { return e.message }
+func (e *transportError) Unwrap() error { return e.cause }
+func (e *transportError) Timeout() bool {
+	var n net.Error
+	return errors.As(e.cause, &n) && n.Timeout()
+}
+func (e *transportError) Temporary() bool {
+	var n interface{ Temporary() bool }
+	return errors.As(e.cause, &n) && n.Temporary()
+}
+
+// redactTransportError runs both before transport logging and after Client.Do:
+// net/http adds its own *url.Error outside the transport. Never mutate one
+// supplied by a caller or transport, which may be shared with another request.
+func redactTransportError(err error, urls ...*url.URL) error {
+	if err == nil {
+		return nil
+	}
+	if e, ok := err.(*url.Error); ok {
+		clean := *e
+		u, _ := url.Parse(e.URL)
+		clean.URL = RedactURLString(e.URL)
+		clean.Err = redactTransportError(e.Err, append(urls, u)...)
+		return &clean
+	}
+	message := err.Error()
+	for _, u := range urls {
+		if u == nil {
+			continue
+		}
+		message = strings.ReplaceAll(message, u.String(), RedactURL(u))
+		// A transport can repeat individual URL components in its cause.
+		original := pathSegments(u)
+		clean := redactPath(original)
+		var secrets []string
+		for i, value := range original {
+			if value != clean[i] {
+				secrets = append(secrets, value)
+				if strings.HasPrefix(value, "bot") {
+					_, token, _ := strings.Cut(value, ":")
+					secrets = append(secrets, token)
+				}
+			}
+		}
+		for key, values := range u.Query() {
+			for _, value := range values {
+				if secretName(key) || tokenLike(value) {
+					secrets = append(secrets, value)
+				}
+			}
+		}
+		if u.User != nil {
+			password, _ := u.User.Password()
+			secrets = append(secrets, password)
+		}
+		secrets = append(secrets, u.Fragment, u.Opaque)
+		for _, secret := range secrets {
+			if secret == "" {
+				continue
+			}
+			for _, form := range []string{secret, url.QueryEscape(secret), url.PathEscape(secret)} {
+				message = strings.ReplaceAll(message, form, RedactedValue)
+			}
+		}
+	}
+	if message == err.Error() {
+		return err
+	}
+	return &transportError{cause: err, message: message}
 }

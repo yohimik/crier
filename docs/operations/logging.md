@@ -24,6 +24,8 @@ log:
 
 Try `--log-level debug` first when a publish fails. It shows every request, its status, and every retry.
 
+HTTP logs and transport errors mask credential query values, Telegram bot tokens, Discord webhook tokens, and token-like path segments, including failures reported by `publish` and `ping`.
+
 Try `--log-level warn` first when a template renders wrongly. Unsupported CSS is reported there.
 
 ## Formats

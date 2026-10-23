@@ -92,7 +92,8 @@ func (c *Client) Do(req *http.Request) (*http.Response, error) {
 	if c.userAgent != "" && req.Header.Get("User-Agent") == "" {
 		req.Header.Set("User-Agent", c.userAgent)
 	}
-	return c.hc.Do(req)
+	resp, err := c.hc.Do(req)
+	return resp, redactTransportError(err, req.URL)
 }
 
 // Send builds and sends a request, turning a non-2xx status into an APIError.
@@ -202,10 +203,12 @@ type loggingTransport struct {
 
 func (t *loggingTransport) RoundTrip(req *http.Request) (*http.Response, error) {
 	if !t.log.Debug().Enabled() {
-		return t.base.RoundTrip(req)
+		resp, err := t.base.RoundTrip(req)
+		return resp, redactTransportError(err, req.URL)
 	}
 	start := time.Now()
 	resp, err := t.base.RoundTrip(req)
+	err = redactTransportError(err, req.URL)
 	ev := t.log.Debug().
 		Str("method", req.Method).
 		Str("url", RedactURL(req.URL)).
