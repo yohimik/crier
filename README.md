@@ -47,6 +47,8 @@ The script resolves the latest stable release. It verifies the download against 
 npm install --global @dispat/crier --allow-scripts=@dispat/crier
 ```
 
+[Link](https://github.com/yohimik/crier-npm) to npm launcher repository.
+
 ### dispat install
 
 ```sh
