@@ -41,6 +41,12 @@ irm https://raw.githubusercontent.com/yohimik/crier/main/install.ps1 | iex
 
 The script resolves the latest stable release. It verifies the download against the sha256 digest GitHub publishes for it. It installs to `/usr/local/bin` when that is writable, or `~/.local/bin` otherwise. Pin a version with `CRIER_VERSION`. Choose the directory with `CRIER_BIN_DIR`.
 
+### npm
+
+```sh
+npm install --global @dispat/crier --allow-scripts=@dispat/crier
+```
+
 ### dispat install
 
 ```sh
