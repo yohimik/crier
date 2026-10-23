@@ -116,40 +116,19 @@ publish:
     # the next is created.
 
   linkedin:
-    # Off in the file: announce.sh turns it on for its own pass with
-    # --publish-linkedin-enabled=true, and turns Instagram off for that pass,
-    # so each platform's post is its own step with its own failure. The token
-    # and the author URN come from the environment
-    # (CRIER_PUBLISH_LINKEDIN_TOKEN, CRIER_PUBLISH_LINKEDIN_AUTHOR_URN).
-    #
-    # LinkedIn takes the bytes directly, so this pass needs no tunnel and no
-    # staging. A post takes one video or up to twenty images, never both —
-    # content.multiImage is documented images-only — so the one post that can
-    # carry the whole release is the reel: the cover holding under the
-    # fanfare, then the changelog pages in reading order. With no ffmpeg to
-    # make it, the whole card goes out as one album instead, cover first.
+    # announce.sh enables LinkedIn for its image-only pass.
     enabled: false
-    # A commentary of its own rather than the shared caption: the Instagram
-    # caption is written for a feed of pictures, and this one is written for
-    # the people who would actually run the thing. The changelog rides along
-    # as text after the opening, because a reader deciding whether to update
-    # should not have to pause a video to find out what changed.
-    #
-    # A literal block rather than a folded one: the changelog list needs its
-    # line breaks kept exactly as written.
     caption: |-
-      {{ if .graduated }}crier v{{ .version }} graduated to stable, {{ .candidates }} release candidates later. Thanks for not unsubscribing during the dogfooding.{{ else }}crier v{{ .version }} is out.{{ end }} This post is part of the release: a GitHub Actions job read the changelog from the commit history, rendered the card with crier's own Go HTML engine, cut the clip, and published it here before the workflow finished. Nobody wrote or scheduled it by hand.
+      crier v{{ .version }} is out.
       {{ if .sections }}
       What changed:{{ range .sections }}
       {{ .label }}:{{ range .items }}
       - {{ . }}{{ end }}{{ if gt .more 0 }}
       - and {{ .more }} more{{ end }}{{ end }}
       {{ end }}
-      crier is one binary that renders an HTML template into images or video and posts them to fourteen social networks. The clip above came out of the same run, soundtrack included.
+      The attached images carry the changelog.
 
       Code and docs: https://github.com/yohimik/crier
-
-      Install:
       {{ range .install }}{{ if eq .label "curl" }}{{ .command }}{{ end }}{{ end }}
 
-      #golang #opensource #devtools #automation #githubactions #cicd #releasenotes #buildinpublic
+      #golang #opensource #devtools #automation #releasenotes
